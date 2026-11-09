@@ -811,6 +811,34 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 .gm-shop-coming span{font-size:17px;font-weight:850;letter-spacing:.03em;color:#9babbb}
 @media(max-width:1100px){.gm-shop-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 @media(max-width:650px){.gm-shop-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}.gm-shop-art{height:100px;font-size:30px}.gm-shop-body{padding:11px 9px}.gm-shop-body h3{font-size:12px}.gm-shop-body p{font-size:10px;min-height:45px}.gm-shop-check b{font-size:12px}.gm-shop-coming{min-height:260px}.gm-shop-coming span{font-size:14px}}
+
+/* Administrator can edit each slot. Non-admin members see only inventory and "입고중" placeholders. */
+.gm-shop-art{position:relative}
+.gm-shop-product-icon{font-size:37px!important;padding:0!important;background:transparent!important;border:0!important}
+.gm-shop-edit{position:absolute;right:9px;top:9px;min-height:29px;border:1px solid #c4dced;border-radius:7px;background:#fff;color:#286fa5;padding:5px 8px;font-size:10px;font-weight:850;box-shadow:0 2px 5px #19486a16}
+.gm-shop-edit:hover{background:#e8f5ff}
+.gm-shop-admin-help{display:flex;gap:8px 16px;align-items:center;flex-wrap:wrap;margin-bottom:14px;border:1px solid #f2d99e;background:#fff9e9;color:#8c662d;padding:12px 15px;border-radius:10px;font-size:11px}
+.gm-shop-admin-help b{color:#7d5925;font-size:12px}
+.gm-shop-coming-trigger{width:100%;height:100%;flex:1;display:grid;place-items:center;border:0;background:transparent;color:#9babbb;font-size:17px;font-weight:850;letter-spacing:.03em;cursor:pointer}
+.gm-shop-coming-trigger:hover{color:#376c9e;background:#eaf3fc}
+.gm-shop-editor-backdrop{position:fixed;inset:0;z-index:950;background:#0d2744b8;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+.gm-shop-editor-dialog{background:#fff;width:min(520px,100%);max-height:92dvh;overflow-y:auto;border-radius:16px;box-shadow:0 22px 66px #122a4d56;color:#274864;scrollbar-gutter:stable}
+.gm-shop-editor-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:20px 21px 14px;border-bottom:1px solid #e3edf5}
+.gm-shop-editor-heading small{font-size:10px;color:#7192b1;font-weight:900;letter-spacing:.1em}
+.gm-shop-editor-heading h2{font-size:20px;font-weight:950;margin:5px 0;color:#25517a}
+.gm-shop-editor-heading p{font-size:11px;color:#889daf;margin:0}
+.gm-shop-editor-heading button{background:#f3f7fb;border:1px solid #d8e6f1;border-radius:8px;padding:5px 10px;color:#667f95}
+.gm-shop-editor-fields{display:flex;flex-direction:column;gap:13px;padding:18px 21px}
+.gm-shop-editor-fields label{display:flex;flex-direction:column;gap:6px;font-size:11px;font-weight:850;color:#54718b;min-width:0}
+.gm-shop-editor-fields input,.gm-shop-editor-fields select,.gm-shop-editor-fields textarea{width:100%;max-width:100%;min-width:0;border:1px solid #cddfeb;border-radius:8px;padding:10px 12px;background:#fff;color:#294d6c;font-size:13px;box-sizing:border-box}
+.gm-shop-editor-fields textarea{resize:vertical;min-height:62px;font-family:inherit}
+.gm-shop-editor-dual{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+.gm-shop-editor-notice{color:#8b9bac;font-size:11px;line-height:1.55;margin:0;padding:0 21px 12px}
+.gm-shop-editor-actions{display:flex;justify-content:flex-end;gap:8px;align-items:center;padding:15px 21px 19px;border-top:1px solid #e7edf4}
+.gm-shop-editor-actions button{border-radius:8px;padding:9px 15px;font-size:12px;font-weight:850;white-space:nowrap}
+.gm-shop-clear{margin-right:auto;background:#fff3f1;color:#b25d54;border:1px solid #f0d7d2}
+.gm-shop-editor-save{background:#2872b6!important;color:#fff!important;border:1px solid #2872b6!important}
+@media(max-width:570px){.gm-shop-editor-backdrop{padding:8px}.gm-shop-editor-fields{padding:13px}.gm-shop-editor-heading,.gm-shop-editor-actions{padding-left:13px;padding-right:13px}.gm-shop-editor-dual{grid-template-columns:1fr}.gm-shop-coming-trigger{font-size:14px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1232,15 +1260,65 @@ function renderLineup(){
  };
 }
 
+
+function closeShopEditor(){document.getElementById('gmShopEditor')?.remove()}
+function openShopEditor(item){
+ if(!state.user?.isAdmin||!item)return;
+ closeShopEditor();
+ const slot=Number(item.id.slice(4));
+ if(!Number.isInteger(slot)||slot<1||slot>5)return;
+ const overlay=document.createElement('div');
+ overlay.className='gm-shop-editor-backdrop';overlay.id='gmShopEditor';
+ const name=item.name||'',desc=item.desc||'',icon=item.icon||'🥤';
+ const price=Number(item.price)||1000000,quantity=Number(item.quantity)||10;
+ overlay.innerHTML='<section class="gm-shop-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="gmShopEditorTitle"><div class="gm-shop-editor-heading"><div><small>ADMIN / SHOP EDITOR</small><h2 id="gmShopEditorTitle">'+slot+'번 상품 관리</h2><p>상품 정보를 수정하고 판매 여부를 선택하세요.</p></div><button type="button" class="gm-shop-editor-close" aria-label="닫기">✕</button></div><form id="gmShopEditorForm"><div class="gm-shop-editor-fields">'+
+ '<label>판매 상태<select name="active"><option value="active" '+(item.active?'selected':'')+'>판매 중</option><option value="coming" '+(!item.active?'selected':'')+'>입고중</option></select></label>'+
+ '<label>상품명<input name="productName" maxlength="40" required value="'+esc(name)+'" placeholder="예: 스포츠음료 20개"></label>'+
+ '<label>상품 설명<textarea name="description" maxlength="160" rows="2" placeholder="상품 안내">'+esc(desc)+'</textarea></label>'+
+ '<div class="gm-shop-editor-dual"><label>상품 아이콘<input name="icon" maxlength="10" required value="'+esc(icon)+'" placeholder="🥤"></label><label>지급 수량 (개)<input name="quantity" type="number" min="1" max="10000" step="1" value="'+quantity+'" required></label></div>'+
+ '<label>판매 가격 (게임머니)<input name="price" type="number" min="1000" max="1000000000" step="1" value="'+price+'" required></label></div>'+
+ '<p class="gm-shop-editor-notice">현재 판매 효과는 스포츠음료 지급입니다. 판매 중으로 저장하면 모든 구단주가 구매할 수 있습니다.</p>'+
+ '<div class="gm-shop-editor-actions"><button type="button" id="gmShopClear" class="gm-shop-clear">비우기</button><button type="button" class="gm-shop-editor-close">취소</button><button type="submit" class="gm-shop-editor-save">저장하기</button></div></form></section>';
+ document.body.appendChild(overlay);
+ overlay.querySelectorAll('.gm-shop-editor-close').forEach(btn=>btn.onclick=closeShopEditor);
+ overlay.addEventListener('click',event=>{if(event.target===overlay)closeShopEditor()});
+ const form=overlay.querySelector('#gmShopEditorForm');
+ const send=async data=>{
+  const btns=[...form.querySelectorAll('button')];btns.forEach(b=>b.disabled=true);
+  const result=await api(data,{skipRender:true});
+  if(result?.shopItems){closeShopEditor();if(tab==='shop')content();}
+  else btns.forEach(b=>b.disabled=false);
+ };
+ form.onsubmit=event=>{
+  event.preventDefault();
+  const elements=form.elements;
+  send({type:'shopSave',slot,active:elements.namedItem('active').value==='active',
+   name:elements.namedItem('productName').value,
+   desc:elements.namedItem('description').value,
+   icon:elements.namedItem('icon').value,
+   quantity:Number(elements.namedItem('quantity').value),
+   price:Number(elements.namedItem('price').value)});
+ };
+ overlay.querySelector('#gmShopClear').onclick=()=>{
+  if(confirm(slot+'번 상품을 비우고 입고중으로 변경하시겠습니까?'))send({type:'shopSave',slot,reset:true});
+ };
+ overlay.querySelector('.gm-shop-editor-close')?.focus({preventScroll:true});
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('gmShopEditor')){e.preventDefault();closeShopEditor()}});
+
 let scoutCurrency='cash';
 function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='shop'){
- const offers=[{id:'drink10',icon:'🥤',name:'스포츠음료 10개',desc:'선수 컨디션을 한 단계 올리는 회복 아이템',qty:10,price:1000000},
- {id:'drink50',icon:'📦',name:'스포츠음료 50개',desc:'선수단 전체 컨디션 관리를 위한 묶음 상품',qty:50,price:4000000}];
+ const admin=state.user?.isAdmin===true;
+ const offers=Array.from({length:5},(_,i)=>state.shopItems?.find(item=>item.id==='slot'+(i+1))||{id:'slot'+(i+1),active:false});
  el.innerHTML='<div class="gm-shop-header"><div><span class="gm-shop-eyebrow">DIAMOND GM / TEAM STORE</span><h2>🛒 구단 상점</h2><p>게임머니로 아이템을 구매하고 선수의 컨디션을 관리하세요.</p></div><div class="gm-shop-wallet"><small>보유 게임머니</small><strong>'+money(c.cash)+'</strong><span>🥤 스포츠음료 '+(c.sportsDrinks||0)+'개 보유</span></div></div>'+
  '<div class="gm-shop-tip"><span>ⓘ</span> 스포츠음료 1개로 선수 한 명의 컨디션을 한 단계 상승시킬 수 있습니다. 사용은 친선경기 화면에서 가능합니다.</div>'+
- '<div class="gm-shop-grid">'+offers.map(offer=>'<article class="gm-shop-card"><div class="gm-shop-art">'+offer.icon+'<span>'+offer.qty+'개</span></div><div class="gm-shop-body"><h3>'+offer.name+'</h3><p>'+offer.desc+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+money(offer.price)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+offer.id+'" '+(c.cash<offer.price?'disabled':'')+'>'+(c.cash<offer.price?'게임머니 부족':'구매하기')+'</button></div></article>').join('')+Array.from({length:3},()=>'<article class="gm-shop-card gm-shop-coming" aria-label="입고중"><span>입고중</span></article>').join('')+'</div>'+
+ (admin?'<div class="gm-shop-admin-help"><b>⚙️ 관리자 상품 편집</b><span>각 상품의 수정 버튼을 누르거나 ‘입고중’ 칸을 클릭해 상품을 등록하세요. 설정한 상품은 모든 회원에게 적용됩니다.</span></div>':'')+
+ '<div class="gm-shop-grid">'+offers.map(item=>item.active?
+ '<article class="gm-shop-card"><div class="gm-shop-art">'+(admin?'<button type="button" class="gm-shop-edit" data-shop-edit="'+item.id+'">✎ 수정</button>':'')+'<span class="gm-shop-product-icon">'+esc(item.icon||'🥤')+'</span><span>'+Number(item.quantity||0)+'개</span></div><div class="gm-shop-body"><h3>'+esc(item.name||'상품')+'</h3><p>'+esc(item.desc||'')+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+money(item.price)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+item.id+'" '+(c.cash<item.price?'disabled':'')+'>'+(c.cash<item.price?'게임머니 부족':'구매하기')+'</button></div></article>':
+ '<article class="gm-shop-card gm-shop-coming">'+(admin?'<button type="button" class="gm-shop-coming-trigger" data-shop-edit="'+item.id+'" aria-label="'+item.id+' 상품 등록">입고중</button>':'<span>입고중</span>')+'</article>').join('')+'</div>'+
  '<div class="gm-shop-footer"><div><b>🥤 스포츠음료 사용하기</b><p>친선경기 메뉴의 컨디션 관리에서 선수에게 사용하세요.</p></div><button type="button" id="gmShopUse">친선경기 이동</button></div>';
- document.querySelectorAll('[data-shop-buy]').forEach(btn=>btn.onclick=()=>{const item=offers.find(x=>x.id===btn.dataset.shopBuy);if(!item)return;if(confirm(item.name+'를 '+money(item.price)+'에 구매하시겠습니까?'))api({type:'shopBuy',item:item.id})});
+ document.querySelectorAll('[data-shop-buy]').forEach(btn=>btn.onclick=()=>{const item=offers.find(x=>x.id===btn.dataset.shopBuy);if(!item?.active)return;if(confirm(item.name+'를 '+money(item.price)+'에 구매하시겠습니까?'))api({type:'shopBuy',item:item.id})});
+ if(admin)document.querySelectorAll('[data-shop-edit]').forEach(btn=>btn.onclick=()=>openShopEditor(offers.find(x=>x.id===btn.dataset.shopEdit)));
  document.getElementById('gmShopUse').onclick=()=>{tab='friendly';root()};
  return
 }
