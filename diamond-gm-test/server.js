@@ -83,7 +83,7 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
   ensurePlayer(p);
   if(p.age>=45)continue;
   const isSuper=p.grade==='S';
-  const canField=active.has(p.id)&&!(p.grade==='A'&&p.age>=36);
+  const canField=active.has(p.id)&&!(['A','S'].includes(p.grade)&&p.age>=36);
   const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
   const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12,S:0.24}[p.grade]||0.03;
   for(const key of statKeys(p)){
@@ -274,12 +274,16 @@ const DEFAULT_SHOP_CATALOG=[
  {id:'slot5',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000}
 ];
 function shopCatalog(){
- if(!Array.isArray(db.shopCatalog)||db.shopCatalog.length!==5)db.shopCatalog=DEFAULT_SHOP_CATALOG.map(x=>({...x}));
- // Upgrade existing five-slot catalogs in place; preserve previously edited items where possible.
- if(!db.shopCatalog.some(item=>item.kind==='growthBooster'&&item.active)){
-  let index=db.shopCatalog.findIndex((item,i)=>i>=2&&item.active!==true&&!String(item.name||'').trim());
-  if(index<0)index=2;
-  db.shopCatalog[index]={...DEFAULT_SHOP_CATALOG[2],id:'slot'+(index+1)};
+ if(!Array.isArray(db.shopCatalog)||db.shopCatalog.length!==5){
+  db.shopCatalog=DEFAULT_SHOP_CATALOG.map(x=>({...x}));
+  db.shopCatalogVersion=2;
+ }else if((Number(db.shopCatalogVersion)||0)<2){
+  // One-time migration. Never reinstate an item that an administrator subsequently disables.
+  if(!db.shopCatalog.some(item=>item.kind==='growthBooster')){
+   const empty=db.shopCatalog.findIndex((item,i)=>i>=2&&item.active!==true&&!String(item.name||'').trim());
+   if(empty>=0)db.shopCatalog[empty]={...DEFAULT_SHOP_CATALOG[2],id:'slot'+(empty+1)};
+  }
+  db.shopCatalogVersion=2;
  }
  return db.shopCatalog;
 }
