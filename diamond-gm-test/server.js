@@ -243,6 +243,7 @@ else if(a.type==='scout'){
 const contracts={basic:{label:'일반 스카우트',cost:5000000},pitcher:{label:'투수 전문 스카우트',cost:12000000},hitter:{label:'타자 전문 스카우트',cost:12000000},era:{label:'연도 지정 스카우트',cost:18000000},franchise:{label:'연고 구단 스카우트',cost:25000000}};
 const kind=String(a.kind||'basic'),contract=contracts[kind];
 if(!contract)throw Error('선택할 수 없는 스카우트 유형입니다');
+if(c.pendingScout?.player)throw Error('먼저 기존 스카우트 결과에서 영입 또는 방출을 선택하세요');
 if(c.players.length>=80)throw Error('선수단 최대 80명입니다');
 if(c.cash<contract.cost)throw Error('스카우트 비용이 부족합니다');
 const p=player(u.id);
@@ -252,11 +253,32 @@ if(kind==='era'){const ranges={'2000':[2000,2009],'2010':[2010,2019],'2020':[202
 if(kind==='franchise'){p.originTeam=c.teamId||u.teamId||'twins';for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]+rand(2,8))}
 if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
 assignAvatarDNA(p);
-c.cash-=contract.cost;c.players.push(p);
+c.cash-=contract.cost;
 c.scoutHistory=Array.isArray(c.scoutHistory)?c.scoutHistory:[];
-c.scoutHistory.unshift({id:uid(),kind,label:contract.label,cost:contract.cost,player:{avatarDNA:p.avatarDNA,avatarVersion:p.avatarVersion,foreign:p.foreign,id:p.id,name:p.name,year:p.year,pos:p.pos,grade:p.grade,originTeam:p.originTeam,isPitcher:p.isPitcher,power:p.power,contact:p.contact,eye:p.eye,speed:p.speed,defense:p.defense,stamina:p.stamina,mental:p.mental,age:p.age,lastGrowthWeek:p.lastGrowthWeek},time:Date.now()});
+const scoutRecordId=uid();
+c.pendingScout={id:scoutRecordId,player:p,time:Date.now(),kind};
+c.scoutHistory.unshift({id:scoutRecordId,status:'pending',kind,label:contract.label,cost:contract.cost,player:{avatarDNA:p.avatarDNA,avatarVersion:p.avatarVersion,foreign:p.foreign,id:p.id,name:p.name,year:p.year,pos:p.pos,grade:p.grade,originTeam:p.originTeam,isPitcher:p.isPitcher,power:p.power,contact:p.contact,eye:p.eye,speed:p.speed,defense:p.defense,stamina:p.stamina,mental:p.mental,age:p.age,lastGrowthWeek:p.lastGrowthWeek},time:Date.now()});
 c.scoutHistory=c.scoutHistory.slice(0,30);
-result={message:contract.label+' 성공 · '+p.year+' '+p.name+' 영입 완료',scouted:p};
+result={message:contract.label+'에서 선수를 발견했습니다. 영입 또는 방출을 선택하세요.',scouted:p};
+}
+else if(a.type==='scoutDecision'){
+ const pending=c.pendingScout;
+ if(!pending?.player)throw Error('결정할 스카우트 선수가 없습니다');
+ if(String(a.id)!==pending.id)throw Error('해당 스카우트 결과가 만료되었습니다');
+ const decision=String(a.decision||'');
+ if(!['recruit','release'].includes(decision))throw Error('영입하기 또는 방출하기를 선택하세요');
+ const p=pending.player;
+ if(decision==='recruit'){
+  if(c.players.length>=80)throw Error('선수단이 가득 찼습니다');
+  c.players.push(p);fix(c);
+  result={message:p.name+' 선수를 영입했습니다',scoutDecision:'recruit',player:p};
+ }else{
+  c.cash+=1000000;
+  result={message:p.name+' 선수를 방출하고 100만원을 획득했습니다',scoutDecision:'release',reward:1000000};
+ }
+ const history=(c.scoutHistory||[]).find(h=>h.id===pending.id);
+ if(history)history.status=decision==='recruit'?'recruited':'released';
+ c.pendingScout=null;
 }
 else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.price);if(!p)throw Error('선수 없음');if(!Number.isSafeInteger(price)||price<100000||price>100000000000)throw Error('가격은 10만원 이상');if(c.players.length<=15)throw Error('선수단 최소 15명 유지');c.players=c.players.filter(x=>x.id!==p.id);db.listings.push({id:uid(),seller:u.id,player:p,price,date:Date.now()});fix(c);result={message:'판매 등록 완료'}}
 else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.seller===u.id);if(i<0)throw Error('판매글 없음');if(c.players.length>=80)throw Error('선수단이 가득 참');c.players.push(db.listings.splice(i,1)[0].player);fix(c)}
