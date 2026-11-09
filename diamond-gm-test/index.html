@@ -102,19 +102,89 @@ table th{background:#f1f6fc;color:#59748d}
 @media(max-width:950px){.club-home{grid-template-columns:1fr}.home-right{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.home-right .panel{margin:0}.home-right .panel:last-child{grid-column:1/-1}}
 @media(max-width:650px){.shell{padding:0 15px}.top .head{padding:14px 0;gap:12px}.head{min-height:auto}.brand-logo{font-size:19px}.brand-logo .ball{width:40px;height:40px}.stats{gap:7px}.pill{padding:7px 9px}.nav{position:sticky;top:0;margin-bottom:18px;padding:6px;gap:3px;border-radius:0 0 10px 10px;overflow-x:auto}.nav button{flex:none;min-width:99px;padding:11px 8px;font-size:12px}.panel{padding:17px;margin-bottom:15px}.club-home .stadium{height:275px}.stadium .stadium-overlay{padding:21px}.stadium .stadium-overlay h2{margin:14px 0}.classic-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.classic-shortcuts button{min-height:82px;font-size:12px}.classic-shortcuts span{font-size:24px}.home-right{grid-template-columns:1fr}.home-right .panel:last-child{grid-column:auto}.grid{gap:9px}.metric{padding:12px}.metric strong{font-size:19px}.sectiontitle{font-size:20px}.item{gap:10px}.toolbar{gap:7px}}
 
+
+/* Franchise identity, original emblems, and pre-login team selector */
+:root{--team-accent:#286bbb;--team-alt:#164d8a}
+body{font-family:Inter,Pretendard,system-ui,-apple-system,"Malgun Gothic",sans-serif}
+button.primary,.primary,.nav button.active{background:var(--team-accent);border-color:var(--team-accent);color:white}
+button.primary:hover,.primary:hover{background:var(--team-alt);border-color:var(--team-alt);color:white}
+.nav button.active{box-shadow:0 4px 12px color-mix(in srgb,var(--team-accent) 30%,transparent)}
+.stadium .stadium-overlay button{background:var(--team-accent);border-color:var(--team-accent)}
+.stadium .stadium-overlay button:hover{background:var(--team-alt)}
+.classic-shortcuts button:hover{border-color:var(--team-accent);color:var(--team-accent)}
+.team-crest{display:inline-flex;align-items:center;justify-content:center;position:relative;width:77px;height:86px;flex:none;clip-path:polygon(50% 0%,96% 18%,93% 70%,50% 100%,7% 70%,4% 18%);background:linear-gradient(130deg,var(--crest-alt),var(--crest) 67%,var(--crest-alt));filter:drop-shadow(0 3px 4px #19334a26);color:#fff;box-shadow:inset 0 0 0 4px #fff8}
+.team-crest::before{content:"";position:absolute;inset:6px;clip-path:inherit;border:2px solid #ffffff70;background:linear-gradient(150deg,#ffffff27,#ffffff00 55%);opacity:.85}
+.crest-letter{font-size:38px;line-height:1;font-family:Georgia,serif;font-weight:950;font-style:italic;text-shadow:2px 3px 0 #0005;z-index:2}
+.crest-light{position:absolute;top:8px;right:17px;font-size:11px;color:#ffebad;z-index:2}
+.team-crest.small{width:30px;height:35px}
+.team-crest.small .crest-letter{font-size:18px}
+.team-crest.small .crest-light{display:none}
+.header-team{display:flex;align-items:center;gap:8px;background:color-mix(in srgb,var(--team-accent) 8%,white);padding:5px 10px;border:1px solid color-mix(in srgb,var(--team-accent) 20%,white);border-radius:9px;color:var(--team-accent)}
+.team-page{padding-top:32px;padding-bottom:80px}
+.team-intro{text-align:center;max-width:780px;margin:0 auto 35px}
+.team-eyebrow{display:block;letter-spacing:.16em;font-size:11px;color:var(--team-accent);font-weight:850}
+.team-intro h1{font-weight:900;font-size:clamp(25px,3vw,37px);margin:12px 0 10px;letter-spacing:-.045em;color:#173859}
+.team-intro p{font-size:15px;color:#677e95}
+.team-picker{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:15px}
+.team-choice{min-height:220px;border-radius:17px;background:#fff;border:1px solid #dce6f0;box-shadow:0 5px 17px #243e5912;display:flex;flex-direction:column;gap:11px;align-items:center;justify-content:center;padding:22px 12px 16px;color:#1f3954;position:relative;overflow:hidden}
+.team-choice::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;background:var(--team-accent)}
+.team-choice:hover{background:#fff;border-color:var(--team-accent);box-shadow:0 12px 24px #18395820;transform:translateY(-3px)}
+.team-choice .team-info{display:flex;align-items:center;flex-direction:column;gap:3px;min-width:0}
+.team-choice .team-info small{font-size:11px;color:#76899e}
+.team-choice .team-info strong{font-size:16px;color:#223f61;letter-spacing:-.04em;white-space:nowrap}
+.team-pick-arrow{font-weight:750;font-size:11px;color:var(--team-accent);margin-top:4px}
+.team-disclaimer{text-align:center;font-size:12px;color:#8797a9;margin-top:25px}
+.auth-layout{display:grid;grid-template-columns:1.05fr .9fr;gap:24px;align-items:stretch;max-width:1050px;margin:5vh auto}
+.auth-showcase{border-radius:20px;background:linear-gradient(145deg,var(--team-alt) 0,var(--team-accent) 88%);color:white;min-height:490px;padding:50px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;align-items:flex-start}
+.auth-showcase::before{content:"";position:absolute;border:2px solid #ffffff22;border-radius:50%;width:440px;height:440px;right:-190px;bottom:-210px}
+.auth-showcase .team-crest{width:115px;height:128px;filter:drop-shadow(0 7px 12px #0003)}
+.auth-showcase .crest-letter{font-size:60px}
+.auth-showcase-title{font-weight:900;font-size:32px;margin:25px 0 4px;letter-spacing:-.06em}
+.auth-showcase p{font-size:17px;color:#fff;line-height:1.7}
+.auth-showcase-desc{letter-spacing:.13em;font-size:10px;opacity:.75;margin-top:25px}
+.auth-modern{margin:0;max-width:none;display:flex;flex-direction:column;justify-content:center;padding:clamp(25px,3vw,46px)}
+.auth-modern h1{margin:12px 0 0;font-size:28px}
+.auth-modern form{margin-top:20px}
+.auth-modern form label{font-size:12px;font-weight:800;color:#46617b;display:block;margin:13px 0}
+.auth-modern form input{width:100%;margin:6px 0 0}
+.light-button{background:#f4f8fd;color:#345774}
+.auth-modern form button{margin-top:11px;width:100%;min-height:43px}
+@media(max-width:1090px){.team-picker{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:850px){.team-picker{grid-template-columns:repeat(3,minmax(0,1fr))}.auth-layout{grid-template-columns:1fr;max-width:590px;margin:24px auto}.auth-showcase{min-height:210px;padding:25px;display:grid;grid-template-columns:90px 1fr;column-gap:18px;align-items:center}.auth-showcase .team-crest{width:78px;height:86px;grid-row:1/4}.auth-showcase .crest-letter{font-size:40px}.auth-showcase-title{margin:0;font-size:23px}.auth-showcase p{font-size:13px;margin:0}.auth-showcase-desc{margin:0}}
+@media(max-width:600px){.team-page{padding-top:18px}.team-intro{margin-bottom:22px}.team-intro p{font-size:13px}.team-picker{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.team-choice{min-height:160px;padding:15px 8px}.team-choice .team-crest{width:58px;height:66px}.team-choice .crest-letter{font-size:28px}.team-choice .team-info strong{font-size:14px}.team-choice .team-info small{font-size:10px}.team-pick-arrow{font-size:10px}.auth-layout{gap:13px}.auth-modern{padding:22px}.auth-showcase{min-height:150px;padding:18px;grid-template-columns:65px 1fr}.auth-showcase .team-crest{width:59px;height:67px}.auth-showcase .crest-letter{font-size:31px}.auth-showcase-title{font-size:20px}.auth-showcase p{font-size:11px}.auth-showcase-desc{display:none}.header-team{font-size:12px}.header-team b{max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 </style></head><body><div id="app"></div><script>
-const app=document.getElementById('app');let state={user:null},tab='home',filter='',marketPos='전체',grade='전체',sort='overall';
+const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';const overall=p=>Math.round((p.power+p.contact+p.eye+p.speed+p.defense+p.stamina)/6);
 const fieldNames={power:'파워',contact:'정확',eye:'선구',speed:'주력',defense:'수비',stamina:'체력'};
 const g=p=>'<span class="grade '+esc(p.grade)+'">'+esc(p.grade)+'</span>';
 function toast(txt){document.querySelector('.msg')?.remove();let x=document.createElement('div');x.className='msg';x.textContent=txt;document.body.append(x);setTimeout(()=>x.remove(),3500)}
-async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');state=x;if(x.result?.message)toast(x.result.message);render()}catch(e){toast(e.message)}}
+async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');state=x;if(body.type==='logout')selectedTeam=null;if(x.result?.message)toast(x.result.message);render()}catch(e){toast(e.message)}}
 async function start(){try{state=await(await fetch('/api/state')).json()}catch(e){toast('서버에 연결할 수 없습니다')}render()}
-function login(){app.innerHTML='<header class="top"><div class="shell head">'+logo+'<div class="muted">온라인 야구 구단 경영 테스트</div></div></header><main class="shell"><div class="panel auth"><h1>구단주 로그인</h1><p class="muted">새 계정을 만들거나 기존 계정으로 접속하세요.</p><form id="auth"><input name="username" placeholder="아이디 (3~20자)" required minlength="3"><input name="password" placeholder="비밀번호 (6자 이상)" type="password" required minlength="6"><button class="primary" value="login">로그인</button><button value="register">회원가입</button></form><p class="muted" style="margin-top:22px;font-size:12px">테스트 서버 · 계정과 선수 기록은 정식 서비스 이전에 초기화될 수 있습니다.</p></div></main>';document.querySelector('#auth').addEventListener('click',e=>{if(e.target.tagName==='BUTTON'){e.preventDefault();const f=document.getElementById('auth');api({type:e.target.value,username:f.username.value,password:f.password.value})}})}
-function create(){app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button onclick="api({type:\'logout\'})">로그아웃</button></div></header><main class="shell"><div class="panel auth"><h1>새 구단 창단</h1><p>게임머니 <b class="highlight">5억원</b> · <b class="highlight">300 CP</b> · 2000~2026 시즌 가상 선수 25명 지급</p><form id="clubForm"><input name="club" placeholder="구단명 입력 (2~20자)" minlength="2" maxlength="20" required><button class="primary">구단 창단하기</button></form></div></main>';document.getElementById('clubForm').onsubmit=e=>{e.preventDefault();api({type:'createClub',name:e.target.club.value})}}
+
+function chosenTeam(){return (state.teams||[]).find(t=>t.id===(state.club?.teamId||state.user?.teamId||selectedTeam))||null}
+function teamBadge(t,small=false){return '<span class="team-crest '+(small?'small':'')+'" style="--crest:'+esc(t.color)+';--crest-alt:'+esc(t.secondary)+'"><span class="crest-light">✦</span><span class="crest-letter">'+esc(t.symbol)+'</span></span>'}
+function theme(){const t=chosenTeam();const root=document.documentElement;if(t){root.style.setProperty('--team-accent',t.color);root.style.setProperty('--team-alt',t.secondary)}else{root.style.setProperty('--team-accent','#286bbb');root.style.setProperty('--team-alt','#164d8a')}}
+function selectTeam(){
+  theme();
+  app.innerHTML='<header class="top"><div class="shell head">'+logo+'<span class="muted">당신의 구단을 선택하세요</span></div></header>'+
+  '<main class="shell team-page"><div class="team-intro"><span class="team-eyebrow">CHOOSE YOUR FRANCHISE</span><h1>어느 구단의 감독이 되시겠습니까?</h1><p>10개 구단 중 하나를 선택하고 구단주로 출발하세요. 구단의 대표색이 게임 전체에 적용됩니다.</p></div>'+
+  '<div class="team-picker">'+(state.teams||[]).map(t=>'<button type="button" class="team-choice" data-team="'+esc(t.id)+'" style="--team-accent:'+esc(t.color)+';--team-alt:'+esc(t.secondary)+'">'+teamBadge(t)+'<span class="team-info"><small>'+esc(t.city)+' · '+esc(t.mascot)+'</small><strong>'+esc(t.name)+'</strong></span><span class="team-pick-arrow">선택하기 →</span></button>').join('')+'</div>'+
+  '<p class="team-disclaimer">가상의 구단 명칭과 독자적으로 제작한 엠블럼을 사용합니다. 특정 프로구단의 공식 로고가 아닙니다.</p></main>';
+  document.querySelectorAll('[data-team]').forEach(b=>b.onclick=()=>{selectedTeam=b.dataset.team;login()});
+}
+function login(){
+const t=chosenTeam();if(!t)return selectTeam();theme();
+app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button id="backTeams" class="light-button">← 구단 다시 선택</button></div></header>'+
+'<main class="shell"><div class="auth-layout"><div class="auth-showcase" style="--team-accent:'+esc(t.color)+';--team-alt:'+esc(t.secondary)+'">'+teamBadge(t)+'<div class="auth-showcase-title">'+esc(t.name)+'</div><p>새로운 시즌, 새로운 역사<br>당신이 직접 만들어갈 차례입니다.</p><span class="auth-showcase-desc">TEAM IDENTITY · '+esc(t.city)+'</span></div>'+
+'<div class="panel auth auth-modern"><span class="team-eyebrow">WELCOME TO DIAMOND GM</span><h1>구단주 로그인</h1><p class="muted">선택한 구단: <b>'+esc(t.name)+'</b></p><form id="auth"><label>아이디<input name="username" autocomplete="username" placeholder="아이디 (3~20자)" required minlength="3"></label><label>비밀번호<input name="password" autocomplete="current-password" placeholder="비밀번호 (6자 이상)" type="password" required minlength="6"></label><button type="button" class="primary" data-auth="login">로그인</button><button type="button" class="light-button" data-auth="register">새 구단주로 회원가입</button></form><p class="muted" style="margin-top:22px;font-size:12px">기존 계정은 가입 시 선택한 구단으로 로그인하세요. 구단과 계정 데이터는 테스트 운영 중 초기화될 수 있습니다.</p></div></div></main>';
+document.getElementById('backTeams').onclick=()=>{selectedTeam=null;selectTeam()};
+document.querySelectorAll('[data-auth]').forEach(b=>b.onclick=()=>{let form=document.getElementById('auth');if(!form.reportValidity())return;api({type:b.dataset.auth,teamId:t.id,username:form.elements.username.value,password:form.elements.password.value})});
+}
+function create(){const t=chosenTeam();theme();app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button onclick="api({type:\'logout\'})">로그아웃</button></div></header>'+
+'<main class="shell"><div class="panel auth"><div style="text-align:center">'+(t?teamBadge(t):'')+'<h1>'+esc(t?.name||'새 구단')+' 창단</h1></div><p>가입하신 구단의 시즌을 시작합니다.</p><div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="metric"><b>5억원</b><div>초기 자금</div></div><div class="metric"><b>300 CP</b><div>성장 포인트</div></div><div class="metric"><b>25명</b><div>창단 선수</div></div></div><button id="createClubNow" class="primary" style="width:100%;margin-top:20px">구단 창단하고 시작하기</button></div></main>';document.getElementById('createClubNow').onclick=()=>api({type:'createClub'});}
 const tabs=[['home','🏠 홈'],['league','🏆 리그진행'],['lineup','🧢 라인업'],['scout','🔭 스카우트'],['friendly','⚾ 친선경기'],['market','🔄 이적시장'],['roster','👥 선수단'],['train','⬆️ 선수 육성']];
 const logo='<div class="brand-logo"><span class="ball">⚾</span><div><b>DIAMOND</b> <em>GM</em><small>BASEBALL MANAGEMENT GAME</small></div></div>';
-function root(){const c=state.club;app.innerHTML='<header class="top"><div class="shell head">'+logo+'<div class="stats"><span class="pill">🏟 '+esc(c.name)+'</span><span class="pill">💰 '+money(c.cash)+'</span><span class="pill">💎 '+c.cp+' CP</span><button onclick="api({type:\'logout\'})">로그아웃</button></div></div></header><main class="shell layout"><aside class="nav">'+tabs.map(t=>'<button class="'+(t[0]===tab?'active':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>').join('')+'</aside><section id="content"></section></main>';document.querySelectorAll('[data-tab]').forEach(x=>x.onclick=()=>{tab=x.dataset.tab;root()});content()}
+function root(){const c=state.club;theme();const t=chosenTeam();app.innerHTML='<header class="top"><div class="shell head">'+logo+'<div class="stats">'+(t?'<span class="header-team">'+teamBadge(t,true)+'<b>'+esc(t.name)+'</b></span>':'')+'<span class="pill">🏟 '+esc(c.name)+'</span><span class="pill">💰 '+money(c.cash)+'</span><span class="pill">💎 '+c.cp+' CP</span><button onclick="api({type:\'logout\'})">로그아웃</button></div></div></header><main class="shell layout"><aside class="nav">'+tabs.map(t=>'<button class="'+(t[0]===tab?'active':'')+'" data-tab="'+t[0]+'">'+t[1]+'</button>').join('')+'</aside><section id="content"></section></main>';document.querySelectorAll('[data-tab]').forEach(x=>x.onclick=()=>{tab=x.dataset.tab;root()});content()}
 function getP(){return state.club.players.filter(p=>!filter||(p.name+p.year+p.pos).includes(filter)).sort((a,b)=>sort==='overall'?overall(b)-overall(a):sort==='year'?b.year-a.year:a.name.localeCompare(b.name))}
 function table(players,actions){return '<div class="scroll"><table><thead><tr><th>선수</th><th>연도</th><th>포지션</th><th>등급</th><th>종합</th><th>파워</th><th>정확</th><th>선구</th><th>주력</th><th>수비</th><th>체력</th>'+(actions?'<th>관리</th>':'')+'</tr></thead><tbody>'+players.map(p=>'<tr><td><b>'+esc(p.name)+'</b></td><td>'+p.year+'</td><td>'+esc(p.pos)+'</td><td>'+g(p)+'</td><td><b>'+overall(p)+'</b></td>'+Object.keys(fieldNames).map(k=>'<td>'+p[k]+'</td>').join('')+(actions?'<td><button data-player="'+p.id+'" data-action="detail">관리</button></td>':'')+'</tr>').join('')+'</tbody></table></div>'}
 function content(){const c=state.club,el=document.getElementById('content');if(tab==='home'){
@@ -136,5 +206,5 @@ el.innerHTML='<h2 class="sectiontitle">🏆 정규 리그 진행</h2><div class=
 document.getElementById('refreshLeague').onclick=async()=>{state=await(await fetch('/api/state')).json();content()};return}}
 
 function bindDetail(){document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{const p=state.club.players.find(x=>x.id===b.dataset.player);const d=document.getElementById('playerDetail');d.innerHTML='<div class="panel"><h3>'+esc(p.year+' '+p.name)+' '+g(p)+'</h3><p class="muted">'+esc(p.pos)+' / 종합 '+overall(p)+'</p><div class="toolbar"><button id="upSelected" '+(p.grade==='A'?'disabled':'')+'>등급 성장 (1 CP)</button>'+Object.keys(fieldNames).map(k=>'<button data-train="'+k+'">'+fieldNames[k]+' 훈련 (100만원)</button>').join('')+'</div></div>';document.getElementById('upSelected').onclick=()=>api({type:'upgrade',id:p.id});document.querySelectorAll('[data-train]').forEach(x=>x.onclick=()=>api({type:'train',id:p.id,key:x.dataset.train}));d.scrollIntoView({behavior:'smooth',block:'nearest'})})}
-function render(){if(!state.user)return login();if(!state.club)return create();root()}start();
+function render(){theme();if(!state.user)return selectedTeam?login():selectTeam();if(!state.club)return create();root()}start();
 </script></body></html>
