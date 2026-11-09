@@ -48,37 +48,8 @@ const statKeys=p=>p.isPitcher?PITCHER_STAT_KEYS:BATTER_STAT_KEYS;
 
 /* Original DIAMOND GM scout-born special abilities.
  * Only the server rolls for slots. This roll is intentionally absent from the UI/API. */
-const SPECIAL_ABILITIES=[
- {id:'leadoff_instinct',name:'선두 본능',type:'batter',when:'leadoff',desc:'1·2번 타순에서 정확 +3, 선구 +2',boost:{contact:3,eye:2}},
- {id:'cleanup_drive',name:'중심타선',type:'batter',when:'cleanup',desc:'3~5번 타순에서 파워 +4',boost:{power:4}},
- {id:'precise_swing',name:'정밀 타격',type:'batter',when:'always',desc:'출장 시 정확 +3',boost:{contact:3}},
- {id:'deep_fly',name:'장타 감각',type:'batter',when:'always',desc:'출장 시 파워 +3',boost:{power:3}},
- {id:'runner_chance',name:'찬스 집중',type:'batter',when:'scoring',desc:'득점권에서 정확 +3, 정신 +2',boost:{contact:3,mental:2}},
- {id:'away_fighter',name:'원정 투지',type:'batter',when:'away',desc:'원정 경기에서 정확 +2, 파워 +2',boost:{contact:2,power:2}},
- {id:'home_hero',name:'홈의 활력',type:'batter',when:'home',desc:'홈 경기에서 정확 +2, 선구 +2',boost:{contact:2,eye:2}},
- {id:'young_runner',name:'신예 질주',type:'batter',when:'young',desc:'25세 이하 출장 시 주력 +4',boost:{speed:4}},
- {id:'veteran_focus',name:'노련한 타석',type:'batter',when:'veteran',desc:'35세 이상 출장 시 정확 +2, 정신 +3',boost:{contact:2,mental:3}},
- {id:'catcher_leader',name:'안방 지휘',type:'batter',when:'catcher',desc:'포수 출장 시 수비 +3, 정신 +2',boost:{defense:3,mental:2}},
- {id:'middle_defense',name:'내야 연결',type:'batter',when:'middleInfield',desc:'2루수·유격수 출장 시 수비 +3, 정신 +2',boost:{defense:3,mental:2}},
- {id:'outfield_guard',name:'외야 수호',type:'batter',when:'outfield',desc:'외야수 출장 시 수비 +3, 주력 +2',boost:{defense:3,speed:2}},
- {id:'late_bat',name:'후반 집중',type:'batter',when:'late',desc:'7회 이후 정확 +2, 파워 +2',boost:{contact:2,power:2}},
- {id:'import_power',name:'적응력',type:'batter',when:'foreign',desc:'외국인 타자 출장 시 파워 +2, 선구 +2',boost:{power:2,eye:2}},
- {id:'starter_command',name:'선발의 중심',type:'pitcher',when:'starter',desc:'선발 등판 시 구위 +2, 제구 +2',boost:{stuff:2,control:2}},
- {id:'bullpen_stability',name:'불펜 안정',type:'pitcher',when:'relief',desc:'중계 등판 시 구위 +3, 정신 +2',boost:{stuff:3,mental:2}},
- {id:'closer_grit',name:'마지막 문턱',type:'pitcher',when:'closer',desc:'마무리 등판 시 구속 +2, 구위 +3',boost:{velocity:2,stuff:3}},
- {id:'pinpoint',name:'정교한 제구',type:'pitcher',when:'always',desc:'등판 시 제구 +3',boost:{control:3}},
- {id:'breaking_ball',name:'변화구 감각',type:'pitcher',when:'always',desc:'등판 시 변화 +3',boost:{break:3}},
- {id:'fastball_specialist',name:'강속구 승부',type:'pitcher',when:'always',desc:'등판 시 구속 +3',boost:{velocity:3}},
- {id:'home_pitch',name:'안방 마운드',type:'pitcher',when:'home',desc:'홈 경기 등판 시 제구 +2, 구위 +2',boost:{control:2,stuff:2}},
- {id:'away_pitch',name:'원정 집중',type:'pitcher',when:'away',desc:'원정 등판 시 구속 +2, 정신 +2',boost:{velocity:2,mental:2}},
- {id:'young_arm',name:'젊은 어깨',type:'pitcher',when:'young',desc:'25세 이하 등판 시 구속 +3, 체력 +2',boost:{velocity:3,stamina:2}},
- {id:'veteran_pitch',name:'베테랑 운영',type:'pitcher',when:'veteran',desc:'35세 이상 등판 시 제구 +3, 정신 +2',boost:{control:3,mental:2}},
- {id:'crisis_control',name:'위기 제어',type:'pitcher',when:'scoring',desc:'득점권에서 구위 +2, 제구 +3',boost:{stuff:2,control:3}},
- {id:'late_pitch',name:'종반 철벽',type:'pitcher',when:'late',desc:'7회 이후 등판 시 변화 +2, 정신 +2',boost:{break:2,mental:2}},
- {id:'foreign_mound',name:'낯선 구질',type:'pitcher',when:'foreign',desc:'외국인 투수 등판 시 구속 +2, 구위 +2',boost:{velocity:2,stuff:2}}
-];
+const SPECIAL_ABILITIES=[{"id":"immortal_b","name":"불멸자","type":"batter","source":"scout","when":"age43","boost":{"contact":4,"power":4,"eye":4,"speed":4},"desc":"43세 이상 시 핵심 능력치 +4 (타자)"},{"id":"immortal_p","name":"불멸자","type":"pitcher","source":"scout","when":"age43","boost":{"velocity":4,"stuff":4,"control":4,"break":4},"desc":"43세 이상 시 핵심 능력치 +4 (투수)"},{"id":"undying_b","name":"불사신","type":"batter","source":"scout","when":"age40","boost":{"contact":3,"power":3,"eye":3,"speed":3},"desc":"40세 이상 시 핵심 능력치 +3 (타자)"},{"id":"undying_p","name":"불사신","type":"pitcher","source":"scout","when":"age40","boost":{"velocity":3,"stuff":3,"control":3,"break":3},"desc":"40세 이상 시 핵심 능력치 +3 (투수)"},{"id":"foreign_mercenary_b","name":"외인용병","type":"batter","source":"scout","when":"foreign","boost":{"contact":2,"power":2,"eye":2},"desc":"외국인 선수 핵심 능력치 상승 (타자)"},{"id":"foreign_mercenary_p","name":"외인용병","type":"pitcher","source":"scout","when":"foreign","boost":{"velocity":3,"stuff":3,"control":3,"break":3},"desc":"외국인 선수 핵심 능력치 상승 (투수)"},{"id":"home_mood_b","name":"무드남","type":"batter","source":"scout","when":"home","boost":{"contact":1,"power":1,"eye":1},"desc":"홈구장 경기 핵심 능력치 상승 (타자)"},{"id":"home_mood_p","name":"무드남","type":"pitcher","source":"scout","when":"home","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"홈구장 경기 핵심 능력치 상승 (투수)"},{"id":"clutch_hitter","name":"클러치 히터","type":"batter","source":"scout","when":"scoring","boost":{"contact":3,"power":3},"desc":"득점권에서 정확·파워 +3"},{"id":"slugger","name":"슬러거","type":"batter","source":"scout","when":"always","boost":{"power":4},"desc":"출전 시 파워 +4"},{"id":"onbase_machine","name":"출루머신","type":"batter","source":"scout","when":"leadoff","boost":{"contact":3,"eye":3},"desc":"1·2번 타순에서 정확·선구 +3"},{"id":"hitting_instinct","name":"타격본능","type":"batter","source":"scout","when":"always","boost":{"contact":4},"desc":"출전 시 정확 +4"},{"id":"rbi_maker","name":"타점 제조기","type":"batter","source":"scout","when":"scoring","boost":{"power":2,"contact":2,"eye":2},"desc":"득점권에서 파워·정확·선구 +2"},{"id":"ace","name":"에이스","type":"pitcher","source":"scout","when":"starter","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"선발 등판 시 구속·구위·제구·변화 +2"},{"id":"poker_face","name":"포커페이스","type":"pitcher","source":"scout","when":"scoring","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"득점권에서 구속·구위·제구·변화 +2"},{"id":"catcher_master","name":"안방마님","type":"batter","source":"training","when":"catcher","boost":{"defense":2,"mental":2},"desc":"포수 출장 시 수비·정신 +2"},{"id":"keystone_combo","name":"키스톤 콤비","type":"batter","source":"training","when":"middleInfield","boost":{"defense":2,"mental":2},"desc":"유격수·2루수 출장 시 수비·정신 +2"},{"id":"hot_corner","name":"핫코너","type":"batter","source":"training","when":"thirdbase","boost":{"defense":2,"mental":2},"desc":"3루수 출장 시 수비·정신 +2"},{"id":"flexible_catch","name":"유연한포구","type":"batter","source":"training","when":"firstbase","boost":{"defense":2,"mental":2},"desc":"1루수 출장 시 수비·정신 +2"},{"id":"outfield_ruler","name":"외야의지배자","type":"batter","source":"training","when":"outfield","boost":{"defense":2,"mental":2},"desc":"외야수 출장 시 수비·정신 +2"},{"id":"mental_focus","name":"정신집중","type":"batter","source":"training","when":"starterBatter","boost":{"mental":4},"desc":"선발 타자 출장 시 정신 +4"},{"id":"defense_focus","name":"디펜스","type":"batter","source":"training","when":"starterBatter","boost":{"defense":4},"desc":"선발 타자 출장 시 수비 +4"},{"id":"foreign_power_b","name":"용병파워","type":"batter","source":"training","when":"foreign","boost":{"mental":2,"defense":2},"desc":"외국인 타자 출장 시 정신·수비 +2"},{"id":"phoenix","name":"불사조","type":"batter","source":"training","when":"age40","boost":{"contact":1,"power":1,"eye":1,"speed":1},"desc":"40세 이상 시 정확·파워·선구·주력 +1"},{"id":"ironman_b","name":"아이언맨","type":"batter","source":"training","when":"age43","boost":{"contact":2,"power":2,"eye":2,"speed":2},"desc":"43세 이상 시 정확·파워·선구·주력 +2"},{"id":"late_chance_b","name":"와신상담","type":"batter","source":"training","when":"scoring","boost":{"contact":1,"power":1},"desc":"득점권에서 정확·파워 +1"},{"id":"cleanup_b","name":"클린업","type":"batter","source":"training","when":"cleanup","boost":{"power":1},"desc":"3·4·5번 타자로 출전 시 파워 +1"},{"id":"away_b","name":"타향살이","type":"batter","source":"training","when":"away","boost":{"contact":2,"power":2,"eye":2},"desc":"원정 경기에서 정확·파워·선구 +2"},{"id":"table_setter","name":"테이블세터","type":"batter","source":"training","when":"leadoff","boost":{"contact":1},"desc":"1·2번 타순에서 정확 +1"},{"id":"battle_mode_b","name":"전투모드","type":"batter","source":"training","when":"round99","boost":{"power":2},"desc":"정규시즌 99~119차전에서 파워 +2"},{"id":"iron_body_p","name":"강철체력","type":"pitcher","source":"training","when":"starter","boost":{"stamina":4},"desc":"선발 투수 등판 시 체력 +4"},{"id":"winning_starter","name":"필승선발","type":"pitcher","source":"training","when":"starter","boost":{"mental":2,"stamina":2},"desc":"선발 등판 시 정신·체력 +2"},{"id":"winning_relief","name":"필승계투","type":"pitcher","source":"training","when":"relief","boost":{"mental":2,"stamina":2},"desc":"중계 등판 시 정신·체력 +2"},{"id":"winning_closer","name":"필승마무리","type":"pitcher","source":"training","when":"closer","boost":{"mental":2,"stamina":2},"desc":"마무리 등판 시 정신·체력 +2"},{"id":"foreign_power_p","name":"용병파워","type":"pitcher","source":"training","when":"foreign","boost":{"mental":2,"stamina":2},"desc":"외국인 투수 등판 시 정신·체력 +2"},{"id":"ironman_p","name":"아이언맨","type":"pitcher","source":"training","when":"age43","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"43세 이상 시 구속·구위·제구·변화 +2"},{"id":"strong_waist","name":"강철허리","type":"pitcher","source":"training","when":"relief","boost":{"control":1,"break":1},"desc":"중계 등판 시 제구·변화 +1"},{"id":"positive_mind_p","name":"긍정적 마인드","type":"pitcher","source":"training","when":"scoring","boost":{"control":2},"desc":"득점권에서 제구 +2"},{"id":"late_chance_p","name":"와신상담","type":"pitcher","source":"training","when":"scoring","boost":{"stuff":1,"break":1,"control":1},"desc":"득점권에서 구위·변화·제구 +1"},{"id":"away_p","name":"타향살이","type":"pitcher","source":"training","when":"away","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"원정 경기에서 구속·구위·변화·제구 +2"},{"id":"battle_mode_p","name":"전투모드","type":"pitcher","source":"training","when":"round99","boost":{"control":2},"desc":"정규시즌 99~119차전에서 제구 +2"}];
 const SPECIAL_BY_ID=new Map(SPECIAL_ABILITIES.map(x=>[x.id,x]));
-
 function teamMatchStrength(c,ctx={}){
  const bats=(c.lineup||[]).map(id=>c.players.find(p=>p.id===id&&!p.isPitcher)).filter(Boolean).slice(0,9);
  const pitcher=c.players.find(p=>p.id===c.pitcher)||c.players.find(p=>p.isPitcher);
@@ -95,30 +66,33 @@ function rollScoutSpecials(p){
  const roll=crypto.randomInt(10000);
  const count=roll<50?3:roll<150?2:roll<450?1:0;
  if(!count)return [];
- const pool=SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')).map(x=>x.id);
+ const pool=SPECIAL_ABILITIES.filter(x=>x.source==='scout'&&x.type===(p.isPitcher?'pitcher':'batter')).map(x=>x.id);
  const chosen=[];
  for(let i=0;i<count;i++){const index=crypto.randomInt(pool.length);chosen.push(pool.splice(index,1)[0])}
  return chosen;
 }
 function specialCondition(p,when,ctx={}){
  switch(when){
-  case 'always':return true;
-  case 'leadoff':return Number.isInteger(ctx.battingIndex)&&ctx.battingIndex<2;
-  case 'cleanup':return Number.isInteger(ctx.battingIndex)&&ctx.battingIndex>=2&&ctx.battingIndex<=4;
-  case 'scoring':return ctx.scoringChance===true;
-  case 'home':return ctx.isHome===true;
-  case 'away':return ctx.isHome===false;
-  case 'young':return p.age<=25;
-  case 'veteran':return p.age>=35;
-  case 'catcher':return p.pos==='포수';
-  case 'middleInfield':return ['2루수','유격수'].includes(p.pos);
-  case 'outfield':return ['좌익수','중견수','우익수'].includes(p.pos);
-  case 'late':return ctx.late===true;
-  case 'foreign':return p.foreign===true;
-  case 'starter':return ctx.pitcherRole==='starter';
-  case 'relief':return ctx.pitcherRole==='relief';
-  case 'closer':return ctx.pitcherRole==='closer';
-  default:return false;
+ case 'always':return true;
+ case 'age43':return p.age>=43;
+ case 'age40':return p.age>=40;
+ case 'foreign':return p.foreign===true;
+ case 'home':return ctx.isHome===true;
+ case 'away':return ctx.isHome===false;
+ case 'scoring':return ctx.scoringChance===true;
+ case 'leadoff':return Number.isInteger(ctx.battingIndex)&&ctx.battingIndex<=1;
+ case 'cleanup':return Number.isInteger(ctx.battingIndex)&&ctx.battingIndex>=2&&ctx.battingIndex<=4;
+ case 'catcher':return p.pos==='포수';
+ case 'middleInfield':return ['2루수','유격수'].includes(p.pos);
+ case 'thirdbase':return p.pos==='3루수';
+ case 'firstbase':return p.pos==='1루수';
+ case 'outfield':return ['좌익수','중견수','우익수'].includes(p.pos);
+ case 'starterBatter':return !p.isPitcher&&Number.isInteger(ctx.battingIndex);
+ case 'starter':return ctx.pitcherRole==='starter';
+ case 'relief':return ctx.pitcherRole==='relief';
+ case 'closer':return ctx.pitcherRole==='closer';
+ case 'round99':return Number.isInteger(ctx.round)&&ctx.round>=99&&ctx.round<=119;
+ default:return false;
  }
 }
 function effectivePlayerStrength(p,ctx={}){
@@ -292,7 +266,7 @@ function leagueInfo(c,now=Date.now()){
  }
  // 120 hourly slots: Sun-Thu, one to two full rounds per hour, Fri rest.
  function slotTime(slot){return start+Math.floor(slot/24)*86400000+(slot%24)*3600000}
- function score(g){const a=byId[g.home],b=byId[g.away],key=[start,pool,g.round,g.home,g.away].join('|'),base=seedNum(key),base2=seedNum(key+'x'),ctx={scoringChance:seedNum(key+':scoring')<.48,late:seedNum(key+':late')<.35},ah=db.clubs.find(c=>c.id===a.id),bc=db.clubs.find(c=>c.id===b.id),powerA=ah?teamMatchStrength(ah,{...ctx,isHome:true}):a.strength,powerB=bc?teamMatchStrength(bc,{...ctx,isHome:false}):b.strength,aRun=Math.max(0,Math.round(3+(powerA-powerB)*.06+base*6-2)),bRun=Math.max(0,Math.round(3+(powerB-powerA)*.06+base2*6-2));return [aRun,bRun]}
+ function score(g){const a=byId[g.home],b=byId[g.away],key=[start,pool,g.round,g.home,g.away].join('|'),base=seedNum(key),base2=seedNum(key+'x'),ctx={scoringChance:seedNum(key+':scoring')<.48,late:seedNum(key+':late')<.35,round:g.round},ah=db.clubs.find(c=>c.id===a.id),bc=db.clubs.find(c=>c.id===b.id),powerA=ah?teamMatchStrength(ah,{...ctx,isHome:true}):a.strength,powerB=bc?teamMatchStrength(bc,{...ctx,isHome:false}):b.strength,aRun=Math.max(0,Math.round(3+(powerA-powerB)*.06+base*6-2)),bRun=Math.max(0,Math.round(3+(powerB-powerA)*.06+base2*6-2));return [aRun,bRun]}
  const completed=games.filter(g=>slotTime(g.slot)<=now);for(const g of completed){let [h,a]=score(g);let t1=byId[g.home],t2=byId[g.away];t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
  const next=games.find(g=>slotTime(g.slot)>now);
