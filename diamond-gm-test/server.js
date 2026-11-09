@@ -114,6 +114,8 @@ const BOT_NAMES=TEAMS.map(t=>t.name);
 function weekStart(now=Date.now()){const d=new Date(now+32400000);const day=d.getUTCDay();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day)-32400000}
 function seedNum(t){return parseInt(crypto.createHash('sha256').update(String(t)).digest('hex').slice(0,8),16)/4294967295}
 const LEAGUE_TIERS=[{"key":"rookie","name":"루키리그","average":45},{"key":"amateur","name":"아마추어리그","average":52},{"key":"semi-pro","name":"세미프로리그","average":59},{"key":"pro","name":"프로리그","average":66},{"key":"national","name":"내셔널리그","average":73},{"key":"elite","name":"엘리트리그","average":80},{"key":"master","name":"마스터리그","average":87},{"key":"champion","name":"챔피언리그","average":94}];
+const originalCash=[30000000,25000000,20000000,16000000,13000000,10000000,8000000,6000000,4000000,2000000];
+const originalCP=[50,40,32,25,20,16,12,9,7,5];
 const LEAGUE_REWARDS=LEAGUE_TIERS.map((tier,i)=>Array.from({length:10},(_,rank)=>({cash:Math.round(originalCash[rank]*(1+i*0.6)/1000000)*1000000,cp:Math.round(originalCP[rank]*(1+i*0.5))})));
 const tierNum=c=>Math.max(0,Math.min(LEAGUE_TIERS.length-1,Number(c.leagueTier)||0));
 function leagueMembers(c){
