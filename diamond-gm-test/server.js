@@ -2,9 +2,47 @@ const http=require('http'),fs=require('fs'),crypto=require('crypto');
 const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
 const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomUUID();const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const names1=['김','박','이','최','정','강','조','윤','장','임','한','오','서','신','권','황'],names2=['도현','성준','재원','민수','지훈','태영','현우','주원','준혁','승민','태준','지성','건우','동현','진우','정민'];
-function player(owner){const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];return {id:uid(),owner,name:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],year,pos,isPitcher:isP,grade:'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,37),games:0,avg:0,hr:0,era:0}}
-function ensurePlayer(p){if(!p)return p;if(!Number.isInteger(p.age)||p.age<17||p.age>50){const h=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.age=19+h[0]%20}if(!Number.isFinite(p.mental)){p.mental=Math.max(1,Math.min(99,Number(p.stamina)||55))}return p}
-for(const c of db.clubs||[]){for(const p of c.players||[])ensurePlayer(p);for(const h of c.scoutHistory||[])if(h.player)ensurePlayer(h.player)}for(const l of db.listings||[])ensurePlayer(l.player);
+function player(owner){const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];return {id:uid(),owner,name:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,37),games:0,avg:0,hr:0,era:0}}
+
+const STAT_KEYS=['contact','power','eye','speed','defense','mental'];
+const CAP=99.99;
+const statValue=n=>Math.min(CAP,Math.max(0,Math.round((Number(n)||0)*100)/100));
+function ensurePlayer(p,now=Date.now()){
+ if(!p)return p;
+ if(!Number.isInteger(p.age)||p.age<17){const h=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.age=19+h[0]%20}
+ if(!Number.isFinite(Number(p.mental)))p.mental=Number(p.stamina)||55;
+ for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]);
+ if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';
+ if(!Number.isFinite(p.lastGrowthWeek))p.lastGrowthWeek=weekStart(now);
+ return p;
+}
+function weeklyGrowth(p,now=Date.now()){
+ ensurePlayer(p,now);
+ const target=weekStart(now),weeks=Math.min(520,Math.max(0,Math.floor((target-p.lastGrowthWeek)/604800000)));
+ if(!weeks)return false;
+ const rankFactor={E:0.38,D:0.62,C:0.88,B:1.12,A:1.42}[p.grade]||0.38;
+ for(let i=0;i<weeks;i++){
+  p.age++;
+  const ageFactor=p.age<=22?1.4:p.age<=27?1.12:p.age<=31?0.85:p.age<=35?0.58:0.32;
+  for(const key of STAT_KEYS){
+    const uniform=parseInt(crypto.createHash('sha256').update(String(p.id)+':'+(p.lastGrowthWeek+i*604800000)+':'+key).digest('hex').slice(0,8),16)/4294967295;
+    const growth=Math.round((0.18+uniform*0.60)*rankFactor*ageFactor*100)/100;
+    p[key]=statValue(p[key]+growth);
+  }
+ }
+ p.lastGrowthWeek+=weeks*604800000;
+ return true;
+}
+function syncGrowth(now=Date.now()){
+ let changed=false;
+ const seen=new Set();
+ const sync=p=>{if(!p||seen.has(p.id))return;seen.add(p.id);changed=weeklyGrowth(p,now)||changed};
+ for(const c of db.clubs||[])for(const p of c.players||[])sync(p);
+ for(const l of db.listings||[])sync(l.player);
+ if(changed)save();
+}
+for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
+for(const l of db.listings||[])ensurePlayer(l.player);
 function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 function fix(c){const bat=c.players.filter(p=>!p.isPitcher),pitch=c.players.filter(p=>p.isPitcher);c.lineup=[...new Set((c.lineup||[]).filter(id=>bat.some(p=>p.id===id)))];for(const p of bat)if(c.lineup.length<9&&!c.lineup.includes(p.id))c.lineup.push(p.id);if(!pitch.some(p=>p.id===c.pitcher))c.pitcher=pitch[0]?.id||null}
 function save(){fs.writeFileSync(PATH,JSON.stringify(db))}
@@ -46,7 +84,7 @@ function leagueInfo(c,now=Date.now()){
  return {start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(({strength,...t})=>t),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
-const view=(u)=>({user:u?{id:u.id,username:u.username,teamId:u.teamId}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?'})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null});
+const view=(u)=>{syncGrowth();return ({user:u?{id:u.id,username:u.username,teamId:u.teamId}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?'})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -60,8 +98,8 @@ if(a.type==='logout'){sessions.delete(getCookie(req));return send(res,200,{user:
 if(!u)throw Error('로그인이 필요합니다');let c=db.clubs.find(x=>x.owner===u.id),result=null;
 if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);db.clubs.push(c)}
 else{if(!c)throw Error('구단을 먼저 창단하세요');
-if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
-else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!['power','contact','eye','speed','defense','mental'].includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=99)throw Error('최대 능력치');c.cash-=1000000;p[stat]=Math.min(99,p[stat]+rand(1,3));result={message:'훈련 성공! 능력치 '+p[stat]}}
+if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
+else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!['power','contact','eye','speed','defense','mental'].includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
 else if(a.type==='scout'){
 const contracts={basic:{label:'일반 스카우트',cost:5000000},pitcher:{label:'투수 전문 스카우트',cost:12000000},hitter:{label:'타자 전문 스카우트',cost:12000000},era:{label:'연도 지정 스카우트',cost:18000000},franchise:{label:'연고 구단 스카우트',cost:25000000}};
 const kind=String(a.kind||'basic'),contract=contracts[kind];
@@ -72,11 +110,11 @@ const p=player(u.id);
 if(kind==='pitcher'){p.isPitcher=true;p.pos=['선발','중계','마무리'][rand(0,2)]}
 if(kind==='hitter'){p.isPitcher=false;p.pos=['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)]}
 if(kind==='era'){const ranges={'2000':[2000,2009],'2010':[2010,2019],'2020':[2020,2026]},range=ranges[String(a.era||'')];if(!range)throw Error('스카우트 연도를 선택하세요');p.year=rand(range[0],range[1])}
-if(kind==='franchise'){p.originTeam=c.teamId||u.teamId||'twins';for(const stat of ['power','contact','eye','speed','defense','stamina'])p[stat]=Math.min(90,p[stat]+rand(2,8))}
+if(kind==='franchise'){p.originTeam=c.teamId||u.teamId||'twins';for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]+rand(2,8))}
 if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
 c.cash-=contract.cost;c.players.push(p);
 c.scoutHistory=Array.isArray(c.scoutHistory)?c.scoutHistory:[];
-c.scoutHistory.unshift({id:uid(),kind,label:contract.label,cost:contract.cost,player:{id:p.id,name:p.name,year:p.year,pos:p.pos,grade:p.grade,originTeam:p.originTeam,isPitcher:p.isPitcher,power:p.power,contact:p.contact,eye:p.eye,speed:p.speed,defense:p.defense,stamina:p.stamina,mental:p.mental,age:p.age},time:Date.now()});
+c.scoutHistory.unshift({id:uid(),kind,label:contract.label,cost:contract.cost,player:{id:p.id,name:p.name,year:p.year,pos:p.pos,grade:p.grade,originTeam:p.originTeam,isPitcher:p.isPitcher,power:p.power,contact:p.contact,eye:p.eye,speed:p.speed,defense:p.defense,stamina:p.stamina,mental:p.mental,age:p.age,lastGrowthWeek:p.lastGrowthWeek},time:Date.now()});
 c.scoutHistory=c.scoutHistory.slice(0,30);
 result={message:contract.label+' 성공 · '+p.year+' '+p.name+' 영입 완료',scouted:p};
 }
