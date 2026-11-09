@@ -44,7 +44,7 @@ function syncGrowth(now=Date.now()){
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
-function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
+function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueTier:0,lastSettledWeek:weekStart()-604800000,leagueHistory:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 function fix(c){const bat=c.players.filter(p=>!p.isPitcher),pitch=c.players.filter(p=>p.isPitcher);c.lineup=[...new Set((c.lineup||[]).filter(id=>bat.some(p=>p.id===id)))];for(const p of bat)if(c.lineup.length<9&&!c.lineup.includes(p.id))c.lineup.push(p.id);if(!pitch.some(p=>p.id===c.pitcher))c.pitcher=pitch[0]?.id||null}
 function save(){fs.writeFileSync(PATH,JSON.stringify(db))}
 function send(res,status,obj,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(obj))}
@@ -54,9 +54,22 @@ const TEAMS=[{"id":"twins","name":"서울 쌍둥이즈","city":"서울","symbol"
 const BOT_NAMES=TEAMS.map(t=>t.name);
 function weekStart(now=Date.now()){const d=new Date(now+32400000);const day=d.getUTCDay();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day)-32400000}
 function seedNum(t){return parseInt(crypto.createHash('sha256').update(String(t)).digest('hex').slice(0,8),16)/4294967295}
+const LEAGUE_TIERS=[{key:'rookie',name:'루키리그'},{key:'amateur',name:'아마추어리그'},{key:'pro',name:'프로리그'}];
+const LEAGUE_REWARDS=[
+[{cash:30000000,cp:50},{cash:25000000,cp:40},{cash:20000000,cp:32},{cash:16000000,cp:25},{cash:13000000,cp:20},{cash:10000000,cp:16},{cash:8000000,cp:12},{cash:6000000,cp:9},{cash:4000000,cp:7},{cash:2000000,cp:5}],
+[{cash:70000000,cp:100},{cash:60000000,cp:85},{cash:50000000,cp:70},{cash:42000000,cp:60},{cash:36000000,cp:50},{cash:30000000,cp:42},{cash:25000000,cp:35},{cash:20000000,cp:28},{cash:15000000,cp:20},{cash:10000000,cp:15}],
+[{cash:150000000,cp:180},{cash:125000000,cp:160},{cash:105000000,cp:140},{cash:90000000,cp:120},{cash:75000000,cp:100},{cash:60000000,cp:85},{cash:50000000,cp:70},{cash:40000000,cp:55},{cash:30000000,cp:40},{cash:20000000,cp:25}]
+];
+const tierNum=c=>Math.max(0,Math.min(2,Number(c.leagueTier)||0));
+function leagueMembers(c){
+ const tier=tierNum(c),teamId=c.teamId||TEAMS[0].id;
+ const teamMates=db.clubs.filter(x=>tierNum(x)===tier&&(x.teamId||TEAMS[0].id)===teamId);
+ const pool=Math.max(0,teamMates.findIndex(x=>x.id===c.id));
+ const real=TEAMS.map(t=>db.clubs.filter(x=>tierNum(x)===tier&&(x.teamId||TEAMS[0].id)===t.id)[pool]||null);
+ return {tier,pool,real};
+}
 function leagueInfo(c,now=Date.now()){
- const start=weekStart(now),teamId=c.teamId||TEAMS[0].id,allOfTeam=db.clubs.filter(x=>(x.teamId||TEAMS[0].id)===teamId),pool=Math.max(0,allOfTeam.findIndex(x=>x.id===c.id));
- const real=TEAMS.map(t=>db.clubs.filter(x=>(x.teamId||TEAMS[0].id)===t.id)[pool]||null);
+ const start=weekStart(now),{tier,pool,real}=leagueMembers(c);
  const members=TEAMS.map((t,i)=>real[i]?{id:real[i].id,name:t.name,real:true,club:real[i],teamId:t.id,ownerName:db.users.find(u=>u.id===real[i].owner)?.ownerName||db.users.find(u=>u.id===real[i].owner)?.username||'구단주'}:{id:'bot-'+pool+'-'+i,name:t.name,real:false,teamId:t.id,ownerName:'AI 감독'});
  const strength=m=>m.club?Math.round(m.club.players.reduce((s,p)=>s+(p.power+p.contact+p.eye+p.mental)/4,0)/Math.max(1,m.club.players.length)):52+(parseInt(m.id.slice(-1),10)||0)%15;
  const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,strength:strength(m),teamId:m.teamId,ownerName:m.ownerName}));
@@ -82,10 +95,42 @@ function leagueInfo(c,now=Date.now()){
    if(now>=semi[1].time)semi[1].score='4 : '+(Math.floor(seedNum(start+'semi1')*4));
    if(now>=start+6*86400000+20*3600000)postseason.push({label:'챔피언 결정전',home:top[0].name,away:top[1].name,homeTeamId:top[0].teamId,awayTeamId:top[1].teamId,homeOwnerName:top[0].ownerName,awayOwnerName:top[1].ownerName,score:'5 : 3',time:start+6*86400000+20*3600000});
  }
- return {start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(({strength,...t})=>t),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
+ return {tier,tierName:LEAGUE_TIERS[tier].name,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<2?2:0,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(({strength,...t})=>t),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
-const view=(u)=>{syncGrowth();return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?'})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
+function settleSeasons(now=Date.now()){
+ const activeStart=weekStart(now),previous=activeStart-604800000;
+ if(!db.clubs?.length)return;
+ for(const c of db.clubs){
+  if(!Number.isFinite(c.lastSettledWeek))c.lastSettledWeek=activeStart-604800000;
+  if(!Array.isArray(c.leagueHistory))c.leagueHistory=[];
+  if(!Number.isFinite(c.leagueTier))c.leagueTier=0;
+ }
+ // Resolve all weekly standings before applying any promotion; prevents mid-settlement membership changes.
+ for(let w=previous;w>=0;w-=604800000){
+  const pending=db.clubs.filter(c=>c.lastSettledWeek<w);
+  if(!pending.length)break;
+  const outcomes=pending.map(c=>{
+   const final=leagueInfo(c,w+6*86400000+23*3600000+59*60000);
+   const rank=final.standings.findIndex(x=>x.id===c.id)+1;
+   const tier=tierNum(c);
+   return {c,rank,tier,reward:LEAGUE_REWARDS[tier][rank-1]||LEAGUE_REWARDS[tier][9],promoted:rank>0&&rank<=2&&tier<2,week:w};
+  });
+  for(const o of outcomes){
+   const {c,rank,tier,reward,promoted,week}=o;
+   c.cash+=reward.cash;c.cp+=reward.cp;
+   c.leagueHistory.unshift({week,league:LEAGUE_TIERS[tier].name,rank,cash:reward.cash,cp:reward.cp,promoted,to:promoted?LEAGUE_TIERS[tier+1].name:null});
+   c.leagueHistory=c.leagueHistory.slice(0,20);
+   if(promoted)c.leagueTier=tier+1;
+   c.lastSettledWeek=week;
+  }
+  if(outcomes.length)save();
+  // Initialize any other clubs created during earlier weeks without fabricating rewards.
+  if(w<=Math.min(...db.clubs.map(c=>c.lastSettledWeek)))break;
+ }
+}
+
+const view=(u)=>{syncGrowth();settleSeasons();return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?'})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
