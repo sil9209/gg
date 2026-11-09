@@ -41,17 +41,28 @@ function initializeAvatarRegistry(){
  return changed;
 }
 
-const STAT_KEYS=['contact','power','eye','speed','defense','mental'];
+const BATTER_STAT_KEYS=['contact','power','eye','speed','mental','defense'];
+const PITCHER_STAT_KEYS=['velocity','stuff','control','break','mental','stamina'];
+const STAT_LABELS={contact:'정확',power:'파워',eye:'선구',speed:'주력',mental:'정신',defense:'수비',velocity:'구속',stuff:'구위',control:'제구',break:'변화',stamina:'체력'};
+const statKeys=p=>p.isPitcher?PITCHER_STAT_KEYS:BATTER_STAT_KEYS;
+const playerStrength=p=>statKeys(p).reduce((total,key)=>total+(Number(p[key])||0),0)/6;
 const CAP=99.99;
 const statValue=n=>Math.min(CAP,Math.max(0,Math.round((Number(n)||0)*100)/100));
 function ensurePlayer(p,now=Date.now()){
  if(!p)return p;
  if(!Number.isInteger(p.age)||p.age<17){const h=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.age=19+h[0]%20}
  if(!Number.isFinite(Number(p.mental)))p.mental=Number(p.stamina)||55;
- for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]);
+ if(p.isPitcher){
+  // Legacy cards have hitter attributes only. Migrate deterministically, retaining all earlier data.
+  for(const [target,source] of [['velocity','speed'],['stuff','power'],['control','contact'],['break','eye']]){
+   if(!Number.isFinite(Number(p[target])))p[target]=Number(p[source])||55;
+  }
+  if(!Number.isFinite(Number(p.stamina)))p.stamina=Number(p.defense)||55;
+ }
+ for(const stat of statKeys(p))p[stat]=statValue(p[stat]);
  if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);if(!p.avatarDNA||p.avatarVersion!==1)assignAvatarDNA(p);
  if(!Number.isFinite(p.lastGrowthWeek))p.lastGrowthWeek=weekStart(now);
- if(p.growthFocusSelected!==true){p.growthFocus=null;p.growthFocusSelected=false}else if(!STAT_KEYS.includes(p.growthFocus)){p.growthFocus=null;p.growthFocusSelected=false}
+ if(p.growthFocusSelected!==true){p.growthFocus=null;p.growthFocusSelected=false}else if(!statKeys(p).includes(p.growthFocus)){p.growthFocus=null;p.growthFocusSelected=false}
  if(!Number.isFinite(p.gameGrowthCount))p.gameGrowthCount=0;
  return p;
 }
@@ -73,7 +84,7 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
   if(p.age>=45)continue;
   // Game-wide development applies equally to all grades and to every rostered player.
   // Balanced: +0.02 per stat/game. Focus: selected stat +0.10, other five +0.01.
-  for(const key of STAT_KEYS){
+  for(const key of statKeys(p)){
    const multiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
    const basic=0.02*multiplier*count;
    p[key]=statValue(p[key]+basic);
@@ -83,7 +94,7 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
   if(active.has(p.id)&&!(p.grade==='A'&&p.age>=36)){
    const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12}[p.grade]||0.03;
    const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
-   for(const key of STAT_KEYS){
+   for(const key of statKeys(p)){
     const multiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
     const bonus=(gradeRate*ageRate/6)*multiplier*count;
     p[key]=statValue(p[key]+bonus);
@@ -184,7 +195,7 @@ function leagueMembers(c){
 function leagueInfo(c,now=Date.now()){
  const start=weekStart(now),{tier,pool,real}=leagueMembers(c);
  const members=TEAMS.map((t,i)=>real[i]?{id:real[i].id,name:t.name,real:true,club:real[i],teamId:t.id,ownerName:db.users.find(u=>u.id===real[i].owner)?.ownerName||db.users.find(u=>u.id===real[i].owner)?.username||'구단주'}:{id:'bot-'+pool+'-'+i,name:t.name,real:false,teamId:t.id,ownerName:'AI 감독'});
- const strength=m=>m.club?Math.round(m.club.players.reduce((s,p)=>s+(p.power+p.contact+p.eye+p.speed+p.defense+p.mental)/6,0)/Math.max(1,m.club.players.length)):(Math.max(20,Math.min(99,LEAGUE_TIERS[tier].average+(seedNum(start+':'+tier+':'+m.teamId+':'+pool)*12-6))));
+ const strength=m=>m.club?Math.round(m.club.players.reduce((s,p)=>s+playerStrength(p),0)/Math.max(1,m.club.players.length)):(Math.max(20,Math.min(99,LEAGUE_TIERS[tier].average+(seedNum(start+':'+tier+':'+m.teamId+':'+pool)*12-6))));
  const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,strength:strength(m),teamId:m.teamId,ownerName:m.ownerName}));
  const byId=Object.fromEntries(standings.map(t=>[t.id,t]));let order=[0,1,2,3,4,5,6,7,8,9],games=[],seasonIndex=0;
  for(let r=0;r<144;r++){
@@ -286,13 +297,13 @@ if(a.type==='setGrowthFocus'){
  const p=c.players.find(x=>x.id===a.id);
  if(!p)throw Error('선수를 찾을 수 없습니다');
  const focus=String(a.focus||'balanced');
- if(focus!=='balanced'&&!STAT_KEYS.includes(focus))throw Error('선택할 수 없는 집중 성장 능력치가 아닙니다');
+ if(focus!=='balanced'&&!statKeys(p).includes(focus))throw Error('선택할 수 없는 집중 성장 능력치가 아닙니다');
  p.growthFocusSelected=focus!=='balanced';
  p.growthFocus=p.growthFocusSelected?focus:null;
- result={message:p.name+' 성장 전략: '+(p.growthFocusSelected?({contact:'정확',power:'파워',eye:'선구',speed:'주력',defense:'수비',mental:'정신'}[p.growthFocus]+' 집중'):'균형 성장')+' 설정 완료'};
+ result={message:p.name+' 성장 전략: '+(p.growthFocusSelected?(STAT_LABELS[p.growthFocus]+' 집중'):'균형 성장')+' 설정 완료'};
 }
 else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
-else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!['power','contact','eye','speed','defense','mental'].includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
+else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!statKeys(p).includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
 else if(a.type==='scout'){
  const configs={
   basic:{label:'일반 스카우트',multiplier:1},
@@ -321,7 +332,8 @@ else if(a.type==='scout'){
  p.level=level;
  // Scouting level sets the starting ability band; growth grade is independent.
  const center=30+level*5.8;
- for(const stat of STAT_KEYS)p[stat]=statValue(center+(Math.random()-.5)*13);
+ ensurePlayer(p);
+ for(const stat of statKeys(p))p[stat]=statValue(center+(Math.random()-.5)*13);
  if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
  assignAvatarDNA(p);
  if(currency==='cash')c.cash-=cost;else c.cp-=cost;
@@ -417,7 +429,7 @@ else if(a.type==='friendly'){
  const bats=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),starter=c.players.find(p=>p.id===c.pitcher);
  if(!bats.length||!starter)throw Error('경기에 나갈 선수단을 지정하세요');
  const participating=[...bats,starter];
- const strength=p=>STAT_KEYS.reduce((sum,k)=>sum+(Number(p[k])||0),0)/STAT_KEYS.length*(.8+(p.condition||3)*.05);
+ const strength=p=>playerStrength(p)*(.8+(p.condition||3)*.05);
  const oursAvg=participating.reduce((sum,p)=>sum+strength(p),0)/participating.length;
  const ours=Math.max(0,Math.round(4+(oursAvg-enemyStrength)*.14+(Math.random()-.5)*6));
  const theirs=Math.max(0,Math.round(4+(enemyStrength-oursAvg)*.14+(Math.random()-.5)*6));
@@ -454,7 +466,7 @@ else if(a.type==='friendly'){
  c.friendlyHistory=Array.isArray(c.friendlyHistory)?c.friendlyHistory:[];c.friendlyHistory.unshift(entry);c.friendlyHistory=c.friendlyHistory.slice(0,20);
  result={message:'친선경기 '+(outcome==='win'?'승리':outcome==='loss'?'패배':'무승부'),friendly:entry};
 }
-else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}applyTeamGameGrowth(c,1,[...bat.map(x=>x.id),p?.id].filter(Boolean));result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
+else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.stuff+p.control+p.break+p.mental)/4:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}applyTeamGameGrowth(c,1,[...bat.map(x=>x.id),p?.id].filter(Boolean));result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
 else throw Error('알 수 없는 동작');}
 topUpAdminWallet(u,c);save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
 let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
