@@ -773,6 +773,14 @@ main.shell.layout{padding-top:30px!important}
 .gm-roster-modal-upgrade{flex-wrap:wrap}.gm-roster-modal-upgrade button{width:100%}
 }
 @media(prefers-reduced-motion:reduce){.gm-roster-modal-dialog{animation:none}}
+
+/* Position-specific roster: six accurate stats for hitters, six pitching stats for pitchers. */
+.gm-roster-position-tabs{display:flex;gap:8px;margin:0 0 16px;padding:4px;border:1px solid #d6e5f1;border-radius:12px;background:#e9f1f9;width:max-content;max-width:100%}
+.gm-roster-position-tabs button{display:flex;align-items:center;gap:10px;border:0;border-radius:9px;padding:10px 19px;color:#62809a;background:transparent;font-weight:900;font-size:13px;min-width:114px;justify-content:center;transition:background .15s}
+.gm-roster-position-tabs button span{font-size:11px;color:#91a6b7;font-weight:700}
+.gm-roster-position-tabs button.active{background:white;color:#256ba8;box-shadow:0 2px 8px #174b7520}
+.gm-roster-position-tabs button.active span{color:#5487b2}
+@media(max-width:550px){.gm-roster-position-tabs{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.gm-roster-position-tabs button{min-width:0;padding:10px 8px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1250,7 +1258,13 @@ if(tab==='friendly'){
  document.querySelectorAll('[data-drink]').forEach(b=>b.onclick=()=>api({type:'useDrink',id:b.dataset.drink}));
  return}
 if(tab==='roster'){
- el.innerHTML='<h2 class="sectiontitle">선수단 관리 <small class="muted">'+c.players.length+'/80</small></h2><div class="panel"><div class="toolbar"><input id="findPlayer" placeholder="선수명/연도/포지션 검색" value="'+esc(filter)+'"><select id="sortPlayer">'+[['overall','종합 능력치순'],['year','연도순'],['name','선수명순'],['pos','포지션순'],['grade','성장타입순'],...Object.entries(fieldNames).map(([k,v])=>[k,v+'순'])].map(([key,label])=>'<option value="'+key+'">'+label+'</option>').join('')+'</select><button type="button" id="scout">스카우트 센터</button></div><div class="gm-roster-sort-help">표의 <b>선수·연도·포지션·성장타입·종합·능력치</b> 제목을 클릭하면 오름차순/내림차순으로 정렬됩니다.</div><div id="rosterTable">'+table(getP(),true)+'</div></div>';
+ const batterCount=c.players.filter(p=>!p.isPitcher).length,pitcherCount=c.players.length-batterCount;
+ const options=[['overall','종합 능력치순'],['year','연도순'],['name','선수명순'],['pos','포지션순'],['grade','성장타입순'],...Object.entries(rosterView==='pitcher'?pitcherFieldNames:fieldNames).map(([k,v])=>[k,v+'순'])];
+ if(!options.some(([key])=>key===sort)){sort='overall';rosterSortDirection='desc'}
+ el.innerHTML='<h2 class="sectiontitle">선수단 관리 <small class="muted">'+c.players.length+'/80</small></h2>'+
+ '<div class="gm-roster-position-tabs" role="group" aria-label="타자 및 투수 선수단"><button type="button" data-roster-view="batter" class="'+(rosterView==='batter'?'active':'')+'">⚾ 타자 <span>'+batterCount+'명</span></button><button type="button" data-roster-view="pitcher" class="'+(rosterView==='pitcher'?'active':'')+'">🔥 투수 <span>'+pitcherCount+'명</span></button></div>'+
+ '<div class="panel"><div class="toolbar"><input id="findPlayer" placeholder="선수명/연도/포지션 검색" value="'+esc(filter)+'"><select id="sortPlayer">'+options.map(([key,label])=>'<option value="'+key+'">'+label+'</option>').join('')+'</select><button type="button" id="scout">스카우트 센터</button></div><div class="gm-roster-sort-help">각 능력치 제목을 클릭하면 내림차순(▼)과 오름차순(▲)으로 정렬됩니다.</div><div id="rosterTable">'+table(getP(),true)+'</div></div>';
+ document.querySelectorAll('[data-roster-view]').forEach(button=>button.onclick=()=>{const newView=button.dataset.rosterView;if(newView===rosterView)return;rosterView=newView;sort='overall';rosterSortDirection='desc';content()});
  document.getElementById('findPlayer').oninput=e=>{filter=e.target.value;refreshRosterTable()};
  document.getElementById('sortPlayer').value=sort;
  document.getElementById('sortPlayer').onchange=e=>{sort=e.target.value;rosterSortDirection=['name','pos'].includes(sort)?'asc':'desc';refreshRosterTable()};
