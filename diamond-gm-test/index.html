@@ -152,13 +152,19 @@ button.primary:hover,.primary:hover{background:var(--team-alt);border-color:var(
 @media(max-width:1090px){.team-picker{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:850px){.team-picker{grid-template-columns:repeat(3,minmax(0,1fr))}.auth-layout{grid-template-columns:1fr;max-width:590px;margin:24px auto}.auth-showcase{min-height:210px;padding:25px;display:grid;grid-template-columns:90px 1fr;column-gap:18px;align-items:center}.auth-showcase .team-crest{width:78px;height:86px;grid-row:1/4}.auth-showcase .crest-letter{font-size:40px}.auth-showcase-title{margin:0;font-size:23px}.auth-showcase p{font-size:13px;margin:0}.auth-showcase-desc{margin:0}}
 @media(max-width:600px){.team-page{padding-top:18px}.team-intro{margin-bottom:22px}.team-intro p{font-size:13px}.team-picker{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.team-choice{min-height:160px;padding:15px 8px}.team-choice .team-crest{width:58px;height:66px}.team-choice .crest-letter{font-size:28px}.team-choice .team-info strong{font-size:14px}.team-choice .team-info small{font-size:10px}.team-pick-arrow{font-size:10px}.auth-layout{gap:13px}.auth-modern{padding:22px}.auth-showcase{min-height:150px;padding:18px;grid-template-columns:65px 1fr}.auth-showcase .team-crest{width:59px;height:67px}.auth-showcase .crest-letter{font-size:31px}.auth-showcase-title{font-size:20px}.auth-showcase p{font-size:11px}.auth-showcase-desc{display:none}.header-team{font-size:12px}.header-team b{max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+
+/* Ensure each team accent also carries onto borders, cards and stadium UI */
+.team-choice:focus-visible{outline:3px solid var(--team-accent);outline-offset:3px}
+.stadium .stadium-overlay{background:linear-gradient(90deg,color-mix(in srgb,var(--team-accent) 51%,#0b273b) 0%,#183b5bbd 45%,transparent 100%)}
+.header-team .team-crest{margin-right:2px}
+@media(max-width:650px){.stats .pill{font-size:11px}.header-team{max-width:165px}.nav button.active{background:var(--team-accent)}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';const overall=p=>Math.round((p.power+p.contact+p.eye+p.speed+p.defense+p.stamina)/6);
 const fieldNames={power:'파워',contact:'정확',eye:'선구',speed:'주력',defense:'수비',stamina:'체력'};
 const g=p=>'<span class="grade '+esc(p.grade)+'">'+esc(p.grade)+'</span>';
 function toast(txt){document.querySelector('.msg')?.remove();let x=document.createElement('div');x.className='msg';x.textContent=txt;document.body.append(x);setTimeout(()=>x.remove(),3500)}
-async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');state=x;if(body.type==='logout')selectedTeam=null;if(x.result?.message)toast(x.result.message);render()}catch(e){toast(e.message)}}
+async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout')selectedTeam=null;if(x.result?.message)toast(x.result.message);render()}catch(e){toast(e.message)}}
 async function start(){try{state=await(await fetch('/api/state')).json()}catch(e){toast('서버에 연결할 수 없습니다')}render()}
 
 function chosenTeam(){return (state.teams||[]).find(t=>t.id===(state.club?.teamId||state.user?.teamId||selectedTeam))||null}
