@@ -1269,20 +1269,34 @@ function openShopEditor(item){
  if(!Number.isInteger(slot)||slot<1||slot>5)return;
  const overlay=document.createElement('div');
  overlay.className='gm-shop-editor-backdrop';overlay.id='gmShopEditor';
+ const kind=item.kind==='growthBooster'?'growthBooster':'sportsDrink';
  const name=item.name||'',desc=item.desc||'',icon=item.icon||'🥤';
  const price=Number(item.price)||1000000,quantity=Number(item.quantity)||10;
+ const cpKind=kind==='growthBooster';
  overlay.innerHTML='<section class="gm-shop-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="gmShopEditorTitle"><div class="gm-shop-editor-heading"><div><small>ADMIN / SHOP EDITOR</small><h2 id="gmShopEditorTitle">'+slot+'번 상품 관리</h2><p>상품 정보를 수정하고 판매 여부를 선택하세요.</p></div><button type="button" class="gm-shop-editor-close" aria-label="닫기">✕</button></div><form id="gmShopEditorForm"><div class="gm-shop-editor-fields">'+
  '<label>판매 상태<select name="active"><option value="active" '+(item.active?'selected':'')+'>판매 중</option><option value="coming" '+(!item.active?'selected':'')+'>입고중</option></select></label>'+
+ '<label>아이템 종류<select name="kind" id="gmShopItemKind"><option value="sportsDrink" '+(!cpKind?'selected':'')+'>🥤 스포츠음료 (게임머니)</option><option value="growthBooster" '+(cpKind?'selected':'')+'>🚀 성장부스터 (CP)</option></select></label>'+
  '<label>상품명<input name="productName" maxlength="40" required value="'+esc(name)+'" placeholder="예: 스포츠음료 20개"></label>'+
  '<label>상품 설명<textarea name="description" maxlength="160" rows="2" placeholder="상품 안내">'+esc(desc)+'</textarea></label>'+
  '<div class="gm-shop-editor-dual"><label>상품 아이콘<input name="icon" maxlength="10" required value="'+esc(icon)+'" placeholder="🥤"></label><label>지급 수량 (개)<input name="quantity" type="number" min="1" max="10000" step="1" value="'+quantity+'" required></label></div>'+
- '<label>판매 가격 (게임머니)<input name="price" type="number" min="1000" max="1000000000" step="1" value="'+price+'" required></label></div>'+
- '<p class="gm-shop-editor-notice">현재 판매 효과는 스포츠음료 지급입니다. 판매 중으로 저장하면 모든 구단주가 구매할 수 있습니다.</p>'+
+ '<label><span id="gmShopPriceLabel">판매 가격 ('+(cpKind?'CP':'게임머니')+')</span><input name="price" type="number" min="'+(cpKind?1:1000)+'" max="'+(cpKind?100000:1000000000)+'" step="1" value="'+price+'" required></label></div>'+
+ '<p class="gm-shop-editor-notice">성장부스터는 선수를 성장타입 S로 만들며, S타입의 성장량은 A타입의 2배입니다. 아이템은 라인업에서 사용합니다.</p>'+
  '<div class="gm-shop-editor-actions"><button type="button" id="gmShopClear" class="gm-shop-clear">비우기</button><button type="button" class="gm-shop-editor-close">취소</button><button type="submit" class="gm-shop-editor-save">저장하기</button></div></form></section>';
  document.body.appendChild(overlay);
  overlay.querySelectorAll('.gm-shop-editor-close').forEach(btn=>btn.onclick=closeShopEditor);
  overlay.addEventListener('click',event=>{if(event.target===overlay)closeShopEditor()});
  const form=overlay.querySelector('#gmShopEditorForm');
+ const kindSelect=form.elements.namedItem('kind'),priceInput=form.elements.namedItem('price');
+ kindSelect.onchange=()=>{
+  const boost=kindSelect.value==='growthBooster';
+  const wasBoost=!boost;
+  priceInput.min=boost?'1':'1000';
+  priceInput.max=boost?'100000':'1000000000';
+  priceInput.value=boost?'20':'1000000';
+  form.querySelector('#gmShopPriceLabel').textContent='판매 가격 ('+(boost?'CP':'게임머니')+')';
+  if(!form.elements.namedItem('productName').value.trim())form.elements.namedItem('productName').value=boost?'성장부스터':'스포츠음료';
+  if(form.elements.namedItem('icon').value==='🥤'||form.elements.namedItem('icon').value==='🚀')form.elements.namedItem('icon').value=boost?'🚀':'🥤';
+ };
  const send=async data=>{
   const btns=[...form.querySelectorAll('button')];btns.forEach(b=>b.disabled=true);
   const result=await api(data,{skipRender:true});
@@ -1292,12 +1306,10 @@ function openShopEditor(item){
  form.onsubmit=event=>{
   event.preventDefault();
   const elements=form.elements;
-  send({type:'shopSave',slot,active:elements.namedItem('active').value==='active',
-   name:elements.namedItem('productName').value,
-   desc:elements.namedItem('description').value,
-   icon:elements.namedItem('icon').value,
-   quantity:Number(elements.namedItem('quantity').value),
-   price:Number(elements.namedItem('price').value)});
+  send({type:'shopSave',slot,active:elements.namedItem('active').value==='active',kind:kindSelect.value,
+   name:elements.namedItem('productName').value,desc:elements.namedItem('description').value,
+   icon:elements.namedItem('icon').value,quantity:Number(elements.namedItem('quantity').value),
+   price:Number(priceInput.value)});
  };
  overlay.querySelector('#gmShopClear').onclick=()=>{
   if(confirm(slot+'번 상품을 비우고 입고중으로 변경하시겠습니까?'))send({type:'shopSave',slot,reset:true});
@@ -1310,16 +1322,18 @@ let scoutCurrency='cash';
 function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='shop'){
  const admin=state.user?.isAdmin===true;
  const offers=Array.from({length:5},(_,i)=>state.shopItems?.find(item=>item.id==='slot'+(i+1))||{id:'slot'+(i+1),active:false});
- el.innerHTML='<div class="gm-shop-header"><div><span class="gm-shop-eyebrow">DIAMOND GM / TEAM STORE</span><h2>🛒 구단 상점</h2><p>게임머니로 아이템을 구매하고 선수의 컨디션을 관리하세요.</p></div><div class="gm-shop-wallet"><small>보유 게임머니</small><strong>'+money(c.cash)+'</strong><span>🥤 스포츠음료 '+(c.sportsDrinks||0)+'개 보유</span></div></div>'+
- '<div class="gm-shop-tip"><span>ⓘ</span> 스포츠음료 1개로 선수 한 명의 컨디션을 한 단계 상승시킬 수 있습니다. 사용은 친선경기 화면에서 가능합니다.</div>'+
+ const shopPrice=item=>item.kind==='growthBooster'?Number(item.price||0).toLocaleString('ko-KR')+' CP':money(item.price);
+ const canBuy=item=>(item.kind==='growthBooster'?c.cp:c.cash)>=Number(item.price||0);
+ el.innerHTML='<div class="gm-shop-header"><div><span class="gm-shop-eyebrow">DIAMOND GM / TEAM STORE</span><h2>🛒 구단 상점</h2><p>게임머니와 CP로 아이템을 구매하고 라인업에서 사용하세요.</p></div><div class="gm-shop-wallet"><small>보유 게임머니</small><strong>'+money(c.cash)+'</strong><span>🥤 스포츠음료 '+(c.sportsDrinks||0)+'개 · 🚀 성장부스터 '+(c.growthBoosters||0)+'개</span></div></div>'+
+ '<div class="gm-shop-tip"><span>ⓘ</span> 스포츠음료는 컨디션 +1단계, 성장부스터는 선수의 성장타입을 S로 만듭니다. 두 아이템 모두 라인업에서 사용하세요.</div>'+
  (admin?'<div class="gm-shop-admin-help"><b>⚙️ 관리자 상품 편집</b><span>각 상품의 수정 버튼을 누르거나 ‘입고중’ 칸을 클릭해 상품을 등록하세요. 설정한 상품은 모든 회원에게 적용됩니다.</span></div>':'')+
  '<div class="gm-shop-grid">'+offers.map(item=>item.active?
- '<article class="gm-shop-card"><div class="gm-shop-art">'+(admin?'<button type="button" class="gm-shop-edit" data-shop-edit="'+item.id+'">✎ 수정</button>':'')+'<span class="gm-shop-product-icon">'+esc(item.icon||'🥤')+'</span><span>'+Number(item.quantity||0)+'개</span></div><div class="gm-shop-body"><h3>'+esc(item.name||'상품')+'</h3><p>'+esc(item.desc||'')+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+money(item.price)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+item.id+'" '+(c.cash<item.price?'disabled':'')+'>'+(c.cash<item.price?'게임머니 부족':'구매하기')+'</button></div></article>':
+ '<article class="gm-shop-card"><div class="gm-shop-art">'+(admin?'<button type="button" class="gm-shop-edit" data-shop-edit="'+item.id+'">✎ 수정</button>':'')+'<span class="gm-shop-product-icon">'+esc(item.icon||'🥤')+'</span><span>'+Number(item.quantity||0)+'개</span></div><div class="gm-shop-body"><h3>'+esc(item.name||'상품')+'</h3><p>'+esc(item.desc||'')+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+shopPrice(item)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+item.id+'" '+(!canBuy(item)?'disabled':'')+'>'+(!canBuy(item)?(item.kind==='growthBooster'?'CP 부족':'게임머니 부족'):'구매하기')+'</button></div></article>':
  '<article class="gm-shop-card gm-shop-coming">'+(admin?'<button type="button" class="gm-shop-coming-trigger" data-shop-edit="'+item.id+'" aria-label="'+item.id+' 상품 등록">입고중</button>':'<span>입고중</span>')+'</article>').join('')+'</div>'+
- '<div class="gm-shop-footer"><div><b>🥤 스포츠음료 사용하기</b><p>친선경기 메뉴의 컨디션 관리에서 선수에게 사용하세요.</p></div><button type="button" id="gmShopUse">친선경기 이동</button></div>';
- document.querySelectorAll('[data-shop-buy]').forEach(btn=>btn.onclick=()=>{const item=offers.find(x=>x.id===btn.dataset.shopBuy);if(!item?.active)return;if(confirm(item.name+'를 '+money(item.price)+'에 구매하시겠습니까?'))api({type:'shopBuy',item:item.id})});
+ '<div class="gm-shop-footer"><div><b>🥤 🚀 보유 아이템 사용하기</b><p>라인업의 타순 편성 화면에서 선수를 지정해 사용하세요.</p></div><button type="button" id="gmShopUse">라인업 이동</button></div>';
+ document.querySelectorAll('[data-shop-buy]').forEach(btn=>btn.onclick=()=>{const item=offers.find(x=>x.id===btn.dataset.shopBuy);if(!item?.active)return;if(confirm(item.name+'를 '+shopPrice(item)+'에 구매하시겠습니까?'))api({type:'shopBuy',item:item.id})});
  if(admin)document.querySelectorAll('[data-shop-edit]').forEach(btn=>btn.onclick=()=>openShopEditor(offers.find(x=>x.id===btn.dataset.shopEdit)));
- document.getElementById('gmShopUse').onclick=()=>{tab='friendly';root()};
+ document.getElementById('gmShopUse').onclick=()=>{tab='lineup';lineupMode='batter';root()};
  return
 }
 if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(c.name)+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
