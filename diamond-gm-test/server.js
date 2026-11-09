@@ -16,25 +16,52 @@ function ensurePlayer(p,now=Date.now()){
  for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]);
  if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);
  if(!Number.isFinite(p.lastGrowthWeek))p.lastGrowthWeek=weekStart(now);
+ if(!STAT_KEYS.includes(p.growthFocus)){const hash=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.growthFocus=STAT_KEYS[hash[0]%STAT_KEYS.length]}
+ if(!Number.isFinite(p.gameGrowthCount))p.gameGrowthCount=0;
  return p;
 }
 function weeklyGrowth(p,now=Date.now()){
  ensurePlayer(p,now);
  const target=weekStart(now),weeks=Math.min(520,Math.max(0,Math.floor((target-p.lastGrowthWeek)/604800000)));
  if(!weeks)return false;
- const rankFactor={E:0.38,D:0.62,C:0.88,B:1.12,A:1.42}[p.grade]||0.38;
- for(let i=0;i<weeks;i++){
-  if(p.age>=45)break;
-  p.age++;
-  const ageFactor=p.age<=22?1.4:p.age<=27?1.12:p.age<=31?0.85:p.age<=35?0.58:0.32;
-  for(const key of STAT_KEYS){
-    const uniform=parseInt(crypto.createHash('sha256').update(String(p.id)+':'+(p.lastGrowthWeek+i*604800000)+':'+key).digest('hex').slice(0,8),16)/4294967295;
-    const growth=Math.round((0.18+uniform*0.60)*rankFactor*ageFactor*100)/100;
-    p[key]=statValue(p[key]+growth);
-  }
- }
+ p.age=Math.min(45,p.age+weeks);
  p.lastGrowthWeek+=weeks*604800000;
  return true;
+}
+// Every owned player receives identical, grade-independent basic development
+// per team game, including players outside both starting and bench lists.
+function applyTeamGameGrowth(c,count=1,activeIds=[]){
+ if(!Number.isInteger(count)||count<1)return;
+ const active=new Set(activeIds);
+ for(const p of c.players){
+  ensurePlayer(p);
+  if(p.age>=45)continue;
+  p[p.growthFocus]=statValue(p[p.growthFocus]+0.02*count);
+  p.gameGrowthCount+=count;
+  if(active.has(p.id)){
+   if(p.grade==='A'&&p.age>=36)continue;
+   const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12}[p.grade]||0.03;
+   const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
+   const focus=p.isPitcher?'mental':'contact';
+   p[focus]=statValue(p[focus]+gradeRate*ageRate*count);
+  }
+ }
+}
+function creditLeagueGames(now=Date.now()){
+ const week=weekStart(now);
+ let changed=false;
+ for(const c of db.clubs||[]){
+  if(c.growthLeagueWeek!==week){c.growthLeagueWeek=week;c.growthLeagueCredited=0;changed=true}
+  const played=Math.max(0,Math.min(144,Math.floor(leagueInfo(c,now).completedRounds||0)));
+  const difference=played-(Number(c.growthLeagueCredited)||0);
+  if(difference>0){
+   const participants=[...(c.lineup||[]),c.pitcher].filter(Boolean);
+   applyTeamGameGrowth(c,difference,participants);
+   c.growthLeagueCredited=played;
+   changed=true;
+  }
+ }
+ if(changed)save();
 }
 function syncGrowth(now=Date.now()){
  let changed=false;
@@ -158,7 +185,7 @@ function settleSeasons(now=Date.now()){
  }
 }
 
-const view=(u)=>{syncGrowth();settleSeasons();return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?'})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?'})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -259,11 +286,12 @@ else if(a.type==='friendly'){
   p.condition=Math.max(1,Math.min(5,before+delta));
   playerStats.push({id:p.id,name:p.name,position:p.pos,summary,before,after:p.condition,delta:p.condition-before});
  }
+ applyTeamGameGrowth(c,1,participating.map(p=>p.id));
  const entry={time:Date.now(),tier,opponent:opposition.name,enemyStrength:Number(enemyStrength.toFixed(2)),ours,theirs,outcome,cash,cp,drinks,playerStats};
  c.friendlyHistory=Array.isArray(c.friendlyHistory)?c.friendlyHistory:[];c.friendlyHistory.unshift(entry);c.friendlyHistory=c.friendlyHistory.slice(0,20);
  result={message:'친선경기 '+(outcome==='win'?'승리':outcome==='loss'?'패배':'무승부'),friendly:entry};
 }
-else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
+else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}applyTeamGameGrowth(c,1,[...bat.map(x=>x.id),p?.id].filter(Boolean));result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
 else throw Error('알 수 없는 동작');}
 save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
 let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
