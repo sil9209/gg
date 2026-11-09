@@ -4,7 +4,42 @@ const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomU
 const names1=['김','박','이','최','정','강','조','윤','장','임','한','오','서','신','권','황'],names2=['도현','성준','재원','민수','지훈','태영','현우','주원','준혁','승민','태준','지성','건우','동현','진우','정민'];
 const foreignFirst=['알렉스','데이비드','마이클','카를로스','루이스','호세','윌리엄','제이슨','로버트','타일러','마르코','에릭','다니엘','브랜든','케빈','앤서니'];
 const foreignLast=['로드리게스','존슨','윌슨','가르시아','마르티네스','스미스','로페즈','브라운','곤잘레스','리베라','톰슨','밀러','산체스','워커','페레즈'];
-function player(owner){const foreign=Math.random()<.22;const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];return {id:uid(),owner,name:foreign?foreignFirst[rand(0,foreignFirst.length-1)]+' '+foreignLast[rand(0,foreignLast.length-1)]:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0}}
+function player(owner){const foreign=Math.random()<.22;const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];const p={id:uid(),owner,name:foreign?foreignFirst[rand(0,foreignFirst.length-1)]+' '+foreignLast[rand(0,foreignLast.length-1)]:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0};assignAvatarDNA(p);return p}
+
+
+const AVATAR_TRAITS={faceShape:7,skinTone:10,hairStyle:14,hairColor:8,eyeShape:7,eyeSize:6,eyeSpacing:6,eyebrowShape:7,noseShape:8,mouthShape:8,jawShape:6,beardStyle:7,feature:8};
+const avatarSignatures=new Set();
+function avatarSignature(d){return Object.keys(AVATAR_TRAITS).map(key=>d[key]).join(':')}
+function assignAvatarDNA(p){
+ if(!p)return;
+ if(p.avatarDNA&&p.avatarVersion===1)return;
+ // Each candidate is derived from immutable player ID, not a transient random draw.
+ // Existing player migration and future recruits use the same collision registry.
+ for(let attempt=0;attempt<500;attempt++){
+  const digest=crypto.createHash('sha512').update(String(p.id)+':diamond-avatar:v1:'+attempt).digest();
+  const dna={};let i=0;
+  for(const [key,count] of Object.entries(AVATAR_TRAITS))dna[key]=digest[i++]%count;
+  if(p.foreign&&dna.skinTone<2)dna.skinTone=(dna.skinTone+2)%10;
+  const signature=avatarSignature(dna);
+  if(avatarSignatures.has(signature))continue;
+  avatarSignatures.add(signature);
+  p.avatarDNA=dna;p.avatarVersion=1;p.avatarSeed=digest.readUInt32BE(24);
+  return;
+ }
+ throw Error('새 선수 얼굴 조합을 생성할 수 없습니다');
+}
+function initializeAvatarRegistry(){
+ const all=[...(db.clubs||[]).flatMap(c=>[...(c.players||[]),...(c.retiredPlayers||[])]),...(db.listings||[]).map(l=>l.player)];
+ const seenPlayers=new Set();let changed=false;
+ for(const p of all){
+  if(!p||seenPlayers.has(p.id))continue;seenPlayers.add(p.id);
+  if(p.avatarDNA&&p.avatarVersion===1&&!avatarSignatures.has(avatarSignature(p.avatarDNA))){
+   avatarSignatures.add(avatarSignature(p.avatarDNA));continue;
+  }
+  p.avatarDNA=null;p.avatarVersion=0;assignAvatarDNA(p);changed=true;
+ }
+ return changed;
+}
 
 const STAT_KEYS=['contact','power','eye','speed','defense','mental'];
 const CAP=99.99;
@@ -14,7 +49,7 @@ function ensurePlayer(p,now=Date.now()){
  if(!Number.isInteger(p.age)||p.age<17){const h=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.age=19+h[0]%20}
  if(!Number.isFinite(Number(p.mental)))p.mental=Number(p.stamina)||55;
  for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]);
- if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);
+ if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);if(!p.avatarDNA||p.avatarVersion!==1)assignAvatarDNA(p);
  if(!Number.isFinite(p.lastGrowthWeek))p.lastGrowthWeek=weekStart(now);
  if(!STAT_KEYS.includes(p.growthFocus)){const hash=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.growthFocus=STAT_KEYS[hash[0]%STAT_KEYS.length]}
  if(!Number.isFinite(p.gameGrowthCount))p.gameGrowthCount=0;
@@ -76,6 +111,7 @@ function syncGrowth(now=Date.now()){
  const oldCount=db.listings.length;db.listings=db.listings.filter(l=>l.player.age<45);if(db.listings.length!==oldCount)changed=true;
  if(changed)save();
 }
+initializeAvatarRegistry();
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
@@ -215,9 +251,10 @@ if(kind==='hitter'){p.isPitcher=false;p.pos=['포수','1루수','2루수','3루�
 if(kind==='era'){const ranges={'2000':[2000,2009],'2010':[2010,2019],'2020':[2020,2026]},range=ranges[String(a.era||'')];if(!range)throw Error('스카우트 연도를 선택하세요');p.year=rand(range[0],range[1])}
 if(kind==='franchise'){p.originTeam=c.teamId||u.teamId||'twins';for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]+rand(2,8))}
 if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
+assignAvatarDNA(p);
 c.cash-=contract.cost;c.players.push(p);
 c.scoutHistory=Array.isArray(c.scoutHistory)?c.scoutHistory:[];
-c.scoutHistory.unshift({id:uid(),kind,label:contract.label,cost:contract.cost,player:{id:p.id,name:p.name,year:p.year,pos:p.pos,grade:p.grade,originTeam:p.originTeam,isPitcher:p.isPitcher,power:p.power,contact:p.contact,eye:p.eye,speed:p.speed,defense:p.defense,stamina:p.stamina,mental:p.mental,age:p.age,lastGrowthWeek:p.lastGrowthWeek},time:Date.now()});
+c.scoutHistory.unshift({id:uid(),kind,label:contract.label,cost:contract.cost,player:{avatarDNA:p.avatarDNA,avatarVersion:p.avatarVersion,foreign:p.foreign,id:p.id,name:p.name,year:p.year,pos:p.pos,grade:p.grade,originTeam:p.originTeam,isPitcher:p.isPitcher,power:p.power,contact:p.contact,eye:p.eye,speed:p.speed,defense:p.defense,stamina:p.stamina,mental:p.mental,age:p.age,lastGrowthWeek:p.lastGrowthWeek},time:Date.now()});
 c.scoutHistory=c.scoutHistory.slice(0,30);
 result={message:contract.label+' 성공 · '+p.year+' '+p.name+' 영입 완료',scouted:p};
 }
@@ -296,4 +333,5 @@ else if(a.type==='friendly'){
 else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}applyTeamGameGrowth(c,1,[...bat.map(x=>x.id),p?.id].filter(Boolean));result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
 else throw Error('알 수 없는 동작');}
 save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
-let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
+let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'public, max-age=300'});res.end(data)});
+if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
