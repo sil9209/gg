@@ -60,7 +60,7 @@ function ensurePlayer(p,now=Date.now()){
   if(!Number.isFinite(Number(p.stamina)))p.stamina=Number(p.defense)||55;
  }
  for(const stat of statKeys(p))p[stat]=statValue(p[stat]);
- if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);if(!p.avatarDNA||p.avatarVersion!==1)assignAvatarDNA(p);
+ if(!['E','D','C','B','A','S'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);if(!p.avatarDNA||p.avatarVersion!==1)assignAvatarDNA(p);
  if(!Number.isFinite(p.lastGrowthWeek))p.lastGrowthWeek=weekStart(now);
  if(p.growthFocusSelected!==true){p.growthFocus=null;p.growthFocusSelected=false}else if(!statKeys(p).includes(p.growthFocus)){p.growthFocus=null;p.growthFocusSelected=false}
  if(!Number.isFinite(p.gameGrowthCount))p.gameGrowthCount=0;
@@ -86,13 +86,13 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
   // Balanced: +0.02 per stat/game. Focus: selected stat +0.10, other five +0.01.
   for(const key of statKeys(p)){
    const multiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
-   const basic=0.02*multiplier*count;
+   const basic=0.02*(p.grade==='S'?2:1)*multiplier*count;
    p[key]=statValue(p[key]+basic);
   }
   p.gameGrowthCount+=count;
   // On-field bonus still respects grade/age constraints, but follows the same allocation.
   if(active.has(p.id)&&!(p.grade==='A'&&p.age>=36)){
-   const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12}[p.grade]||0.03;
+   const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12,S:0.24}[p.grade]||0.03;
    const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
    for(const key of statKeys(p)){
     const multiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
@@ -135,7 +135,7 @@ initializeAvatarRegistry();
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
-function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueTier:0,lastSettledWeek:weekStart()-604800000,leagueHistory:[],sportsDrinks:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
+function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueTier:0,lastSettledWeek:weekStart()-604800000,leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 const DEFENSE_POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'];
 const DEFENSE_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 function fix(c){
@@ -272,12 +272,18 @@ function topUpAdminWallet(u,c){
 const DEFAULT_SHOP_CATALOG=[
  {id:'slot1',active:true,kind:'sportsDrink',name:'스포츠음료 10개',desc:'선수 컨디션을 한 단계 올리는 회복 아이템',icon:'🥤',quantity:10,price:1000000},
  {id:'slot2',active:true,kind:'sportsDrink',name:'스포츠음료 50개',desc:'선수단 전체 컨디션 관리를 위한 묶음 상품',icon:'📦',quantity:50,price:4000000},
- {id:'slot3',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000},
+ {id:'slot3',active:true,kind:'growthBooster',name:'성장부스터',desc:'선수 1명의 성장타입을 S로 승급 · A타입 대비 성장 속도 2배',icon:'🚀',quantity:1,price:20},
  {id:'slot4',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000},
  {id:'slot5',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000}
 ];
 function shopCatalog(){
  if(!Array.isArray(db.shopCatalog)||db.shopCatalog.length!==5)db.shopCatalog=DEFAULT_SHOP_CATALOG.map(x=>({...x}));
+ // Upgrade existing five-slot catalogs in place; preserve previously edited items where possible.
+ if(!db.shopCatalog.some(item=>item.kind==='growthBooster'&&item.active)){
+  let index=db.shopCatalog.findIndex((item,i)=>i>=2&&item.active!==true&&!String(item.name||'').trim());
+  if(index<0)index=2;
+  db.shopCatalog[index]={...DEFAULT_SHOP_CATALOG[2],id:'slot'+(index+1)};
+ }
  return db.shopCatalog;
 }
 function shopPublicCatalog(user){
@@ -326,7 +332,7 @@ if(a.type==='setGrowthFocus'){
  result={message:p.name+' 성장 전략: '+(p.growthFocusSelected?(STAT_LABELS[p.growthFocus]+' 집중'):'균형 성장')+' 설정 완료'};
 }
 else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
-else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!statKeys(p).includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
+else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!statKeys(p).includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2,S:2.4}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
 else if(a.type==='scout'){
  const configs={
   basic:{label:'일반 스카우트',multiplier:1},
@@ -428,26 +434,49 @@ else if(a.type==='shopSave'){
  const current=shopCatalog()[slot-1];
  const reset=a.reset===true;
  if(reset){
-  db.shopCatalog[slot-1]={...DEFAULT_SHOP_CATALOG[slot-1],active:false};
+  db.shopCatalog[slot-1]={id:current.id,active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000};
  }else{
+  const kind=String(a.kind||current.kind||'sportsDrink');
+  if(!['sportsDrink','growthBooster'].includes(kind))throw Error('등록할 수 없는 상품 종류입니다');
   const name=cleanShopText(a.name,40,active),desc=cleanShopText(a.desc,160),icon=cleanShopText(a.icon,5,active);
   const price=Number(a.price),quantity=Number(a.quantity);
-  if(!Number.isSafeInteger(price)||price<1000||price>1000000000)throw Error('가격은 1,000원~10억원 사이의 정수로 입력하세요');
+  const minPrice=kind==='growthBooster'?1:1000,maxPrice=kind==='growthBooster'?100000:1000000000;
+  if(!Number.isSafeInteger(price)||price<minPrice||price>maxPrice)throw Error('가격 범위: 성장부스터 1~100,000 CP / 스포츠음료 1,000~10억원');
   if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000)throw Error('수량은 1~10,000개 사이의 정수로 입력하세요');
-  db.shopCatalog[slot-1]={id:current.id,active,kind:'sportsDrink',name,desc,icon,quantity,price};
+  db.shopCatalog[slot-1]={id:current.id,active,kind,name,desc,icon,quantity,price};
  }
  result={message:slot+'번 상품이 '+(db.shopCatalog[slot-1].active?'판매 중으로 저장':'입고중으로 저장')+'되었습니다'};
 }
 else if(a.type==='shopBuy'){
  const offer=shopCatalog().find(x=>x.id===String(a.item||'')&&x.active===true);
- if(!offer||offer.kind!=='sportsDrink')throw Error('판매 중인 상품이 아닙니다');
- if(!Number.isSafeInteger(offer.price)||offer.price<1000)throw Error('상품 가격이 올바르지 않습니다');
- if(!Number.isFinite(c.cash)||c.cash<offer.price)throw Error('보유 게임머니가 부족합니다');
- if(!Number.isSafeInteger(c.sportsDrinks||0)||c.sportsDrinks<0)throw Error('보유 상품 정보가 올바르지 않습니다');
- if(c.sportsDrinks+offer.quantity>999999)throw Error('스포츠음료 최대 보관 수량을 초과했습니다');
- c.cash-=offer.price;
- c.sportsDrinks=(c.sportsDrinks||0)+offer.quantity;
+ if(!offer||!['sportsDrink','growthBooster'].includes(offer.kind))throw Error('판매 중인 상품이 아닙니다');
+ const cpItem=offer.kind==='growthBooster';
+ if(!Number.isSafeInteger(offer.price)||offer.price<(cpItem?1:1000))throw Error('상품 가격이 올바르지 않습니다');
+ if(!Number.isSafeInteger(offer.quantity)||offer.quantity<1)throw Error('상품 수량이 올바르지 않습니다');
+ if(cpItem){
+  if(!Number.isFinite(c.cp)||c.cp<offer.price)throw Error('보유 CP가 부족합니다');
+  if(!Number.isSafeInteger(c.growthBoosters||0)||c.growthBoosters<0)throw Error('보유 부스터 정보가 올바르지 않습니다');
+  if((c.growthBoosters||0)+offer.quantity>999999)throw Error('성장부스터 보관 한도를 초과했습니다');
+  c.cp-=offer.price;
+  c.growthBoosters=(c.growthBoosters||0)+offer.quantity;
+ }else{
+  if(!Number.isFinite(c.cash)||c.cash<offer.price)throw Error('보유 게임머니가 부족합니다');
+  if(!Number.isSafeInteger(c.sportsDrinks||0)||c.sportsDrinks<0)throw Error('보유 음료 정보가 올바르지 않습니다');
+  if((c.sportsDrinks||0)+offer.quantity>999999)throw Error('스포츠음료 보관 한도를 초과했습니다');
+  c.cash-=offer.price;
+  c.sportsDrinks=(c.sportsDrinks||0)+offer.quantity;
+ }
  result={message:offer.name+' 구매 완료',purchasedItem:offer.id,quantity:offer.quantity};
+}
+else if(a.type==='useGrowthBooster'){
+ const p=c.players.find(x=>x.id===String(a.id||''));
+ if(!p)throw Error('구단에 소속된 선수가 아닙니다');
+ ensurePlayer(p);
+ if(p.grade==='S')throw Error('이미 성장타입 S인 선수입니다');
+ if(!Number.isSafeInteger(c.growthBoosters||0)||(c.growthBoosters||0)<1)throw Error('성장부스터가 부족합니다');
+ c.growthBoosters--;
+ p.grade='S';
+ result={message:p.name+' 선수 성장타입 S 달성! A타입 대비 2배 성장'};
 }
 else if(a.type==='useDrink'){
  const p=c.players.find(p=>p.id===a.id);if(!p)throw Error('선수가 없습니다');
