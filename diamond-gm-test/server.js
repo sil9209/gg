@@ -45,6 +45,81 @@ const BATTER_STAT_KEYS=['contact','power','eye','speed','mental','defense'];
 const PITCHER_STAT_KEYS=['velocity','stuff','control','break','mental','stamina'];
 const STAT_LABELS={contact:'정확',power:'파워',eye:'선구',speed:'주력',mental:'정신',defense:'수비',velocity:'구속',stuff:'구위',control:'제구',break:'변화',stamina:'체력'};
 const statKeys=p=>p.isPitcher?PITCHER_STAT_KEYS:BATTER_STAT_KEYS;
+
+/* Original DIAMOND GM scout-born special abilities.
+ * Only the server rolls for slots. This roll is intentionally absent from the UI/API. */
+const SPECIAL_ABILITIES=[
+ {id:'leadoff_instinct',name:'선두 본능',type:'batter',when:'leadoff',desc:'1·2번 타순에서 정확 +3, 선구 +2',boost:{contact:3,eye:2}},
+ {id:'cleanup_drive',name:'중심타선',type:'batter',when:'cleanup',desc:'3~5번 타순에서 파워 +4',boost:{power:4}},
+ {id:'precise_swing',name:'정밀 타격',type:'batter',when:'always',desc:'출장 시 정확 +3',boost:{contact:3}},
+ {id:'deep_fly',name:'장타 감각',type:'batter',when:'always',desc:'출장 시 파워 +3',boost:{power:3}},
+ {id:'runner_chance',name:'찬스 집중',type:'batter',when:'scoring',desc:'득점권에서 정확 +3, 정신 +2',boost:{contact:3,mental:2}},
+ {id:'away_fighter',name:'원정 투지',type:'batter',when:'away',desc:'원정 경기에서 정확 +2, 파워 +2',boost:{contact:2,power:2}},
+ {id:'home_hero',name:'홈의 활력',type:'batter',when:'home',desc:'홈 경기에서 정확 +2, 선구 +2',boost:{contact:2,eye:2}},
+ {id:'young_runner',name:'신예 질주',type:'batter',when:'young',desc:'25세 이하 출장 시 주력 +4',boost:{speed:4}},
+ {id:'veteran_focus',name:'노련한 타석',type:'batter',when:'veteran',desc:'35세 이상 출장 시 정확 +2, 정신 +3',boost:{contact:2,mental:3}},
+ {id:'catcher_leader',name:'안방 지휘',type:'batter',when:'catcher',desc:'포수 출장 시 수비 +3, 정신 +2',boost:{defense:3,mental:2}},
+ {id:'middle_defense',name:'내야 연결',type:'batter',when:'middleInfield',desc:'2루수·유격수 출장 시 수비 +3, 정신 +2',boost:{defense:3,mental:2}},
+ {id:'outfield_guard',name:'외야 수호',type:'batter',when:'outfield',desc:'외야수 출장 시 수비 +3, 주력 +2',boost:{defense:3,speed:2}},
+ {id:'late_bat',name:'후반 집중',type:'batter',when:'late',desc:'7회 이후 정확 +2, 파워 +2',boost:{contact:2,power:2}},
+ {id:'import_power',name:'적응력',type:'batter',when:'foreign',desc:'외국인 타자 출장 시 파워 +2, 선구 +2',boost:{power:2,eye:2}},
+ {id:'starter_command',name:'선발의 중심',type:'pitcher',when:'starter',desc:'선발 등판 시 구위 +2, 제구 +2',boost:{stuff:2,control:2}},
+ {id:'bullpen_stability',name:'불펜 안정',type:'pitcher',when:'relief',desc:'중계 등판 시 구위 +3, 정신 +2',boost:{stuff:3,mental:2}},
+ {id:'closer_grit',name:'마지막 문턱',type:'pitcher',when:'closer',desc:'마무리 등판 시 구속 +2, 구위 +3',boost:{velocity:2,stuff:3}},
+ {id:'pinpoint',name:'정교한 제구',type:'pitcher',when:'always',desc:'등판 시 제구 +3',boost:{control:3}},
+ {id:'breaking_ball',name:'변화구 감각',type:'pitcher',when:'always',desc:'등판 시 변화 +3',boost:{break:3}},
+ {id:'fastball_specialist',name:'강속구 승부',type:'pitcher',when:'always',desc:'등판 시 구속 +3',boost:{velocity:3}},
+ {id:'home_pitch',name:'안방 마운드',type:'pitcher',when:'home',desc:'홈 경기 등판 시 제구 +2, 구위 +2',boost:{control:2,stuff:2}},
+ {id:'away_pitch',name:'원정 집중',type:'pitcher',when:'away',desc:'원정 등판 시 구속 +2, 정신 +2',boost:{velocity:2,mental:2}},
+ {id:'young_arm',name:'젊은 어깨',type:'pitcher',when:'young',desc:'25세 이하 등판 시 구속 +3, 체력 +2',boost:{velocity:3,stamina:2}},
+ {id:'veteran_pitch',name:'베테랑 운영',type:'pitcher',when:'veteran',desc:'35세 이상 등판 시 제구 +3, 정신 +2',boost:{control:3,mental:2}},
+ {id:'crisis_control',name:'위기 제어',type:'pitcher',when:'scoring',desc:'득점권에서 구위 +2, 제구 +3',boost:{stuff:2,control:3}},
+ {id:'late_pitch',name:'종반 철벽',type:'pitcher',when:'late',desc:'7회 이후 등판 시 변화 +2, 정신 +2',boost:{break:2,mental:2}},
+ {id:'foreign_mound',name:'낯선 구질',type:'pitcher',when:'foreign',desc:'외국인 투수 등판 시 구속 +2, 구위 +2',boost:{velocity:2,stuff:2}}
+];
+const SPECIAL_BY_ID=new Map(SPECIAL_ABILITIES.map(x=>[x.id,x]));
+function rollScoutSpecials(p){
+ const roll=crypto.randomInt(10000);
+ const count=roll<50?3:roll<150?2:roll<450?1:0;
+ if(!count)return [];
+ const pool=SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')).map(x=>x.id);
+ const chosen=[];
+ for(let i=0;i<count;i++){const index=crypto.randomInt(pool.length);chosen.push(pool.splice(index,1)[0])}
+ return chosen;
+}
+function specialCondition(p,when,ctx={}){
+ switch(when){
+  case 'always':return true;
+  case 'leadoff':return Number.isInteger(ctx.battingIndex)&&ctx.battingIndex<2;
+  case 'cleanup':return Number.isInteger(ctx.battingIndex)&&ctx.battingIndex>=2&&ctx.battingIndex<=4;
+  case 'scoring':return ctx.scoringChance===true;
+  case 'home':return ctx.isHome===true;
+  case 'away':return ctx.isHome===false;
+  case 'young':return p.age<=25;
+  case 'veteran':return p.age>=35;
+  case 'catcher':return p.pos==='포수';
+  case 'middleInfield':return ['2루수','유격수'].includes(p.pos);
+  case 'outfield':return ['좌익수','중견수','우익수'].includes(p.pos);
+  case 'late':return ctx.late===true;
+  case 'foreign':return p.foreign===true;
+  case 'starter':return ctx.pitcherRole==='starter';
+  case 'relief':return ctx.pitcherRole==='relief';
+  case 'closer':return ctx.pitcherRole==='closer';
+  default:return false;
+ }
+}
+function effectivePlayerStrength(p,ctx={}){
+ const values=Object.fromEntries(statKeys(p).map(key=>[key,Number(p[key])||0]));
+ const activated=[];
+ for(const id of p.specialAbilities||[]){
+  const trait=SPECIAL_BY_ID.get(id);
+  if(!trait||trait.type!==(p.isPitcher?'pitcher':'batter')||!specialCondition(p,trait.when,ctx))continue;
+  for(const [stat,boost] of Object.entries(trait.boost))if(stat in values)values[stat]=Math.min(CAP,values[stat]+boost);
+  activated.push({id:trait.id,name:trait.name});
+ }
+ return {strength:Object.values(values).reduce((a,b)=>a+b,0)/6,activated};
+}
+
 const playerStrength=p=>statKeys(p).reduce((total,key)=>total+(Number(p[key])||0),0)/6;
 const CAP=99.99;
 const statValue=n=>Math.min(CAP,Math.max(0,Math.round((Number(n)||0)*100)/100));
@@ -60,6 +135,8 @@ function ensurePlayer(p,now=Date.now()){
   if(!Number.isFinite(Number(p.stamina)))p.stamina=Number(p.defense)||55;
  }
  for(const stat of statKeys(p))p[stat]=statValue(p[stat]);
+ if(!Array.isArray(p.specialAbilities))p.specialAbilities=[];
+ p.specialAbilities=[...new Set(p.specialAbilities)].filter(id=>SPECIAL_BY_ID.get(id)?.type===(p.isPitcher?'pitcher':'batter')).slice(0,3);
  if(!['E','D','C','B','A','S'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);if(!p.avatarDNA||p.avatarVersion!==1)assignAvatarDNA(p);
  if(!Number.isFinite(p.lastGrowthWeek))p.lastGrowthWeek=weekStart(now);
  if(p.growthFocusSelected!==true){p.growthFocus=null;p.growthFocusSelected=false}else if(!statKeys(p).includes(p.growthFocus)){p.growthFocus=null;p.growthFocusSelected=false}
@@ -297,7 +374,7 @@ function cleanShopText(value,length,required=false){
  return text;
 }
 
-const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,shopItems:shopPublicCatalog(u),teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,when,desc})=>({id,name,type,when,desc})),shopItems:shopPublicCatalog(u),teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -366,6 +443,7 @@ else if(a.type==='scout'){
  for(const stat of statKeys(p))p[stat]=statValue(center+(Math.random()-.5)*13);
  if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
  assignAvatarDNA(p);
+ p.specialAbilities=rollScoutSpecials(p);
  if(currency==='cash')c.cash-=cost;else c.cp-=cost;
  c.scoutHistory=Array.isArray(c.scoutHistory)?c.scoutHistory:[];
  const scoutRecordId=uid();
