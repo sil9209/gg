@@ -795,6 +795,22 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 .player-profile-card{max-width:calc(100vw - 32px);overflow-x:hidden;scrollbar-gutter:stable}
 .gm-profile-growth-picker label{min-width:0}
 @media(max-width:650px){.gm-roster-modal-dialog,.player-profile-card{max-width:calc(100vw - 16px)}}
+
+/* Team store: five equal product slots on desktop. Three unavailable slots display text only. */
+.gm-shop-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:13px;align-items:stretch}
+.gm-shop-card{display:flex;flex-direction:column;min-width:0}
+.gm-shop-art{height:122px;gap:8px;font-size:37px;min-width:0;flex-wrap:wrap}
+.gm-shop-art span{font-size:12px;padding:5px 8px}
+.gm-shop-body{display:flex;flex:1;flex-direction:column;padding:15px 13px}
+.gm-shop-body h3{font-size:14px;line-height:1.4}
+.gm-shop-body p{font-size:11px;line-height:1.5;min-height:48px;margin:0 0 12px}
+.gm-shop-check{margin-top:auto;padding:10px 0;flex-wrap:wrap}
+.gm-shop-check b{font-size:13px}
+.gm-shop-buy{margin-top:4px;font-size:12px}
+.gm-shop-coming{display:flex;align-items:center;justify-content:center;background:#f3f6fa;border:1px dashed #cedce9;min-height:300px;box-shadow:none}
+.gm-shop-coming span{font-size:17px;font-weight:850;letter-spacing:.03em;color:#9babbb}
+@media(max-width:1100px){.gm-shop-grid{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+@media(max-width:650px){.gm-shop-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px}.gm-shop-art{height:100px;font-size:30px}.gm-shop-body{padding:11px 9px}.gm-shop-body h3{font-size:12px}.gm-shop-body p{font-size:10px;min-height:45px}.gm-shop-check b{font-size:12px}.gm-shop-coming{min-height:260px}.gm-shop-coming span{font-size:14px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1222,7 +1238,7 @@ function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(
  {id:'drink50',icon:'📦',name:'스포츠음료 50개',desc:'선수단 전체 컨디션 관리를 위한 묶음 상품',qty:50,price:4000000}];
  el.innerHTML='<div class="gm-shop-header"><div><span class="gm-shop-eyebrow">DIAMOND GM / TEAM STORE</span><h2>🛒 구단 상점</h2><p>게임머니로 아이템을 구매하고 선수의 컨디션을 관리하세요.</p></div><div class="gm-shop-wallet"><small>보유 게임머니</small><strong>'+money(c.cash)+'</strong><span>🥤 스포츠음료 '+(c.sportsDrinks||0)+'개 보유</span></div></div>'+
  '<div class="gm-shop-tip"><span>ⓘ</span> 스포츠음료 1개로 선수 한 명의 컨디션을 한 단계 상승시킬 수 있습니다. 사용은 친선경기 화면에서 가능합니다.</div>'+
- '<div class="gm-shop-grid">'+offers.map(offer=>'<article class="gm-shop-card"><div class="gm-shop-art">'+offer.icon+'<span>'+offer.qty+'개</span></div><div class="gm-shop-body"><h3>'+offer.name+'</h3><p>'+offer.desc+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+money(offer.price)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+offer.id+'" '+(c.cash<offer.price?'disabled':'')+'>'+(c.cash<offer.price?'게임머니 부족':'구매하기')+'</button></div></article>').join('')+'</div>'+
+ '<div class="gm-shop-grid">'+offers.map(offer=>'<article class="gm-shop-card"><div class="gm-shop-art">'+offer.icon+'<span>'+offer.qty+'개</span></div><div class="gm-shop-body"><h3>'+offer.name+'</h3><p>'+offer.desc+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+money(offer.price)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+offer.id+'" '+(c.cash<offer.price?'disabled':'')+'>'+(c.cash<offer.price?'게임머니 부족':'구매하기')+'</button></div></article>').join('')+Array.from({length:3},()=>'<article class="gm-shop-card gm-shop-coming" aria-label="입고중"><span>입고중</span></article>').join('')+'</div>'+
  '<div class="gm-shop-footer"><div><b>🥤 스포츠음료 사용하기</b><p>친선경기 메뉴의 컨디션 관리에서 선수에게 사용하세요.</p></div><button type="button" id="gmShopUse">친선경기 이동</button></div>';
  document.querySelectorAll('[data-shop-buy]').forEach(btn=>btn.onclick=()=>{const item=offers.find(x=>x.id===btn.dataset.shopBuy);if(!item)return;if(confirm(item.name+'를 '+money(item.price)+'에 구매하시겠습니까?'))api({type:'shopBuy',item:item.id})});
  document.getElementById('gmShopUse').onclick=()=>{tab='friendly';root()};
