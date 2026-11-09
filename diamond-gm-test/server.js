@@ -78,6 +78,19 @@ const SPECIAL_ABILITIES=[
  {id:'foreign_mound',name:'낯선 구질',type:'pitcher',when:'foreign',desc:'외국인 투수 등판 시 구속 +2, 구위 +2',boost:{velocity:2,stuff:2}}
 ];
 const SPECIAL_BY_ID=new Map(SPECIAL_ABILITIES.map(x=>[x.id,x]));
+
+function teamMatchStrength(c,ctx={}){
+ const bats=(c.lineup||[]).map(id=>c.players.find(p=>p.id===id&&!p.isPitcher)).filter(Boolean).slice(0,9);
+ const pitcher=c.players.find(p=>p.id===c.pitcher)||c.players.find(p=>p.isPitcher);
+ const lineup=[...bats,...(pitcher?[pitcher]:[])];
+ if(!lineup.length)return c.players.reduce((sum,p)=>sum+playerStrength(p),0)/Math.max(1,c.players.length);
+ return lineup.reduce((sum,p,index)=>{
+  const role=p.isPitcher?(p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'):null;
+  const effect=effectivePlayerStrength(p,{...ctx,battingIndex:p.isPitcher?null:index,pitcherRole:role});
+  return sum+effect.strength*(.8+(p.condition||3)*.05);
+ },0)/lineup.length;
+}
+
 function rollScoutSpecials(p){
  const roll=crypto.randomInt(10000);
  const count=roll<50?3:roll<150?2:roll<450?1:0;
@@ -269,7 +282,7 @@ function leagueMembers(c){
 function leagueInfo(c,now=Date.now()){
  const start=weekStart(now),{tier,pool,real}=leagueMembers(c);
  const members=TEAMS.map((t,i)=>real[i]?{id:real[i].id,name:t.name,real:true,club:real[i],teamId:t.id,ownerName:db.users.find(u=>u.id===real[i].owner)?.ownerName||db.users.find(u=>u.id===real[i].owner)?.username||'구단주'}:{id:'bot-'+pool+'-'+i,name:t.name,real:false,teamId:t.id,ownerName:'AI 감독'});
- const strength=m=>m.club?Math.round(m.club.players.reduce((s,p)=>s+playerStrength(p),0)/Math.max(1,m.club.players.length)):(Math.max(20,Math.min(99,LEAGUE_TIERS[tier].average+(seedNum(start+':'+tier+':'+m.teamId+':'+pool)*12-6))));
+ const strength=m=>m.club?Math.round(teamMatchStrength(m.club,{isHome:true,scoringChance:false,late:false})):(Math.max(20,Math.min(99,LEAGUE_TIERS[tier].average+(seedNum(start+':'+tier+':'+m.teamId+':'+pool)*12-6))));
  const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,strength:strength(m),teamId:m.teamId,ownerName:m.ownerName}));
  const byId=Object.fromEntries(standings.map(t=>[t.id,t]));let order=[0,1,2,3,4,5,6,7,8,9],games=[],seasonIndex=0;
  for(let r=0;r<144;r++){
@@ -279,7 +292,7 @@ function leagueInfo(c,now=Date.now()){
  }
  // 120 hourly slots: Sun-Thu, one to two full rounds per hour, Fri rest.
  function slotTime(slot){return start+Math.floor(slot/24)*86400000+(slot%24)*3600000}
- function score(g){const a=byId[g.home],b=byId[g.away],key=[start,pool,g.round,g.home,g.away].join('|'),base=seedNum(key),base2=seedNum(key+'x'),aRun=Math.max(0,Math.round(3+(a.strength-b.strength)*.06+base*6-2)),bRun=Math.max(0,Math.round(3+(b.strength-a.strength)*.06+base2*6-2));return [aRun,bRun]}
+ function score(g){const a=byId[g.home],b=byId[g.away],key=[start,pool,g.round,g.home,g.away].join('|'),base=seedNum(key),base2=seedNum(key+'x'),ctx={scoringChance:seedNum(key+':scoring')<.48,late:seedNum(key+':late')<.35},ah=db.clubs.find(c=>c.id===a.id),bc=db.clubs.find(c=>c.id===b.id),powerA=ah?teamMatchStrength(ah,{...ctx,isHome:true}):a.strength,powerB=bc?teamMatchStrength(bc,{...ctx,isHome:false}):b.strength,aRun=Math.max(0,Math.round(3+(powerA-powerB)*.06+base*6-2)),bRun=Math.max(0,Math.round(3+(powerB-powerA)*.06+base2*6-2));return [aRun,bRun]}
  const completed=games.filter(g=>slotTime(g.slot)<=now);for(const g of completed){let [h,a]=score(g);let t1=byId[g.home],t2=byId[g.away];t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
  const next=games.find(g=>slotTime(g.slot)>now);
@@ -575,7 +588,12 @@ else if(a.type==='friendly'){
  const bats=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),starter=c.players.find(p=>p.id===c.pitcher);
  if(!bats.length||!starter)throw Error('경기에 나갈 선수단을 지정하세요');
  const participating=[...bats,starter];
- const strength=p=>playerStrength(p)*(.8+(p.condition||3)*.05);
+ const gameConditions={isHome:true,scoringChance:Math.random()<.48,late:Math.random()<.35};
+ const playerEffects=new Map(participating.map((p,index)=>{
+  const pitcherRole=p.isPitcher?(p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'):null;
+  return [p.id,effectivePlayerStrength(p,{...gameConditions,battingIndex:p.isPitcher?null:index,pitcherRole})];
+ }));
+ const strength=p=>playerEffects.get(p.id).strength*(.8+(p.condition||3)*.05);
  const oursAvg=participating.reduce((sum,p)=>sum+strength(p),0)/participating.length;
  const ours=Math.max(0,Math.round(4+(oursAvg-enemyStrength)*.14+(Math.random()-.5)*6));
  const theirs=Math.max(0,Math.round(4+(enemyStrength-oursAvg)*.14+(Math.random()-.5)*6));
@@ -605,14 +623,14 @@ else if(a.type==='friendly'){
   }
   p.games=(p.games||0)+1;
   p.condition=Math.max(1,Math.min(5,before+delta));
-  playerStats.push({id:p.id,name:p.name,position:p.pos,summary,before,after:p.condition,delta:p.condition-before});
+  playerStats.push({id:p.id,name:p.name,position:p.pos,summary,before,after:p.condition,delta:p.condition-before,activatedAbilities:playerEffects.get(p.id)?.activated||[]});
  }
  applyTeamGameGrowth(c,1,participating.map(p=>p.id));
  const entry={time:Date.now(),tier,opponent:opposition.name,enemyStrength:Number(enemyStrength.toFixed(2)),ours,theirs,outcome,cash,cp,drinks,playerStats};
  c.friendlyHistory=Array.isArray(c.friendlyHistory)?c.friendlyHistory:[];c.friendlyHistory.unshift(entry);c.friendlyHistory=c.friendlyHistory.slice(0,20);
  result={message:'친선경기 '+(outcome==='win'?'승리':outcome==='loss'?'패배':'무승부'),friendly:entry};
 }
-else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.stuff+p.control+p.break+p.mental)/4:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}applyTeamGameGrowth(c,1,[...bat.map(x=>x.id),p?.id].filter(Boolean));result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
+else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),context={isHome:true,scoringChance:Math.random()<.48,late:Math.random()<.35},off=bat.reduce((sum,x,index)=>sum+effectivePlayerStrength(x,{...context,battingIndex:index}).strength,0)/Math.max(1,bat.length),def=p?effectivePlayerStrength(p,{...context,pitcherRole:p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'}).strength:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}applyTeamGameGrowth(c,1,[...bat.map(x=>x.id),p?.id].filter(Boolean));result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
 else throw Error('알 수 없는 동작');}
 topUpAdminWallet(u,c);save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
 let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
