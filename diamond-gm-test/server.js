@@ -251,26 +251,43 @@ else{if(!c)throw Error('구단을 먼저 창단하세요');
 if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
 else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!['power','contact','eye','speed','defense','mental'].includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
 else if(a.type==='scout'){
-const contracts={basic:{label:'일반 스카우트',cost:5000000},pitcher:{label:'투수 전문 스카우트',cost:12000000},hitter:{label:'타자 전문 스카우트',cost:12000000},era:{label:'연도 지정 스카우트',cost:18000000},franchise:{label:'연고 구단 스카우트',cost:25000000}};
-const kind=String(a.kind||'basic'),contract=contracts[kind];
-if(!contract)throw Error('선택할 수 없는 스카우트 유형입니다');
-if(c.pendingScout?.player)throw Error('먼저 기존 스카우트 결과에서 영입 또는 방출을 선택하세요');
-if(c.players.length>=80)throw Error('선수단 최대 80명입니다');
-if(c.cash<contract.cost)throw Error('스카우트 비용이 부족합니다');
-const p=player(u.id);
-if(kind==='pitcher'){p.isPitcher=true;p.pos=['선발','중계','마무리'][rand(0,2)]}
-if(kind==='hitter'){p.isPitcher=false;p.pos=['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)]}
-if(kind==='era'){const ranges={'2000':[2000,2009],'2010':[2010,2019],'2020':[2020,2026]},range=ranges[String(a.era||'')];if(!range)throw Error('스카우트 연도를 선택하세요');p.year=rand(range[0],range[1])}
-if(kind==='franchise'){p.originTeam=c.teamId||u.teamId||'twins';for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]+rand(2,8))}
-if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
-assignAvatarDNA(p);
-c.cash-=contract.cost;
-c.scoutHistory=Array.isArray(c.scoutHistory)?c.scoutHistory:[];
-const scoutRecordId=uid();
-c.pendingScout={id:scoutRecordId,player:p,time:Date.now(),kind};
-c.scoutHistory.unshift({id:scoutRecordId,status:'pending',kind,label:contract.label,cost:contract.cost,player:{avatarDNA:p.avatarDNA,avatarVersion:p.avatarVersion,foreign:p.foreign,id:p.id,name:p.name,year:p.year,pos:p.pos,grade:p.grade,originTeam:p.originTeam,isPitcher:p.isPitcher,power:p.power,contact:p.contact,eye:p.eye,speed:p.speed,defense:p.defense,stamina:p.stamina,mental:p.mental,age:p.age,lastGrowthWeek:p.lastGrowthWeek},time:Date.now()});
-c.scoutHistory=c.scoutHistory.slice(0,30);
-result={message:contract.label+'에서 선수를 발견했습니다. 영입 또는 방출을 선택하세요.',scouted:p};
+ const configs={
+  basic:{label:'일반 스카우트',multiplier:1},
+  era:{label:'연도별 스카우트',multiplier:2},
+  hitter:{label:'타자 전용 스카우트',multiplier:2},
+  pitcher:{label:'투수 전용 스카우트',multiplier:2}
+ };
+ const kind=String(a.kind||'basic'),currency=String(a.currency||'cash'),config=configs[kind];
+ if(!config)throw Error('선택할 수 없는 스카우트 유형입니다');
+ if(!['cash','cp'].includes(currency))throw Error('결제 수단을 선택하세요');
+ if(c.pendingScout?.player)throw Error('먼저 스카우트 결과에서 영입 또는 방출을 결정하세요');
+ if(c.players.length>=80)throw Error('선수단 최대 80명입니다');
+ const cost=currency==='cash'?10000000*config.multiplier:5*config.multiplier;
+ if(currency==='cash'&&c.cash<cost)throw Error('스카우트 자금이 부족합니다');
+ if(currency==='cp'&&c.cp<cost)throw Error('스카우트 CP가 부족합니다');
+ let range=null;
+ if(kind==='era'){
+  const ranges={'2000':[2000,2009],'2010':[2010,2019],'2020':[2020,2026]};
+  range=ranges[String(a.era||'')];if(!range)throw Error('스카우트 연도를 선택하세요');
+ }
+ const roll=Math.random(),level=currency==='cash'?(roll<.50?5:roll<.80?6:roll<.95?7:8):(roll<.50?7:roll<.80?8:roll<.95?9:10);
+ const p=player(u.id);
+ if(kind==='pitcher'){p.isPitcher=true;p.pos=['선발','중계','마무리'][rand(0,2)]}
+ if(kind==='hitter'){p.isPitcher=false;p.pos=['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)]}
+ if(range)p.year=rand(range[0],range[1]);
+ p.level=level;
+ // Scouting level sets the starting ability band; growth grade is independent.
+ const center=30+level*5.8;
+ for(const stat of STAT_KEYS)p[stat]=statValue(center+(Math.random()-.5)*13);
+ if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
+ assignAvatarDNA(p);
+ if(currency==='cash')c.cash-=cost;else c.cp-=cost;
+ c.scoutHistory=Array.isArray(c.scoutHistory)?c.scoutHistory:[];
+ const scoutRecordId=uid();
+ c.pendingScout={id:scoutRecordId,player:p,time:Date.now(),kind,currency,cost};
+ c.scoutHistory.unshift({id:scoutRecordId,status:'pending',kind,label:config.label,currency,cost,level,player:{...p},time:Date.now()});
+ c.scoutHistory=c.scoutHistory.slice(0,30);
+ result={message:'Lv'+level+' '+p.name+' 선수를 발견했습니다',scouted:p};
 }
 else if(a.type==='scoutDecision'){
  const pending=c.pendingScout;
