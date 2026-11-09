@@ -31,6 +31,77 @@ body{background:radial-gradient(ellipse at 60% 0%,#244e83 0,#071523 58%,#06101b 
 .classic-subtitle{font-weight:800;color:#f0cb77;margin:0 0 8px;letter-spacing:.02em}
 @media(max-width:950px){.club-home{grid-template-columns:1fr}.home-right{display:grid;grid-template-columns:1fr 1fr;gap:12px}.home-right .panel{margin:0}}
 @media(max-width:650px){.nav{position:sticky;top:0;z-index:7}.nav button{flex:none;min-width:102px;font-size:13px;padding:12px 9px}.club-home .stadium{height:265px}.stadium .stadium-overlay h2{font-size:23px}.classic-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr))}.classic-shortcuts button{min-height:80px}.home-right{grid-template-columns:1fr}.head{min-height:75px}}
+
+/* DIAMOND GM — light baseball management interface revision */
+:root{color-scheme:light;--bg:#f4f7fb;--surface:#ffffff;--light:#edf3fa;--line:#dce5f0;--text:#1d3048;--muted:#6b7e94;--primary:#2665bd;--gold:#b67a16}
+html{scroll-behavior:smooth}
+body{background:linear-gradient(180deg,#eaf2fc 0,#f7f9fd 225px,#f4f7fb 100%);color:var(--text);font-size:14px;line-height:1.6}
+.shell{max-width:1380px;padding:0 clamp(16px,3.4vw,48px)}
+.top{background:#fff;border-bottom:1px solid #dee7f1;box-shadow:0 2px 16px #1e46760d}
+.head{min-height:88px;gap:24px}
+.brand-logo{color:#244c7f;text-shadow:none;font-size:22px}
+.brand-logo b{color:#244c7f}.brand-logo em{color:#2978bc}.brand-logo small{color:#738ca8}
+.brand-logo .ball{background:#fff;box-shadow:0 0 0 3px #edf4fb,0 2px 8px #1a508922}
+.stats{gap:10px;align-items:center}
+.pill{background:#f5f8fc;border-color:#dde7f2;color:#344c68;border-radius:11px;padding:9px 13px}
+button{border:1px solid #d1deeb;border-radius:10px;background:#f4f8fd;color:#2c4b6f;min-height:38px;font-weight:650;transition:background .15s,border-color .15s,transform .15s}
+button:hover{background:#e7f2ff;border-color:#a9c8ee;filter:none}
+button:active{transform:translateY(1px)}
+.primary,.stadium .stadium-overlay button{background:#286bbb;color:#fff;border-color:#286bbb;box-shadow:0 3px 8px #286bbb28}
+.primary:hover,.stadium .stadium-overlay button:hover{background:#17559e}
+input,select{background:#fff;border:1px solid #cad7e7;color:#203853;border-radius:9px;min-height:40px}
+input:focus,select:focus{outline:2px solid #8ab8f2;outline-offset:1px}
+main{padding-top:24px}
+.nav{margin:0 0 26px;background:#fff;border:1px solid #d9e4ef;border-radius:12px;gap:6px;padding:7px;box-shadow:0 3px 14px #1a4a7810}
+.nav button{color:#536a83;font-size:14px;font-weight:700;min-width:105px;padding:13px 10px;border:0;border-radius:9px;background:transparent}
+.nav button.active{color:#fff;background:#276cbd;border:0;box-shadow:0 3px 9px #276cbd36}
+.nav button:not(.active):hover{background:#eef5fc}
+.panel{background:#fff;border:1px solid #dce6f0;border-radius:15px;padding:clamp(17px,2vw,27px);box-shadow:0 5px 22px #1b456e0b;margin-bottom:20px}
+.panel h3{font-size:17px;line-height:1.4;color:#233f5e;margin:0 0 16px}
+.sectiontitle{font-size:22px;color:#1a3757;border-bottom:0;margin:3px 0 19px;padding:0;letter-spacing:-.03em}
+.grid{gap:15px}
+.metric{background:#f4f8fc;border:1px solid #e4ecf5;border-radius:12px;padding:18px;color:#5a718b}
+.metric strong{color:#213a59;font-size:24px;margin-top:9px}
+.item{gap:18px;border-bottom:1px solid #edf1f6;padding:13px 0}
+.item b{color:#203b5b}
+.muted,small{color:var(--muted)}
+.grade{background:#e5ebf4;color:#445d7a}
+.grade.A{background:#fff0cb;color:#98630b}
+.grade.B{background:#d9f2f2;color:#12757c}
+.grade.C{background:#e3eeff;color:#2e70ae}
+.club-home{grid-template-columns:minmax(0,1.9fr) minmax(270px,.9fr);gap:21px}
+.club-home .stadium{height:365px;border:1px solid #bcd3e6;border-radius:16px;background:
+radial-gradient(ellipse 80% 29% at 50% 92%,#56a55f 0 55%,#328a53 56% 73%,transparent 74%),
+linear-gradient(180deg,#8dc9f0 0,#c4e7fb 44%,#8fb9c4 44%,#d1dedc 48%,#2e7b50 49%,#26764a 100%);
+box-shadow:0 10px 30px #2b53722b;position:relative}
+.club-home .stadium::before{background:linear-gradient(135deg,#d8b784 0 12%,#68ae6b 12% 75%,#c59a69 75% 100%);border-color:#e4c89b;bottom:-115px}
+.club-home .stadium::after{background:repeating-linear-gradient(90deg,#fff 0 3px,#f3faff 3px 5px,transparent 5px 12px);top:42%;opacity:.86}
+.stadium .stadium-overlay{background:linear-gradient(90deg,#12395eeb 0,#12395ec9 33%,#12395e55 64%,transparent 100%);padding:clamp(22px,2.6vw,38px)}
+.stadium .stadium-overlay h2{font-size:clamp(24px,2.8vw,35px);font-weight:850;color:white;line-height:1.25;max-width:500px;margin:19px 0}
+.stadium .stadium-overlay p{color:#f0f7ff}
+.stadium .stadium-overlay .muted{color:#d5e8fb}
+.classic-subtitle{color:#ffe5a3;letter-spacing:.08em}
+.classic-shortcuts{gap:14px;margin:18px 0 22px}
+.classic-shortcuts button{background:#fff;border:1px solid #d6e4f1;box-shadow:0 4px 15px #1b476a12;color:#254768;border-radius:12px;min-height:108px}
+.classic-shortcuts button:hover{background:#f0f7ff;border-color:#87b1e0}
+.classic-shortcuts span{font-size:28px}
+.home-right .panel{margin-bottom:15px}
+.home-right h3{color:#2a496b;font-size:16px}
+.scoreboard{background:#fff;border-color:#dee8f1;border-radius:12px}
+.scoreboard th{background:#edf4fc;color:#486581}
+.scoreboard td{color:#263e5c}
+.scoreboard tr:nth-child(even){background:#f7faff}
+table th,table td{border-bottom:1px solid #e7edf5;padding:12px 14px}
+table th{background:#f1f6fc;color:#59748d}
+.card{background:#f5f9fd;border-color:#e1eaf4}
+.auth{margin:7vh auto;max-width:460px}
+.auth h1{color:#203e61}
+.auth input{min-height:46px}
+.auth button{min-height:44px}
+.msg{background:#fff;color:#234763;border-color:#a8c9e7;box-shadow:0 8px 32px #1b4b7840}
+@media(max-width:950px){.club-home{grid-template-columns:1fr}.home-right{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.home-right .panel{margin:0}.home-right .panel:last-child{grid-column:1/-1}}
+@media(max-width:650px){.shell{padding:0 15px}.top .head{padding:14px 0;gap:12px}.head{min-height:auto}.brand-logo{font-size:19px}.brand-logo .ball{width:40px;height:40px}.stats{gap:7px}.pill{padding:7px 9px}.nav{position:sticky;top:0;margin-bottom:18px;padding:6px;gap:3px;border-radius:0 0 10px 10px;overflow-x:auto}.nav button{flex:none;min-width:99px;padding:11px 8px;font-size:12px}.panel{padding:17px;margin-bottom:15px}.club-home .stadium{height:275px}.stadium .stadium-overlay{padding:21px}.stadium .stadium-overlay h2{margin:14px 0}.classic-shortcuts{grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.classic-shortcuts button{min-height:82px;font-size:12px}.classic-shortcuts span{font-size:24px}.home-right{grid-template-columns:1fr}.home-right .panel:last-child{grid-column:auto}.grid{gap:9px}.metric{padding:12px}.metric strong{font-size:19px}.sectiontitle{font-size:20px}.item{gap:10px}.toolbar{gap:7px}}
+
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null},tab='home',filter='',marketPos='전체',grade='전체',sort='overall';
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';const overall=p=>Math.round((p.power+p.contact+p.eye+p.speed+p.defense+p.stamina)/6);
