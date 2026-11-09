@@ -131,6 +131,10 @@ function fix(c){
  for(const p of bats){if(!validIds.has(p.id)||used.has(p.id))continue;const pos=DEFENSE_NATIVE[p.pos];if(pos&&!next[pos]){next[pos]=p.id;used.add(p.id)}}
  for(const pos of DEFENSE_POS)if(!next[pos]){const id=c.lineup.find(x=>!used.has(x));if(id){next[pos]=id;used.add(id)}}
  c.defensePositions=next;
+ const benchAvailable=bats.filter(p=>!validIds.has(p.id));
+ let bench=Array.isArray(c.benchIds)?[...new Set(c.benchIds.filter(id=>benchAvailable.some(p=>p.id===id)))].slice(0,5):[];
+ for(const p of benchAvailable)if(bench.length<Math.min(5,benchAvailable.length)&&!bench.includes(p.id))bench.push(p.id);
+ c.benchIds=bench;
  const oldPitch=c.pitcherAssignments&&typeof c.pitcherAssignments==='object'?c.pitcherAssignments:{};
  const chosen=new Set();const assignments={};
  for(const role of ['starter','relief','closer']){
@@ -139,7 +143,14 @@ function fix(c){
  }
  for(const role of ['starter','relief','closer'])if(!assignments[role]){const p=pitchers.find(p=>!chosen.has(p.id));if(p){assignments[role]=p.id;chosen.add(p.id)}}
  c.pitcherAssignments=assignments;
- c.pitcher=assignments.starter||c.pitcher;
+ const rotationRoles=['starter1','starter2','starter3','starter4','starter5','relief1','relief2','relief3','relief4','setup','closer'];
+ const rotation=c.pitcherRotation&&typeof c.pitcherRotation==='object'?c.pitcherRotation:{};
+ const seenPitchers=new Set(),newRotation={};
+ for(const role of rotationRoles){const id=rotation[role]||(role==='starter1'?assignments.starter:role==='relief1'?assignments.relief:role==='closer'?assignments.closer:null);if(id&&pitchers.some(p=>p.id===id)&&!seenPitchers.has(id)){newRotation[role]=id;seenPitchers.add(id)}}
+ for(const role of rotationRoles)if(!newRotation[role]){const p=pitchers.find(p=>!seenPitchers.has(p.id));if(p){newRotation[role]=p.id;seenPitchers.add(p.id)}}
+ c.pitcherRotation=newRotation;
+ c.pitcher=newRotation.starter1||assignments.starter||c.pitcher;
+ c.pitcherAssignments={starter:c.pitcher,relief:newRotation.relief1||null,closer:newRotation.closer||null};
 }
 function save(){fs.writeFileSync(PATH,JSON.stringify(db))}
 function send(res,status,obj,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(obj))}
@@ -285,16 +296,33 @@ else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.selle
 else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
 else if(a.type==='saveLineup'){
  fix(c);
- const batting=Array.isArray(a.batting)?a.batting:[];
- const defense=a.defense&&typeof a.defense==='object'?a.defense:{};
- const pitchers=a.pitchers&&typeof a.pitchers==='object'?a.pitchers:{};
+ const batting=Array.isArray(a.batting)?a.batting:[],defense=a.defense&&typeof a.defense==='object'?a.defense:{};
+ const pitcherRoles=['starter1','starter2','starter3','starter4','starter5','relief1','relief2','relief3','relief4','setup','closer'];
+ const rotation=a.rotation&&typeof a.rotation==='object'?a.rotation:null;
+ const bench=Array.isArray(a.bench)?a.bench:null;
  const batIds=new Set(c.players.filter(p=>!p.isPitcher).map(p=>p.id)),pitchIds=new Set(c.players.filter(p=>p.isPitcher).map(p=>p.id));
  if(batting.length!==9||new Set(batting).size!==9||batting.some(id=>!batIds.has(id)))throw Error('타선은 서로 다른 타자 9명을 지정해야 합니다');
- const df=DEFENSE_POS.map(pos=>defense[pos]);if(df.some(id=>!batIds.has(id))||new Set(df).size!==9||df.some(id=>!batting.includes(id)))throw Error('수비 포지션은 타선의 9명을 중복 없이 지정해야 합니다');
- const pvals=['starter','relief','closer'].map(role=>pitchers[role]);
- if(pvals.some(id=>!pitchIds.has(id))||new Set(pvals).size!==3)throw Error('선발·중계·마무리 투수를 각각 다른 선수로 지정하세요');
- c.lineup=batting;c.defensePositions=Object.fromEntries(DEFENSE_POS.map((pos,i)=>[pos,df[i]]));c.pitcherAssignments={starter:pvals[0],relief:pvals[1],closer:pvals[2]};c.pitcher=pvals[0];
- result={message:'라인업과 수비·투수 배치를 저장했습니다'};
+ const selected=DEFENSE_POS.map(pos=>defense[pos]);
+ if(selected.some(id=>!batIds.has(id))||new Set(selected).size!==9||selected.some(id=>!batting.includes(id)))throw Error('수비 포지션은 타선의 9명을 중복 없이 지정해야 합니다');
+ if(bench!==null){
+  const available=[...batIds].filter(id=>!batting.includes(id)),max=Math.min(5,available.length);
+  if(bench.length!==max||new Set(bench).size!==max||bench.some(id=>!available.includes(id)))throw Error('교체선수는 선발 외 '+max+'명을 지정하세요');
+  c.benchIds=[...bench];
+ }
+ if(rotation){
+  const values=pitcherRoles.map(role=>rotation[role]).filter(Boolean);
+  if(values.some(id=>!pitchIds.has(id))||new Set(values).size!==values.length)throw Error('투수 라인업에 같은 선수를 중복 배치할 수 없습니다');
+  c.pitcherRotation=Object.fromEntries(pitcherRoles.map(role=>[role,rotation[role]||null]));
+  c.pitcher=c.pitcherRotation.starter1||c.pitcher;
+  c.pitcherAssignments={starter:c.pitcher,relief:c.pitcherRotation.relief1,closer:c.pitcherRotation.closer};
+ }else{
+  const pitchers=a.pitchers||{};
+  const values=['starter','relief','closer'].map(role=>pitchers[role]);
+  if(values.some(id=>!pitchIds.has(id))||new Set(values).size!==3)throw Error('세 명의 투수를 지정하세요');
+  c.pitcherAssignments={starter:values[0],relief:values[1],closer:values[2]};c.pitcher=values[0];
+ }
+ c.lineup=[...batting];c.defensePositions=Object.fromEntries(DEFENSE_POS.map((pos,i)=>[pos,selected[i]]));
+ result={message:'타자 및 투수 라인업을 저장했습니다'};
 }
 else if(a.type==='lineup'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(a.pitcher){if(!p.isPitcher)throw Error('투수를 선택하세요');c.pitcher=p.id}else{if(p.isPitcher)throw Error('타자를 선택하세요');c.lineup=c.lineup.filter(x=>x!==p.id);c.lineup.splice(Math.max(0,Math.min(8,Number(a.slot)||0)),0,p.id);c.lineup=c.lineup.slice(0,9)}fix(c)}
 else if(a.type==='useDrink'){
