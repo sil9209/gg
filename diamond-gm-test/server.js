@@ -8,7 +8,41 @@ function fix(c){const bat=c.players.filter(p=>!p.isPitcher),pitch=c.players.filt
 function save(){fs.writeFileSync(PATH,JSON.stringify(db))}
 function send(res,status,obj,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(obj))}
 function getCookie(req){return (req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('sid='))?.slice(4)}
-const view=(u)=>({user:u?{id:u.id,username:u.username}:null,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?'})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10)});
+
+const BOT_NAMES=['서울 스카이즈','부산 웨이브즈','인천 매리너스','대구 레드폭스','광주 타이거즈','대전 이글스','수원 블루즈','창원 피닉스','울산 웨일즈','제주 스톰'];
+function weekStart(now=Date.now()){const d=new Date(now+32400000);const day=d.getUTCDay();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day)-32400000}
+function seedNum(t){return parseInt(crypto.createHash('sha256').update(String(t)).digest('hex').slice(0,8),16)/4294967295}
+function leagueInfo(c,now=Date.now()){
+ const start=weekStart(now), pool=Math.floor(Math.max(0,db.clubs.indexOf(c))/10),real=db.clubs.slice(pool*10,pool*10+10);
+ const members=Array.from({length:10},(_,i)=>real[i]?{id:real[i].id,name:real[i].name,real:true,club:real[i]}:{id:'bot-'+pool+'-'+i,name:BOT_NAMES[i],real:false});
+ const strength=m=>m.club?Math.round(m.club.players.reduce((s,p)=>s+(p.power+p.contact+p.eye+p.stamina)/4,0)/Math.max(1,m.club.players.length)):52+(parseInt(m.id.slice(-1),10)||0)%15;
+ const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,strength:strength(m)}));
+ const byId=Object.fromEntries(standings.map(t=>[t.id,t]));let order=[0,1,2,3,4,5,6,7,8,9],games=[],seasonIndex=0;
+ for(let r=0;r<144;r++){
+   for(let j=0;j<5;j++){let a=order[j],b=order[9-j];if(r%2===1)[a,b]=[b,a];
+     games.push({round:r+1,slot:Math.floor(r*120/144),home:members[a].id,away:members[b].id})}
+   order=[order[0],order[9],...order.slice(1,9)]
+ }
+ // 120 hourly slots: Sun-Thu, one to two full rounds per hour, Fri rest.
+ function slotTime(slot){return start+Math.floor(slot/24)*86400000+(slot%24)*3600000}
+ function score(g){const a=byId[g.home],b=byId[g.away],key=[start,pool,g.round,g.home,g.away].join('|'),base=seedNum(key),base2=seedNum(key+'x'),aRun=Math.max(0,Math.round(3+(a.strength-b.strength)*.06+base*6-2)),bRun=Math.max(0,Math.round(3+(b.strength-a.strength)*.06+base2*6-2));return [aRun,bRun]}
+ const completed=games.filter(g=>slotTime(g.slot)<=now);for(const g of completed){let [h,a]=score(g);let t1=byId[g.home],t2=byId[g.away];t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
+ standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
+ const next=games.find(g=>slotTime(g.slot)>now);
+ const recent=completed.filter(g=>g.home===c.id||g.away===c.id).slice(-8).reverse().map(g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,score:score(g).join(' : '),time:slotTime(g.slot)}));
+ const upcoming=games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).slice(0,6).map(g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,time:slotTime(g.slot)}));
+ let postseason=[];
+ if(now>=start+6*86400000){
+   let top=standings.slice(0,4),semi=[[top[0],top[3]],[top[1],top[2]]].map((x,i)=>({label:'준플레이오프 '+(i+1),home:x[0].name,away:x[1].name,score:null,time:start+6*86400000+(12+i*3)*3600000}));
+   postseason=semi;
+   if(now>=semi[0].time)semi[0].score='3 : '+(Math.floor(seedNum(start+'semi0')*4));
+   if(now>=semi[1].time)semi[1].score='4 : '+(Math.floor(seedNum(start+'semi1')*4));
+   if(now>=start+6*86400000+20*3600000)postseason.push({label:'챔피언 결정전',home:top[0].name,away:top[1].name,score:'5 : 3',time:start+6*86400000+20*3600000});
+ }
+ return {start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(({strength,...t})=>t),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
+}
+
+const view=(u)=>({user:u?{id:u.id,username:u.username}:null,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?'})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null});
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
