@@ -158,6 +158,11 @@ button.primary:hover,.primary:hover{background:var(--team-alt);border-color:var(
 .stadium .stadium-overlay{background:linear-gradient(90deg,color-mix(in srgb,var(--team-accent) 51%,#0b273b) 0%,#183b5bbd 45%,transparent 100%)}
 .header-team .team-crest{margin-right:2px}
 @media(max-width:650px){.stats .pill{font-size:11px}.header-team{max-width:165px}.nav button.active{background:var(--team-accent)}}
+
+.auth-id-row{display:flex;gap:9px;align-items:center}.auth-id-row input{flex:1;min-width:0}.auth-id-row button{flex:none;min-height:46px;white-space:nowrap;margin:6px 0 0}
+.auth-feedback{font-size:12px;color:#6c8096;margin:-3px 0 11px}.auth-feedback.ok{color:#137a4e;font-weight:750}.auth-feedback.invalid{color:#b33c48;font-weight:750}
+.auth-help{font-size:12px;color:#5d7591;margin:2px 0 9px;line-height:1.55}
+@media(max-width:450px){.auth-id-row{gap:7px}.auth-id-row button{padding:8px 10px;font-size:12px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';const overall=p=>Math.round((p.power+p.contact+p.eye+p.speed+p.defense+p.stamina)/6);
@@ -178,13 +183,40 @@ function selectTeam(){
   '<p class="team-disclaimer">가상의 구단 명칭과 독자적으로 제작한 엠블럼을 사용합니다. 특정 프로구단의 공식 로고가 아닙니다.</p></main>';
   document.querySelectorAll('[data-team]').forEach(b=>b.onclick=()=>{selectedTeam=b.dataset.team;login()});
 }
+let authMode='login',checkedUsername='';
 function login(){
-const t=chosenTeam();if(!t)return selectTeam();theme();
-app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button id="backTeams" class="light-button">← 구단 다시 선택</button></div></header>'+
-'<main class="shell"><div class="auth-layout"><div class="auth-showcase" style="--team-accent:'+esc(t.color)+';--team-alt:'+esc(t.secondary)+'">'+teamBadge(t)+'<div class="auth-showcase-title">'+esc(t.name)+'</div><p>새로운 시즌, 새로운 역사<br>당신이 직접 만들어갈 차례입니다.</p><span class="auth-showcase-desc">TEAM IDENTITY · '+esc(t.city)+'</span></div>'+
-'<div class="panel auth auth-modern"><span class="team-eyebrow">WELCOME TO DIAMOND GM</span><h1>구단주 로그인</h1><p class="muted">선택한 구단: <b>'+esc(t.name)+'</b></p><form id="auth"><label>아이디<input name="username" autocomplete="username" placeholder="아이디 (3~20자)" required minlength="3"></label><label>비밀번호<input name="password" autocomplete="current-password" placeholder="비밀번호 (6자 이상)" type="password" required minlength="6"></label><button type="button" class="primary" data-auth="login">로그인</button><button type="button" class="light-button" data-auth="register">새 구단주로 회원가입</button></form><p class="muted" style="margin-top:22px;font-size:12px">기존 계정은 가입 시 선택한 구단으로 로그인하세요. 구단과 계정 데이터는 테스트 운영 중 초기화될 수 있습니다.</p></div></div></main>';
-document.getElementById('backTeams').onclick=()=>{selectedTeam=null;selectTeam()};
-document.querySelectorAll('[data-auth]').forEach(b=>b.onclick=()=>{let form=document.getElementById('auth');if(!form.reportValidity())return;api({type:b.dataset.auth,teamId:t.id,username:form.elements.username.value,password:form.elements.password.value})});
+ const t=chosenTeam();if(!t)return selectTeam();theme();
+ const signup=authMode==='register';
+ app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button id="backTeams" class="light-button">← 구단 다시 선택</button></div></header>'+
+ '<main class="shell"><div class="auth-layout"><div class="auth-showcase" style="--team-accent:'+esc(t.color)+';--team-alt:'+esc(t.secondary)+'">'+teamBadge(t)+'<div class="auth-showcase-title">'+esc(t.name)+'</div><p>새로운 시즌, 새로운 역사<br>당신이 직접 만들어갈 차례입니다.</p><span class="auth-showcase-desc">TEAM IDENTITY · '+esc(t.city)+'</span></div>'+
+ '<div class="panel auth auth-modern"><span class="team-eyebrow">WELCOME TO DIAMOND GM</span><h1>'+(signup?'구단주 회원가입':'구단주 로그인')+'</h1><p class="muted">선택한 구단: <b>'+esc(t.name)+'</b></p><form id="auth">'+
+ '<label>아이디<div class="auth-id-row"><input name="username" autocomplete="username" placeholder="아이디 (3~20자)" required minlength="3" maxlength="20">'+(signup?'<button id="checkId" type="button" class="light-button">중복 확인</button>':'')+'</div></label>'+
+ (signup?'<p id="idFeedback" class="auth-feedback">아이디 중복 확인을 진행해 주세요.</p>':'')+
+ '<label>비밀번호<input name="password" autocomplete="'+(signup?'new-password':'current-password')+'" placeholder="'+(signup?'특수문자 포함 8자 이상':'비밀번호')+'" type="password" required '+(signup?'minlength="8"':'')+'></label>'+
+ (signup?'<p class="auth-help">비밀번호는 특수문자(!, @, # 등)를 포함해 8자 이상 입력하세요.</p><label>비밀번호 확인<input name="passwordConfirm" type="password" autocomplete="new-password" placeholder="비밀번호 다시 입력" required minlength="8"></label>':'')+
+ '<button type="button" class="primary" id="submitAuth">'+(signup?'회원가입 완료':'로그인')+'</button><button type="button" class="light-button" id="changeAuth">'+(signup?'기존 계정으로 로그인':'새 구단주로 회원가입')+'</button></form><p class="muted" style="margin-top:22px;font-size:12px">가입한 계정은 선택한 구단에 연결됩니다. 테스트 데이터는 초기화될 수 있습니다.</p></div></div></main>';
+ document.getElementById('backTeams').onclick=()=>{selectedTeam=null;authMode='login';checkedUsername='';selectTeam()};
+ document.getElementById('changeAuth').onclick=()=>{authMode=signup?'login':'register';checkedUsername='';login()};
+ const form=document.getElementById('auth'),id=form.elements.username;
+ if(signup){
+   id.addEventListener('input',()=>{checkedUsername='';const e=document.getElementById('idFeedback');e.textContent='중복 확인을 진행해 주세요.';e.className='auth-feedback'});
+   document.getElementById('checkId').onclick=async()=>{
+    const value=id.value.trim();if(!/^[a-zA-Z0-9가-힣_]{3,20}$/.test(value)){toast('아이디는 한글·영문·숫자·밑줄로 3~20자 입력하세요');return}
+    try{const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'checkUsername',username:value})});const result=await response.json();if(!response.ok)throw Error(result.error||'중복 확인 실패');
+      const fb=document.getElementById('idFeedback');if(result.available){checkedUsername=value;fb.textContent='사용 가능한 아이디입니다.';fb.className='auth-feedback ok'}else{checkedUsername='';fb.textContent='이미 사용 중인 아이디입니다. 다른 아이디를 입력해 주세요.';fb.className='auth-feedback invalid'}
+    }catch(e){checkedUsername='';toast(e.message)}
+   }
+ }
+ document.getElementById('submitAuth').onclick=()=>{
+  if(!form.reportValidity())return;
+  const username=id.value.trim(),password=form.elements.password.value;
+  if(signup){
+   if(checkedUsername!==username){toast('아이디 중복 확인을 먼저 완료해 주세요');return}
+   if(password.length<8||!/[^a-zA-Z0-9가-힣]/.test(password)){toast('비밀번호는 특수문자를 포함해 8자 이상 입력하세요');return}
+   if(password!==form.elements.passwordConfirm.value){toast('비밀번호 확인이 일치하지 않습니다');return}
+  }
+  api({type:signup?'register':'login',teamId:t.id,username,password});
+ };
 }
 function create(){const t=chosenTeam();theme();app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button onclick="api({type:\'logout\'})">로그아웃</button></div></header>'+
 '<main class="shell"><div class="panel auth"><div style="text-align:center">'+(t?teamBadge(t):'')+'<h1>'+esc(t?.name||'새 구단')+' 창단</h1></div><p>가입하신 구단의 시즌을 시작합니다.</p><div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="metric"><b>5억원</b><div>초기 자금</div></div><div class="metric"><b>300 CP</b><div>성장 포인트</div></div><div class="metric"><b>25명</b><div>창단 선수</div></div></div><button id="createClubNow" class="primary" style="width:100%;margin-top:20px">구단 창단하고 시작하기</button></div></main>';document.getElementById('createClubNow').onclick=()=>api({type:'createClub'});}
