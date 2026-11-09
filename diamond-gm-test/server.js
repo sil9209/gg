@@ -2,7 +2,9 @@ const http=require('http'),fs=require('fs'),crypto=require('crypto');
 const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
 const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomUUID();const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const names1=['김','박','이','최','정','강','조','윤','장','임','한','오','서','신','권','황'],names2=['도현','성준','재원','민수','지훈','태영','현우','주원','준혁','승민','태준','지성','건우','동현','진우','정민'];
-function player(owner){const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];return {id:uid(),owner,name:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,37),lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0}}
+const foreignFirst=['알렉스','데이비드','마이클','카를로스','루이스','호세','윌리엄','제이슨','로버트','타일러','마르코','에릭','다니엘','브랜든','케빈','앤서니'];
+const foreignLast=['로드리게스','존슨','윌슨','가르시아','마르티네스','스미스','로페즈','브라운','곤잘레스','리베라','톰슨','밀러','산체스','워커','페레즈'];
+function player(owner){const foreign=Math.random()<.22;const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];return {id:uid(),owner,name:foreign?foreignFirst[rand(0,foreignFirst.length-1)]+' '+foreignLast[rand(0,foreignLast.length-1)]:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0}}
 
 const STAT_KEYS=['contact','power','eye','speed','defense','mental'];
 const CAP=99.99;
@@ -12,7 +14,7 @@ function ensurePlayer(p,now=Date.now()){
  if(!Number.isInteger(p.age)||p.age<17){const h=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.age=19+h[0]%20}
  if(!Number.isFinite(Number(p.mental)))p.mental=Number(p.stamina)||55;
  for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]);
- if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';
+ if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);
  if(!Number.isFinite(p.lastGrowthWeek))p.lastGrowthWeek=weekStart(now);
  return p;
 }
@@ -22,6 +24,7 @@ function weeklyGrowth(p,now=Date.now()){
  if(!weeks)return false;
  const rankFactor={E:0.38,D:0.62,C:0.88,B:1.12,A:1.42}[p.grade]||0.38;
  for(let i=0;i<weeks;i++){
+  if(p.age>=45)break;
   p.age++;
   const ageFactor=p.age<=22?1.4:p.age<=27?1.12:p.age<=31?0.85:p.age<=35?0.58:0.32;
   for(const key of STAT_KEYS){
@@ -39,12 +42,17 @@ function syncGrowth(now=Date.now()){
  const sync=p=>{if(!p||seen.has(p.id))return;seen.add(p.id);changed=weeklyGrowth(p,now)||changed};
  for(const c of db.clubs||[])for(const p of c.players||[])sync(p);
  for(const l of db.listings||[])sync(l.player);
+ for(const c of db.clubs||[]){
+  const retired=c.players.filter(p=>p.age>=45);
+  if(retired.length){c.retiredPlayers=Array.isArray(c.retiredPlayers)?c.retiredPlayers:[];c.retiredPlayers.unshift(...retired.map(p=>({...p,retiredAt:now})));c.retiredPlayers=c.retiredPlayers.slice(0,100);c.players=c.players.filter(p=>p.age<45);changed=true;fix(c)}
+ }
+ const oldCount=db.listings.length;db.listings=db.listings.filter(l=>l.player.age<45);if(db.listings.length!==oldCount)changed=true;
  if(changed)save();
 }
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
-function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueTier:0,lastSettledWeek:weekStart()-604800000,leagueHistory:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
+function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueTier:0,lastSettledWeek:weekStart()-604800000,leagueHistory:[],sportsDrinks:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 const DEFENSE_POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'];
 const DEFENSE_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 function fix(c){
@@ -201,7 +209,60 @@ else if(a.type==='saveLineup'){
  result={message:'라인업과 수비·투수 배치를 저장했습니다'};
 }
 else if(a.type==='lineup'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(a.pitcher){if(!p.isPitcher)throw Error('투수를 선택하세요');c.pitcher=p.id}else{if(p.isPitcher)throw Error('타자를 선택하세요');c.lineup=c.lineup.filter(x=>x!==p.id);c.lineup.splice(Math.max(0,Math.min(8,Number(a.slot)||0)),0,p.id);c.lineup=c.lineup.slice(0,9)}fix(c)}
-else if(a.type==='friendly'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));result={message:'친선경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단 (리그 전적 미반영)',ours,theirs}}
+else if(a.type==='useDrink'){
+ const p=c.players.find(p=>p.id===a.id);if(!p)throw Error('선수가 없습니다');
+ ensurePlayer(p);if((c.sportsDrinks||0)<1)throw Error('스포츠음료가 부족합니다');
+ if(p.condition>=5)throw Error('이미 최강 컨디션입니다');
+ c.sportsDrinks--;p.condition++;
+ result={message:p.name+' 선수의 컨디션이 한 단계 상승했습니다'};
+}
+else if(a.type==='friendly'){
+ fix(c);
+ const day=new Date(Date.now()+32400000).toISOString().slice(0,10);
+ if(!c.friendlyDaily||c.friendlyDaily.day!==day)c.friendlyDaily={day,used:0};
+ if(c.friendlyDaily.used>=10)throw Error('오늘의 친선경기 10회를 모두 사용했습니다');
+ const tier=Math.max(0,Math.min(LEAGUE_TIERS.length-1,Math.trunc(Number(a.tier)||0)));
+ const rewardType=String(a.reward||'cash');if(!['cash','cp'].includes(rewardType))throw Error('보상 종류가 잘못되었습니다');
+ const opposition=LEAGUE_TIERS[tier],enemyStrength=Math.max(20,Math.min(99.99,opposition.average+(Math.random()-.5)*8));
+ const bats=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),starter=c.players.find(p=>p.id===c.pitcher);
+ if(!bats.length||!starter)throw Error('경기에 나갈 선수단을 지정하세요');
+ const participating=[...bats,starter];
+ const strength=p=>STAT_KEYS.reduce((sum,k)=>sum+(Number(p[k])||0),0)/STAT_KEYS.length*(.8+(p.condition||3)*.05);
+ const oursAvg=participating.reduce((sum,p)=>sum+strength(p),0)/participating.length;
+ const ours=Math.max(0,Math.round(4+(oursAvg-enemyStrength)*.14+(Math.random()-.5)*6));
+ const theirs=Math.max(0,Math.round(4+(enemyStrength-oursAvg)*.14+(Math.random()-.5)*6));
+ const outcome=ours>theirs?'win':ours<theirs?'loss':'draw';
+ c.friendlyDaily.used++;
+ let cash=0,cp=0,drinks=0;
+ if(outcome==='win'){
+  if(rewardType==='cash'){cash=Math.round((1000000+tier*1200000+enemyStrength*45000)/100000)*100000;c.cash+=cash}
+  else{cp=Math.max(1,Math.round(2+tier*1.6+enemyStrength/25));c.cp+=cp}
+ }else if(outcome==='loss'){drinks=10;c.sportsDrinks=(c.sportsDrinks||0)+10}
+ const playerStats=[];
+ for(const p of participating){
+  ensurePlayer(p);
+  const before=p.condition;
+  const ability=strength(p),performance=Math.random()*100+(ability-enemyStrength)*.42;
+  let summary,delta;
+  if(p.isPitcher){
+   const innings=6+rand(0,3),earned=Math.max(0,Math.round(theirs*(innings/9)+Math.random()-.5)),strikeouts=Math.max(0,Math.round(innings*(.38+Math.random())));
+   summary=innings+'이닝 '+earned+'자책 '+strikeouts+'탈삼진';
+   delta=earned<=1&&strikeouts>=4?1:earned>=4?-1:performance>=76?1:performance<35?-1:0;
+   p.era=Math.round(earned*9/innings*100)/100;
+  }else{
+   const atBats=rand(3,5),hits=Math.min(atBats,Math.max(0,Math.floor(performance/25))),hr=hits&&Math.random()<.09?1:0;
+   summary=atBats+'타수 '+hits+'안타'+(hr?' '+hr+'홈런':'');
+   delta=hits>=3||hr?1:hits===0?-1:performance>=80?1:performance<35?-1:0;
+   p.hr=(p.hr||0)+hr;p.avg=((Number(p.avg)||0)*(p.games||0)+hits/atBats)/((p.games||0)+1);
+  }
+  p.games=(p.games||0)+1;
+  p.condition=Math.max(1,Math.min(5,before+delta));
+  playerStats.push({id:p.id,name:p.name,position:p.pos,summary,before,after:p.condition,delta:p.condition-before});
+ }
+ const entry={time:Date.now(),tier,opponent:opposition.name,enemyStrength:Number(enemyStrength.toFixed(2)),ours,theirs,outcome,cash,cp,drinks,playerStats};
+ c.friendlyHistory=Array.isArray(c.friendlyHistory)?c.friendlyHistory:[];c.friendlyHistory.unshift(entry);c.friendlyHistory=c.friendlyHistory.slice(0,20);
+ result={message:'친선경기 '+(outcome==='win'?'승리':outcome==='loss'?'패배':'무승부'),friendly:entry};
+}
 else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
 else throw Error('알 수 없는 동작');}
 save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
