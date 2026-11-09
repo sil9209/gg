@@ -234,18 +234,43 @@ function settleSeasons(now=Date.now()){
  }
 }
 
-const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
+
+const ADMIN_USERNAME=String(process.env.GM_ADMIN_USERNAME||'').trim().toLowerCase();
+const ADMIN_PASSWORD=String(process.env.GM_ADMIN_PASSWORD||'');
+const ADMIN_CASH=1000000000000,ADMIN_CP=1000000000;
+const isAdminUser=u=>!!(u&&u.isAdmin===true&&ADMIN_USERNAME&&ADMIN_PASSWORD&&String(u.username||'').toLowerCase()===ADMIN_USERNAME);
+function adminPassMatches(candidate){
+ const a=Buffer.from(String(candidate),'utf8'),b=Buffer.from(ADMIN_PASSWORD,'utf8');
+ return b.length>=16&&a.length===b.length&&crypto.timingSafeEqual(a,b);
+}
+function topUpAdminWallet(u,c){
+ if(isAdminUser(u)&&c){c.cash=ADMIN_CASH;c.cp=ADMIN_CP}
+}
+
+const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
 if(a.type==='checkUsername'){
  const name=String(a.username||'').trim();
  if(!/^[a-zA-Z0-9가-힣_]{3,20}$/.test(name))return send(res,400,{error:'아이디는 한글·영문·숫자·밑줄로 3~20자 입력하세요'});
- return send(res,200,{available:!db.users.some(x=>x.username.toLowerCase()===name.toLowerCase()),username:name});
+ return send(res,200,{available:name.toLowerCase()!==ADMIN_USERNAME&&!db.users.some(x=>x.username.toLowerCase()===name.toLowerCase()),username:name});
 }
-if(a.type==='register'||a.type==='login'){const name=String(a.username||'').trim(),pass=String(a.password||'');const team=TEAMS.find(t=>t.id===a.teamId);if(!team)throw Error('로그인 전에 구단을 선택하세요');if(!/^[a-zA-Z0-9가-힣_]{3,20}$/.test(name))throw Error('아이디는 한글·영문·숫자·밑줄로 3~20자 입력하세요');if(a.type==='register'&&(pass.length<8||!/[^a-zA-Z0-9가-힣]/.test(pass)))throw Error('비밀번호는 특수문자를 포함해 8자 이상 입력하세요');if(a.type==='login'&&!pass)throw Error('비밀번호를 입력하세요');let found=db.users.find(x=>x.username.toLowerCase()===name.toLowerCase());if(a.type==='register'){if(found)throw Error('이미 존재하는 아이디');const ownerName=String(a.ownerName||'').trim();if(ownerName.length<2||ownerName.length>16||/[<>]/.test(ownerName))throw Error('구단주명은 2~16자로 입력해 주세요');const salt=crypto.randomBytes(12).toString('hex');found={id:uid(),username:name,salt,hash:pwd(pass,salt),teamId:team.id,ownerName};db.users.push(found)}else if(!found||found.hash!==pwd(pass,found.salt))throw Error('아이디 또는 비밀번호 오류');if(found.teamId&&found.teamId!==team.id)throw Error('가입 당시 선택한 구단으로 로그인하세요');if(!found.teamId){found.teamId=team.id;const old=db.clubs.find(x=>x.owner===found.id);if(old){old.teamId=team.id;old.name=team.name}}const token=crypto.randomBytes(24).toString('hex');sessions.set(token,found.id);save();return send(res,200,view(found),{'Set-Cookie':'sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'})}
+if(a.type==='register'||a.type==='login'){const name=String(a.username||'').trim(),pass=String(a.password||'');const team=TEAMS.find(t=>t.id===a.teamId);if(!team)throw Error('로그인 전에 구단을 선택하세요');if(!/^[a-zA-Z0-9가-힣_]{3,20}$/.test(name))throw Error('아이디는 한글·영문·숫자·밑줄로 3~20자 입력하세요');if(a.type==='register'&&(pass.length<8||!/[^a-zA-Z0-9가-힣]/.test(pass)))throw Error('비밀번호는 특수문자를 포함해 8자 이상 입력하세요');if(a.type==='login'&&!pass)throw Error('비밀번호를 입력하세요');let found=db.users.find(x=>x.username.toLowerCase()===name.toLowerCase());
+ if(ADMIN_USERNAME&&name.toLowerCase()===ADMIN_USERNAME){
+  if(a.type==='register')throw Error('관리자 전용 아이디입니다');
+  if(!adminPassMatches(pass))throw Error('아이디 또는 비밀번호 오류');
+  if(found&&!found.isAdmin)throw Error('관리자 아이디가 이미 사용 중입니다');
+  if(!found){
+   const salt=crypto.randomBytes(16).toString('hex');
+   found={id:uid(),username:ADMIN_USERNAME,salt,hash:pwd(pass,salt),teamId:'bears',ownerName:'게임 관리자',isAdmin:true};
+   db.users.push(found);
+  }else{found.hash=pwd(pass,found.salt)}
+  if(!db.clubs.some(c=>c.owner===found.id))db.clubs.push(club(found,'서울 불곰즈'));
+ }
+ if(a.type==='register'){if(found)throw Error('이미 존재하는 아이디');const ownerName=String(a.ownerName||'').trim();if(ownerName.length<2||ownerName.length>16||/[<>]/.test(ownerName))throw Error('구단주명은 2~16자로 입력해 주세요');const salt=crypto.randomBytes(12).toString('hex');found={id:uid(),username:name,salt,hash:pwd(pass,salt),teamId:team.id,ownerName};db.users.push(found)}else if(!found||found.hash!==pwd(pass,found.salt))throw Error('아이디 또는 비밀번호 오류');if(found.teamId&&found.teamId!==team.id)throw Error('가입 당시 선택한 구단으로 로그인하세요');if(!found.teamId){found.teamId=team.id;const old=db.clubs.find(x=>x.owner===found.id);if(old){old.teamId=team.id;old.name=team.name}}const token=crypto.randomBytes(24).toString('hex');sessions.set(token,found.id);save();return send(res,200,view(found),{'Set-Cookie':'sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'})}
 if(a.type==='logout'){sessions.delete(getCookie(req));return send(res,200,{user:null},{'Set-Cookie':'sid=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'})}
-if(!u)throw Error('로그인이 필요합니다');let c=db.clubs.find(x=>x.owner===u.id),result=null;
+if(!u)throw Error('로그인이 필요합니다');let c=db.clubs.find(x=>x.owner===u.id),result=null;topUpAdminWallet(u,c);
 if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);db.clubs.push(c)}
 else{if(!c)throw Error('구단을 먼저 창단하세요');
 if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
@@ -399,6 +424,6 @@ else if(a.type==='friendly'){
 }
 else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}applyTeamGameGrowth(c,1,[...bat.map(x=>x.id),p?.id].filter(Boolean));result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
 else throw Error('알 수 없는 동작');}
-save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
+topUpAdminWallet(u,c);save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
 let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
 if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
