@@ -890,6 +890,27 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 .gm-pitch-info .gm-special-badges{margin-top:4px}.gm-candidate .gm-special-badges{margin:6px 0 0}
 .scout-popup-body .gm-special-section{margin:12px 0}.gm-friendly-triggers{font-size:10px;margin-left:8px;color:#a27834;font-weight:800}
 @media(max-width:620px){.gm-order-special{padding-left:2px}.gm-special-tag{font-size:9px;padding:4px 6px}.gm-special-detail-grid{grid-template-columns:1fr}}
+
+.gm-special-work{display:flex;flex-direction:column;gap:13px;padding:18px}
+.gm-special-work>label{display:flex;flex-direction:column;gap:7px;color:#6686a1;font-weight:850;font-size:12px}
+.gm-special-work select{padding:10px 12px;border:1px solid #d4e2ed;border-radius:9px;background:#fff;color:#365d7c;font-size:12px}
+.gm-special-player{display:flex;align-items:center;gap:10px}.gm-special-player .player-portrait{width:49px;height:57px}
+.gm-special-work-action{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.gm-special-work-action strong{font-size:16px;color:#966b23}.gm-special-work-action small{font-size:11px;color:#8599ab}
+.gm-special-work-action button{margin-left:auto;font-size:12px;padding:10px 15px}
+.gm-special-slots h3{font-size:14px;color:#325978}.gm-special-slots h3 small{font-size:11px;color:#879cac}
+.gm-special-slot-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.gm-special-slot{min-height:75px;padding:12px;border:1px dashed #ccdbe8;background:#f4f8fc;border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px}
+.gm-special-slot>b{font-size:13px;color:#a9bbca}.gm-special-slot small{font-size:10px;color:#a9bbca}
+.gm-special-slot.filled{align-items:flex-start;border:1px solid #ead7af;background:#fffaf0}
+.gm-special-slot.filled b{color:#936b2a}.gm-special-slot.filled small{color:#73889b;line-height:1.5}
+.gm-special-win-backdrop{position:fixed;inset:0;background:#082039b8;z-index:1000;display:flex;align-items:center;justify-content:center;padding:14px}
+.gm-special-win-dialog{width:min(425px,100%);padding:28px;background:white;border:1px solid #e5ce9c;border-radius:16px;text-align:center;box-shadow:0 24px 60px #09192a6b}
+.gm-special-win-dialog>span{font-size:10px;letter-spacing:.13em;color:#9c803e}.gm-special-win-glyph{font-size:48px;color:#c59129;margin:10px 0}
+.gm-special-win-dialog h2{font-size:19px;color:#315a7c}.gm-special-win-dialog h3{font-size:22px;color:#a27020}
+.gm-special-win-dialog p{font-size:12px;color:#728b9c}.gm-special-win-dialog small{display:block;font-size:11px;color:#889dad;margin:10px 0 15px}
+.gm-special-win-dialog button{padding:9px 25px}
+@media(max-width:700px){.gm-special-slot-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.gm-special-work-action button{margin-left:0;width:100%}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1005,7 +1026,7 @@ const specialAbilityBadges=(p,short=false)=>{
  if(!skills.length)return short?'<span class="gm-special-empty">없음</span>':'<p class="gm-special-absent">현재 보유한 특수능력이 없습니다.</p>';
  return '<div class="gm-special-badges '+(short?'compact':'')+'">'+skills.map(x=>'<span class="gm-special-tag" title="'+esc(x.desc)+'">✦ '+esc(x.name)+'</span>').join('')+'</div>';
 };
-const specialAbilityDetails=p=>'<section class="gm-special-section"><div class="gm-special-heading"><h3>✦ 특수능력 <small>'+specialAbilityData(p).length+'/3</small></h3></div>'+
+const specialAbilityDetails=p=>'<section class="gm-special-section"><div class="gm-special-heading"><h3>✦ 특수능력 <small>'+specialAbilityData(p).length+'/8</small></h3></div>'+
  (specialAbilityData(p).length?'<div class="gm-special-detail-grid">'+specialAbilityData(p).map(x=>'<div class="gm-special-detail"><b>✦ '+esc(x.name)+'</b><span>'+esc(x.desc)+'</span></div>').join('')+'</div>':'<div class="gm-special-absent">보유한 특수능력이 없습니다.</div>')+'</section>';
 
 function toast(txt){document.querySelector('.msg')?.remove();let x=document.createElement('div');x.className='msg';x.textContent=txt;document.body.append(x);setTimeout(()=>x.remove(),3500)}
@@ -1080,7 +1101,7 @@ function root(){
  lastRenderedTab=tab;
  const c=state.club;
  theme();
- const t=chosenTeam(),inManage=tab==='roster'||tab==='train';
+ const t=chosenTeam(),inManage=tab==='roster'||tab==='train'||tab==='specials';
  const activeTab=inManage?'manage':tab;
  const dock='<aside class="gm-nav-dock" id="gmNavDock" aria-label="게임 빠른 메뉴">'+
   '<div class="gm-nav-panel" id="gmNavPanel" hidden><div class="gm-nav-head"><strong>빠른 메뉴</strong><small>DIAMOND GM</small></div>'+
@@ -1093,7 +1114,7 @@ function root(){
   '<span class="pill">💰 '+money(c.cash)+'</span><span class="pill">💎 '+walletCP(c.cp)+' CP</span>'+
   '<button onclick="api({type:\'logout\'})">로그아웃</button></div></div></header>'+
   '<main class="shell layout"><section id="content">'+
-  (inManage?'<div class="manage-breadcrumb"><button type="button" id="manageBack">← 구단관리</button><span> / '+(tab==='roster'?'선수단 관리':'선수 육성')+'</span></div>':'')+
+  (inManage?'<div class="manage-breadcrumb"><button type="button" id="manageBack">← 구단관리</button><span> / '+(tab==='roster'?'선수단 관리':tab==='specials'?'특수능력':'선수 육성')+'</span></div>':'')+
   '</section></main>'+dock;
  if(inManage)document.getElementById('manageBack').onclick=()=>{tab='manage';root()};
  document.querySelector('[data-home-logo]')?.addEventListener('click',()=>{tab='home';root();window.scrollTo(0,0)});
@@ -1407,7 +1428,7 @@ function openShopEditor(item){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('gmShopEditor')){e.preventDefault();closeShopEditor()}});
 
-let scoutCurrency='cash';
+let scoutCurrency='cash',specialTrainPlayerId=null;
 function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='shop'){
  const admin=state.user?.isAdmin===true;
  const offers=Array.from({length:5},(_,i)=>state.shopItems?.find(item=>item.id==='slot'+(i+1))||{id:'slot'+(i+1),active:false});
@@ -1425,7 +1446,7 @@ function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(
  document.getElementById('gmShopUse').onclick=()=>{tab='lineup';lineupMode='batter';root()};
  return
 }
-if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(c.name)+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
+if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button><button class="manage-link" data-manage="specials"><strong>✦ 특수능력</strong><small>선수별 랜덤 특수능력 뽑기 · 최대 8개</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(c.name)+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
 const lg=state.league||{},prospects=c.players.filter(p=>Number.isFinite(Number(p.age))&&Number(p.age)<=25&&Number(p.age)>0).sort((a,b)=>Number(overall(b))-Number(overall(a))||Number(a.age)-Number(b.age)).slice(0,5);
 el.innerHTML='<div class="club-home"><div><div class="stadium"><div class="stadium-overlay"><div class="classic-subtitle">SEASON '+c.season+' · DIAMOND LEAGUE</div><h2>'+esc(c.name)+'</h2><p>10개 구단 정규시즌 · 매시간 자동 경기</p><p class="muted">일요일~목요일 144경기 · 토요일 가을야구</p><button id="stadiumLeague">🏆 리그 진행 · 순위 보기</button></div></div><div class="classic-shortcuts">'+tabs.filter(x=>['league','lineup','scout','friendly','market'].includes(x[0])).map(t=>'<button data-shortcut="'+t[0]+'"><span>'+t[1].split(' ')[0]+'</span>'+t[1].split(' ').slice(1).join(' ')+'</button>').join('')+'</div><div class="panel"><h3>⚾ 최근 경기 결과</h3>'+(lg.recent?.length?lg.recent.slice(0,4).map(g=>'<div class="item">'+leagueMatch(g)+'<b>'+esc(g.score)+'</b></div>').join(''):'<p class="muted">정규시즌 결과가 없습니다.</p>')+'</div></div><div class="home-right"><div class="panel"><h3>🏟 구단 정보</h3><div class="item">구단명 <b>'+esc(c.name)+'</b></div><div class="item">보유 선수 <b>'+c.players.length+'명</b></div><div class="item">구단자금 <b>'+money(c.cash)+'</b></div><div class="item">CP <b>'+walletCP(c.cp)+'</b></div><div class="item">리그 참가 구단 <b>10개</b></div></div><div class="panel"><h3>🌟 유망주 순위 <small class="muted">25세 이하 · 종합 능력치순</small></h3>'+(prospects.length?prospects.map((p,i)=>'<div class="item gm-prospect"><span class="gm-prospect-rank">'+(i+1)+'</span><span class="gm-prospect-details">'+playerButton(p)+'<small>'+Number(p.age)+'세 · '+esc(p.pos)+' · '+g(p)+'</small></span><b>'+statCell(overall(p))+'</b></div>').join(''):'<p class="muted">현재 25세 이하 유망주가 없습니다.</p>')+'</div><div class="panel"><h3>🏆 리그 TOP 5</h3>'+(lg.standings||[]).slice(0,5).map((x,i)=>'<div class="item"><span>'+(i+1)+'. '+leagueIdentity(x.name,x.teamId,x.ownerName)+'</span><b>'+x.wins+'승 '+x.losses+'패</b></div>').join('')+'</div></div></div>';
 document.getElementById('stadiumLeague').onclick=()=>{tab='league';root()};
@@ -1468,6 +1489,27 @@ if(tab==='friendly'){
  document.getElementById('friendlyPlay').onclick=()=>{if(confirm('친선경기 1회를 사용하여 경기를 진행하시겠습니까?'))api({type:'friendly',tier:Number(document.getElementById('friendlyTier').value),reward:document.querySelector('input[name="friendlyReward"]:checked')?.value||'cash'})};
  document.getElementById('gmFriendlyToLineup').onclick=()=>{tab='lineup';lineupMode='batter';root()};
  return}
+if(tab==='specials'){
+ const players=[...c.players].sort((a,b)=>Number(overall(b))-Number(overall(a)));
+ if(!players.some(p=>p.id===specialTrainPlayerId))specialTrainPlayerId=players[0]?.id||null;
+ const picked=players.find(p=>p.id===specialTrainPlayerId);
+ const owned=picked?specialAbilityData(picked):[];
+ const trainingPool=(state.specialAbilityCatalog||[]).filter(x=>picked&&x.source==='training'&&x.type===(picked.isPitcher?'pitcher':'batter')&&!owned.some(o=>o.id===x.id));
+ el.innerHTML='<h2 class="sectiontitle">✦ 특수능력 훈련</h2><p class="muted">선수별 최대 8개 · 훈련용 능력 중 무작위 1개 획득 · 중복 없음</p>'+
+ '<div class="panel gm-special-work"><label>선수 선택<select id="specialPlayerSelect">'+players.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===specialTrainPlayerId?'selected':'')+'>'+esc(playerLabel(p))+' · '+esc(p.pos)+' · '+specialAbilityData(p).length+'/8</option>').join('')+'</select></label>'+
+ (picked?'<div class="gm-special-player">'+playerPortrait(picked)+playerButton(picked)+'<span>'+g(picked)+'</span></div>':'')+
+ '<div class="gm-special-work-action"><strong>5 CP / 1회</strong><small>현재 보유 '+walletCP(c.cp)+' CP</small><button type="button" id="specialDraw" class="primary" '+(!picked||owned.length>=8||trainingPool.length===0||c.cp<5?'disabled':'')+'>✦ 랜덤 특수능력 뽑기</button></div><p class="muted">스카우트 전용 능력은 이곳에서 획득할 수 없습니다.</p></div>'+
+ '<div class="panel gm-special-slots"><h3>특수능력 슬롯 <small>'+owned.length+' / 8</small></h3><div class="gm-special-slot-grid">'+Array.from({length:8},(_,i)=>owned[i]?'<div class="gm-special-slot filled"><b>✦ '+esc(owned[i].name)+'</b><small>'+esc(owned[i].desc)+'</small></div>':'<div class="gm-special-slot"><b>'+(i+1)+'</b><small>빈 슬롯</small></div>').join('')+'</div></div>';
+ document.getElementById('specialPlayerSelect').onchange=e=>{specialTrainPlayerId=e.target.value;content()};
+ document.getElementById('specialDraw').onclick=async()=>{
+  const button=document.getElementById('specialDraw');if(!picked||button.disabled)return;
+  button.disabled=true;
+  const response=await api({type:'drawSpecialAbility',id:picked.id});
+  if(response?.result?.addedAbility)showSpecialDrawResult(response.result.addedAbility,picked);
+  else if(button.isConnected)button.disabled=false;
+ };
+ return
+}
 if(tab==='roster'){
  const batterCount=c.players.filter(p=>!p.isPitcher).length,pitcherCount=c.players.length-batterCount;
  const options=[['overall','종합 능력치순'],['year','연도순'],['name','선수명순'],['pos','포지션순'],['grade','성장타입순'],...Object.entries(rosterView==='pitcher'?pitcherFieldNames:fieldNames).map(([k,v])=>[k,v+'순'])];
@@ -1555,6 +1597,15 @@ function openRosterManage(p){
  overlay.querySelector('.gm-roster-dialog-close')?.focus({preventScroll:true});
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('gmRosterManageOverlay')){e.preventDefault();closeRosterManage()}});
+
+
+function showSpecialDrawResult(skill,p){
+ const overlay=document.createElement('div');overlay.id='gmSpecialWin';overlay.className='gm-special-win-backdrop';
+ overlay.innerHTML='<div class="gm-special-win-dialog" role="dialog" aria-modal="true"><span>NEW SPECIAL ABILITY</span><div class="gm-special-win-glyph">✦</div><h2>특수능력 획득!</h2><h3>'+esc(skill.name)+'</h3><p>'+esc(skill.desc)+'</p><small>'+esc(playerLabel(p))+' 선수에게 적용</small><button type="button" class="primary" id="gmSpecialWinClose">확인</button></div>';
+ document.body.appendChild(overlay);
+ const close=()=>overlay.remove();overlay.querySelector('#gmSpecialWinClose').onclick=close;
+ overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
+}
 
 function closeScoutPopup(){document.getElementById('scoutPopup')?.remove()}
 function scoutPopup(content){
