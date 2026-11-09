@@ -860,6 +860,19 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 .gm-friendly-item-note button{margin-left:3px;border:0;border-bottom:1px solid currentColor;background:transparent;color:#226dad;font-size:12px;font-weight:900;padding:0 2px}
 .grade.S{background:#f0e6ff!important;color:#7b45c2!important;border:1px solid #dbbefb!important}
 @media(max-width:700px){.gm-lineup-item-content{grid-template-columns:1fr;padding:12px}.gm-item-explainer{padding:0 12px 12px}.gm-item-actions{gap:7px}.gm-item-actions button b{font-size:11px}}
+
+/* Order grid: four player batting attributes occupy the formerly unused space. */
+.gm-batting-list .gm-order-row{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:0!important;min-height:0!important;padding:7px 9px 8px!important}
+.gm-order-main{display:flex;align-items:center;gap:9px;min-width:0;min-height:46px;width:100%}
+.gm-order-main .gm-batter-identity{flex:1;min-width:0}
+.gm-order-quick-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:6px 3px 1px 91px;min-width:0;width:100%;border-top:1px solid #eff3f7;margin-top:5px}
+.gm-order-skill{display:flex;align-items:baseline;justify-content:space-between;gap:4px;min-width:0;border-radius:6px;background:#f5f8fc;padding:5px 6px;font-variant-numeric:tabular-nums}
+.gm-order-skill>span{font-size:10px;line-height:1.25;color:#68859e;font-weight:800;white-space:nowrap}
+.gm-order-skill>b{font-size:10px;line-height:1.25;font-weight:900;white-space:nowrap}
+.gm-order-skill .stat-number{font-size:10px;font-weight:900;white-space:nowrap}
+@media(max-width:1200px){.gm-order-main{gap:7px}.gm-order-quick-stats{padding-left:77px}.gm-order-skill{padding:5px 4px;flex-wrap:wrap;justify-content:center}.gm-order-skill>span,.gm-order-skill .stat-number{font-size:10px}}
+@media(max-width:980px){.gm-order-quick-stats{padding-left:92px}.gm-order-skill{justify-content:space-between;flex-wrap:nowrap}}
+@media(max-width:620px){.gm-batting-list .gm-order-row{padding:5px 6px 7px!important}.gm-order-main{gap:5px;min-height:40px}.gm-order-quick-stats{padding:6px 0 0 0;gap:4px;margin-top:5px}.gm-order-skill{flex-direction:column;gap:3px;align-items:center;padding:5px 2px}.gm-order-skill>span{font-size:9px}.gm-order-skill .stat-number{font-size:10px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1242,7 +1255,8 @@ function renderLineup(){
  const actionBar='<div class="gm-lineup-actions"><span class="gm-save-status '+(d.dirty?'unsaved':'')+'"><span class="gm-status-dot"></span>'+(d.dirty?'저장되지 않은 변경사항':'현재 라인업 저장됨')+'</span><button id="gmLineupReset" type="button" class="gm-action-secondary">↶ 변경 취소</button><button id="gmLineupAuto" type="button" class="gm-action-secondary">⚡ 자동 편성</button><button id="gmLineupSave" type="button" class="gm-action-save" '+(!d.dirty?'disabled':'')+'>✓ 라인업 저장</button></div>';
  const hitterRows=d.batting.map((id,i)=>{
   const p=byId(id),position=Object.keys(d.defense).find(k=>d.defense[k]===id)||'–';
-  return '<div class="gm-order-row" data-lineup-order="'+i+'" draggable="true" tabindex="0" aria-label="'+(i+1)+'번 타자 이동"><div class="gm-order-rank">'+(i+1)+'</div><span class="gm-grab" title="타순 드래그">⠿</span>'+(p?playerPortrait(p):'<div class="gm-empty-face">?</div>')+'<div class="gm-batter-identity"><b>'+(p?esc(playerLabel(p)):'미지정')+'</b><small>'+(p?esc(playerTeamName(p)):'')+'</small></div><span class="gm-hitter-pos">'+position+'</span><span class="gm-order-ovr">'+(p?overall(p):'–')+'</span><span class="gm-order-condition">'+(p?conditionLabel(p):'')+'</span><div class="gm-order-controls"><button type="button" data-gm-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="타순 위로">↑</button><button type="button" data-gm-down="'+i+'" '+(i===d.batting.length-1?'disabled':'')+' aria-label="타순 아래로">↓</button></div></div>';
+  const fourSkills=[['contact','정확'],['power','파워'],['eye','선구'],['speed','주력']].map(([key,name])=>'<div class="gm-order-skill"><span>'+name+'</span><b>'+(p?statCell(attributeValue(p,key)):'—')+'</b></div>').join('');
+  return '<div class="gm-order-row" data-lineup-order="'+i+'" draggable="true" tabindex="0" aria-label="'+(i+1)+'번 타자 이동"><div class="gm-order-main"><div class="gm-order-rank">'+(i+1)+'</div><span class="gm-grab" title="타순 드래그">⠿</span>'+(p?playerPortrait(p):'<div class="gm-empty-face">?</div>')+'<div class="gm-batter-identity"><b>'+(p?esc(playerLabel(p)):'미지정')+'</b><small>'+(p?esc(playerTeamName(p)):'')+'</small></div><span class="gm-hitter-pos">'+position+'</span><span class="gm-order-ovr">'+(p?overall(p):'–')+'</span><span class="gm-order-condition">'+(p?conditionLabel(p):'')+'</span><div class="gm-order-controls"><button type="button" data-gm-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="타순 위로">↑</button><button type="button" data-gm-down="'+i+'" '+(i===d.batting.length-1?'disabled':'')+' aria-label="타순 아래로">↓</button></div></div><div class="gm-order-quick-stats" aria-label="타자 능력치">'+fourSkills+'</div></div>';
  }).join('');
  const defenseNodes=LINEUP_POSITIONS.map(([pos,label,x,y])=>{
   const p=byId(d.defense[pos]);
