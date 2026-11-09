@@ -45,7 +45,31 @@ for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
 function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueTier:0,lastSettledWeek:weekStart()-604800000,leagueHistory:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
-function fix(c){const bat=c.players.filter(p=>!p.isPitcher),pitch=c.players.filter(p=>p.isPitcher);c.lineup=[...new Set((c.lineup||[]).filter(id=>bat.some(p=>p.id===id)))];for(const p of bat)if(c.lineup.length<9&&!c.lineup.includes(p.id))c.lineup.push(p.id);if(!pitch.some(p=>p.id===c.pitcher))c.pitcher=pitch[0]?.id||null}
+const DEFENSE_POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'];
+const DEFENSE_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
+function fix(c){
+ const bats=c.players.filter(p=>!p.isPitcher),pitchers=c.players.filter(p=>p.isPitcher);
+ c.lineup=[...new Set((c.lineup||[]).filter(id=>bats.some(p=>p.id===id)))];
+ for(const p of bats)if(c.lineup.length<9&&!c.lineup.includes(p.id))c.lineup.push(p.id);
+ c.lineup=c.lineup.slice(0,9);
+ if(!pitchers.some(p=>p.id===c.pitcher))c.pitcher=pitchers[0]?.id||null;
+ const current=c.defensePositions&&typeof c.defensePositions==='object'?c.defensePositions:{};
+ const validIds=new Set(c.lineup);
+ const next={};const used=new Set();
+ for(const pos of DEFENSE_POS){const id=current[pos];if(id&&validIds.has(id)&&!used.has(id)){next[pos]=id;used.add(id)}}
+ for(const p of bats){if(!validIds.has(p.id)||used.has(p.id))continue;const pos=DEFENSE_NATIVE[p.pos];if(pos&&!next[pos]){next[pos]=p.id;used.add(p.id)}}
+ for(const pos of DEFENSE_POS)if(!next[pos]){const id=c.lineup.find(x=>!used.has(x));if(id){next[pos]=id;used.add(id)}}
+ c.defensePositions=next;
+ const oldPitch=c.pitcherAssignments&&typeof c.pitcherAssignments==='object'?c.pitcherAssignments:{};
+ const chosen=new Set();const assignments={};
+ for(const role of ['starter','relief','closer']){
+  const id=role==='starter'?(pitchers.some(p=>p.id===oldPitch.starter)?oldPitch.starter:c.pitcher):oldPitch[role];
+  if(id&&pitchers.some(p=>p.id===id)&&!chosen.has(id)){assignments[role]=id;chosen.add(id)}
+ }
+ for(const role of ['starter','relief','closer'])if(!assignments[role]){const p=pitchers.find(p=>!chosen.has(p.id));if(p){assignments[role]=p.id;chosen.add(p.id)}}
+ c.pitcherAssignments=assignments;
+ c.pitcher=assignments.starter||c.pitcher;
+}
 function save(){fs.writeFileSync(PATH,JSON.stringify(db))}
 function send(res,status,obj,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(obj))}
 function getCookie(req){return (req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('sid='))?.slice(4)}
@@ -163,6 +187,19 @@ result={message:contract.label+' 성공 · '+p.year+' '+p.name+' 영입 완료',
 else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.price);if(!p)throw Error('선수 없음');if(!Number.isSafeInteger(price)||price<100000||price>100000000000)throw Error('가격은 10만원 이상');if(c.players.length<=15)throw Error('선수단 최소 15명 유지');c.players=c.players.filter(x=>x.id!==p.id);db.listings.push({id:uid(),seller:u.id,player:p,price,date:Date.now()});fix(c);result={message:'판매 등록 완료'}}
 else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.seller===u.id);if(i<0)throw Error('판매글 없음');if(c.players.length>=80)throw Error('선수단이 가득 참');c.players.push(db.listings.splice(i,1)[0].player);fix(c)}
 else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
+else if(a.type==='saveLineup'){
+ fix(c);
+ const batting=Array.isArray(a.batting)?a.batting:[];
+ const defense=a.defense&&typeof a.defense==='object'?a.defense:{};
+ const pitchers=a.pitchers&&typeof a.pitchers==='object'?a.pitchers:{};
+ const batIds=new Set(c.players.filter(p=>!p.isPitcher).map(p=>p.id)),pitchIds=new Set(c.players.filter(p=>p.isPitcher).map(p=>p.id));
+ if(batting.length!==9||new Set(batting).size!==9||batting.some(id=>!batIds.has(id)))throw Error('타선은 서로 다른 타자 9명을 지정해야 합니다');
+ const df=DEFENSE_POS.map(pos=>defense[pos]);if(df.some(id=>!batIds.has(id))||new Set(df).size!==9||df.some(id=>!batting.includes(id)))throw Error('수비 포지션은 타선의 9명을 중복 없이 지정해야 합니다');
+ const pvals=['starter','relief','closer'].map(role=>pitchers[role]);
+ if(pvals.some(id=>!pitchIds.has(id))||new Set(pvals).size!==3)throw Error('선발·중계·마무리 투수를 각각 다른 선수로 지정하세요');
+ c.lineup=batting;c.defensePositions=Object.fromEntries(DEFENSE_POS.map((pos,i)=>[pos,df[i]]));c.pitcherAssignments={starter:pvals[0],relief:pvals[1],closer:pvals[2]};c.pitcher=pvals[0];
+ result={message:'라인업과 수비·투수 배치를 저장했습니다'};
+}
 else if(a.type==='lineup'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(a.pitcher){if(!p.isPitcher)throw Error('투수를 선택하세요');c.pitcher=p.id}else{if(p.isPitcher)throw Error('타자를 선택하세요');c.lineup=c.lineup.filter(x=>x!==p.id);c.lineup.splice(Math.max(0,Math.min(8,Number(a.slot)||0)),0,p.id);c.lineup=c.lineup.slice(0,9)}fix(c)}
 else if(a.type==='friendly'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));result={message:'친선경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단 (리그 전적 미반영)',ours,theirs}}
 else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),off=bat.reduce((s,x)=>s+x.power+x.contact+x.eye,0)/Math.max(1,bat.length*3),def=p?(p.defense+p.mental)/2:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
