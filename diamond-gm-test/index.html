@@ -668,6 +668,26 @@ img,a{-webkit-user-drag:none}
 .player-portrait img{width:100%;height:100%;object-fit:cover;image-rendering:pixelated!important;image-rendering:crisp-edges;display:block}
 .player-portrait.large{width:144px!important;height:168px!important;border-radius:9px!important;border:3px solid #d2e1ed}
 .player-portrait.field{border-radius:3px!important}
+
+/* Home top spacing revision: header separation + clear gutter between stadium and club info. */
+main.shell.layout{padding-top:30px!important}
+.club-home{
+ column-gap:30px!important;
+ row-gap:20px!important;
+ margin-top:4px;
+ align-items:start;
+}
+.club-home>div{min-width:0}
+.club-home>.home-right{min-width:0}
+.club-home .stadium{margin-bottom:18px}
+@media(max-width:1000px){
+ main.shell.layout{padding-top:24px!important}
+ .club-home{column-gap:22px!important;row-gap:18px!important}
+}
+@media(max-width:650px){
+ main.shell.layout{padding-top:18px!important}
+ .club-home{column-gap:0!important;row-gap:17px!important;margin-top:2px}
+}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((Number(p.power)+Number(p.contact)+Number(p.eye)+Number(p.speed)+Number(p.defense)+Number(p.mental??p.stamina??55))/6);
