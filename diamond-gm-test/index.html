@@ -554,109 +554,159 @@ function leagueMatch(g){
 }
 
 
-const LINEUP_POSITIONS=[['CF','중견수',50,19],['LF','좌익수',17,34],['RF','우익수',83,34],['SS','유격수',36,53],['2B','2루수',64,53],['3B','3루수',24,69],['1B','1루수',76,69],['C','포수',50,86],['DH','지명타자',88,87]];
+
+/* Diamond GM / Lineup Studio v2: separate batting, field depth and pitching roles. */
+const LINEUP_POSITIONS=[['CF','중견수',50,13],['LF','좌익수',19,27],['RF','우익수',81,27],['SS','유격수',35,49],['2B','2루수',65,49],['3B','3루수',17,68],['1B','1루수',83,68],['C','포수',49,91],['DH','지명타자',85,91]];
 const LINEUP_ROLES=[...Array.from({length:5},(_,i)=>['starter'+(i+1),(i+1)+'선발']),...Array.from({length:4},(_,i)=>['relief'+(i+1),'계투 '+(i+1)]),['setup','셋업'],['closer','마무리']];
+const LINEUP_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 let lineupDraft=null,lineupMode='batter',dragBattingIndex=null;
 function initLineupDraft(club){
  if(lineupDraft?.clubId===club.id)return;
- const bats=club.players.filter(p=>!p.isPitcher),pitch=club.players.filter(p=>p.isPitcher),batting=(club.lineup||[]).slice(0,9);
- const defense={},used=new Set(),current=club.defensePositions||{},native={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
+ const bats=club.players.filter(p=>!p.isPitcher),pitch=club.players.filter(p=>p.isPitcher),batting=[...new Set((club.lineup||[]).filter(id=>bats.some(p=>p.id===id)))].slice(0,9);
+ for(const p of bats)if(batting.length<9&&!batting.includes(p.id))batting.push(p.id);
+ const defense={},used=new Set(),current=club.defensePositions||{};
  for(const [pos] of LINEUP_POSITIONS){const id=current[pos];if(id&&batting.includes(id)&&!used.has(id)){defense[pos]=id;used.add(id)}}
- for(const id of batting){const pos=native[bats.find(p=>p.id===id)?.pos];if(pos&&!defense[pos]&&!used.has(id)){defense[pos]=id;used.add(id)}}
- for(const [pos]of LINEUP_POSITIONS)if(!defense[pos]){const id=batting.find(v=>!used.has(v));if(id){defense[pos]=id;used.add(id)}}
+ for(const id of batting){const pos=LINEUP_NATIVE[bats.find(p=>p.id===id)?.pos];if(pos&&!defense[pos]&&!used.has(id)){defense[pos]=id;used.add(id)}}
+ for(const [pos] of LINEUP_POSITIONS)if(!defense[pos]){const id=batting.find(x=>!used.has(x));if(id){defense[pos]=id;used.add(id)}}
  let bench=[...new Set((club.benchIds||[]).filter(id=>bats.some(p=>p.id===id)&&!batting.includes(id)))].slice(0,5);
- for(const p of bats)if(bench.length<Math.min(5,bats.length-9)&&!batting.includes(p.id)&&!bench.includes(p.id))bench.push(p.id);
+ for(const p of bats)if(bench.length<Math.min(5,Math.max(0,bats.length-9))&&!batting.includes(p.id)&&!bench.includes(p.id))bench.push(p.id);
  const rotation={},occupied=new Set(),existing=club.pitcherRotation||{};
- for(const [role]of LINEUP_ROLES){const id=existing[role]||(role==='starter1'?club.pitcher:role==='relief1'?club.pitcherAssignments?.relief:role==='closer'?club.pitcherAssignments?.closer:null);if(id&&pitch.some(p=>p.id===id)&&!occupied.has(id)){rotation[role]=id;occupied.add(id)}}
- for(const [role]of LINEUP_ROLES)if(!rotation[role]){const p=pitch.find(p=>!occupied.has(p.id));if(p){rotation[role]=p.id;occupied.add(p.id)}}
+ for(const [role] of LINEUP_ROLES){const id=existing[role]||(role==='starter1'?club.pitcher:role==='relief1'?club.pitcherAssignments?.relief:role==='closer'?club.pitcherAssignments?.closer:null);if(id&&pitch.some(p=>p.id===id)&&!occupied.has(id)){rotation[role]=id;occupied.add(id)}}
+ for(const [role] of LINEUP_ROLES)if(!rotation[role]){const p=pitch.find(p=>!occupied.has(p.id));if(p){rotation[role]=p.id;occupied.add(p.id)}}
  lineupDraft={clubId:club.id,batting,defense,bench,rotation,dirty:false};
 }
 function normalizeBench(){
- const d=lineupDraft,bats=state.club.players.filter(p=>!p.isPitcher);
- d.bench=[...new Set(d.bench.filter(id=>bats.some(p=>p.id===id)&&!d.batting.includes(id)))].slice(0,5);
- for(const p of bats)if(d.bench.length<Math.min(5,bats.length-9)&&!d.batting.includes(p.id)&&!d.bench.includes(p.id))d.bench.push(p.id);
+ const d=lineupDraft,bats=state.club.players.filter(p=>!p.isPitcher),max=Math.min(5,Math.max(0,bats.length-d.batting.length));
+ d.bench=[...new Set(d.bench.filter(id=>bats.some(p=>p.id===id)&&!d.batting.includes(id)))].slice(0,max);
+ for(const p of bats)if(d.bench.length<max&&!d.batting.includes(p.id)&&!d.bench.includes(p.id))d.bench.push(p.id);
 }
 function replaceDefense(pos,id){
  const d=lineupDraft,previous=d.defense[pos];if(previous===id)return;
  const other=Object.keys(d.defense).find(k=>d.defense[k]===id);
  if(other&&other!==pos){d.defense[other]=previous;d.defense[pos]=id}
- else{const idx=d.batting.indexOf(previous);if(idx>=0)d.batting[idx]=id;d.defense[pos]=id}
+ else{const idx=d.batting.indexOf(previous);if(idx<0)return toast('기존 선발 선수를 찾을 수 없습니다');d.batting[idx]=id;d.defense[pos]=id}
  normalizeBench();d.dirty=true;renderLineup();
 }
 function replaceRotation(role,id){
  const d=lineupDraft,old=d.rotation[role],other=Object.keys(d.rotation).find(k=>d.rotation[k]===id);
+ if(old===id)return;
  if(other&&other!==role)d.rotation[other]=old||null;
  d.rotation[role]=id||null;d.dirty=true;renderLineup();
 }
 function moveBatting(from,to){
- const d=lineupDraft;if(!d||from===to||from<0||to<0||from>8||to>8)return;
+ const d=lineupDraft;if(!d||from===to||from<0||to<0||from>=d.batting.length||to>=d.batting.length)return;
  const [id]=d.batting.splice(from,1);d.batting.splice(to,0,id);d.dirty=true;renderLineup();
+ const item=document.querySelector('[data-lineup-order="'+to+'"]');item?.classList.add('gm-order-arrived');
 }
 function lineupStatRow(p,compare){
  const stats=['contact','power','eye','speed','defense','mental'];
- return '<div class="lp-attributes">'+stats.map(key=>{const val=Number(p[key]??p.stamina??0),base=Number(compare?.[key]??compare?.stamina??0),delta=val-base;return '<div><small>'+fieldNames[key]+'</small>'+statCell(val)+(compare&&p.id!==compare.id?'<em class="'+(delta>0?'lp-better':delta<0?'lp-worse':'')+'">'+(delta>0?'+':'')+delta.toFixed(2)+'</em>':'')+'</div>'}).join('')+'</div>';
+ return '<div class="gm-compare-stats">'+stats.map(key=>{const val=Number(p[key]??p.stamina??0),base=Number(compare?.[key]??compare?.stamina??0),delta=val-base;return '<div class="gm-compare-stat"><small>'+esc(fieldNames[key])+'</small><b>'+val.toFixed(2)+'</b>'+(compare&&p.id!==compare.id?'<em class="'+(delta>0?'good':delta<0?'bad':'')+'">'+(delta>0?'+':'')+delta.toFixed(2)+'</em>':'<em>기준</em>')+'</div>'}).join('')+'</div>';
 }
 function lineupPicker(role,kind='batter'){
- const d=lineupDraft,club=state.club,all=club.players,field=LINEUP_POSITIONS.find(p=>p[0]===role),currentId=kind==='pitcher'?d.rotation[role]:d.defense[role],current=all.find(p=>p.id===currentId);
- const desired=field?.[1]||'';
- const available=(kind==='pitcher'?all.filter(p=>p.isPitcher):all.filter(p=>!p.isPitcher&&(role==='DH'||p.pos===desired||p.id===currentId))).sort((a,b)=>Number(overall(b))-Number(overall(a)));
- const title=kind==='pitcher'?(LINEUP_ROLES.find(x=>x[0]===role)?.[1]||'투수'):desired;
- const overlay=document.createElement('div');overlay.className='lineup-picker-backdrop';overlay.id='lineupPicker';
- overlay.innerHTML='<section class="lineup-picker-dialog" role="dialog" aria-modal="true"><header><div><small>LINEUP PLAYER COMPARISON</small><h2>'+esc(title)+' 선수 교체</h2></div><button id="lineupPickerClose" aria-label="닫기">✕</button></header><p class="muted">현재 선수와 능력치를 비교한 뒤 교체할 선수를 선택하세요. 녹색은 능력치 상승, 빨간색은 하락입니다.</p>'+ (current?'<div class="lineup-picker-current">'+playerPortrait(current)+'<div><b>현재 선수 · '+esc(playerLabel(current))+'</b><small>'+esc(playerTeamName(current))+' · '+esc(current.pos)+'</small></div></div>':'')+'<div class="lineup-picker-options">'+(available.length?available.map(p=>'<div class="lineup-picker-option '+(p.id===currentId?'is-current':'')+'"><div class="lineup-picker-summary">'+playerPortrait(p)+'<div><b>'+esc(playerLabel(p))+'</b><small>'+esc(playerTeamName(p))+' · '+esc(p.pos)+' · 종합 '+overall(p)+'</small></div><button type="button" data-select-lineup="'+esc(p.id)+'" '+(p.id===currentId?'disabled':'')+'>'+(p.id===currentId?'현재 선수':'교체')+'</button></div>'+lineupStatRow(p,current)+'</div>').join(''):'<p class="muted">해당 포지션의 대기 선수가 없습니다.</p>')+'</div></section>';
+ document.getElementById('gmLineupPicker')?.remove();
+ const d=lineupDraft,all=state.club.players,field=LINEUP_POSITIONS.find(x=>x[0]===role),currentId=kind==='pitcher'?d.rotation[role]:d.defense[role],current=all.find(p=>p.id===currentId);
+ const title=kind==='pitcher'?(LINEUP_ROLES.find(x=>x[0]===role)?.[1]||'투수'):field?.[1]||'타자';
+ const rolePos=kind==='pitcher'?(role.startsWith('starter')?'선발':role==='closer'?'마무리':'중계'):field?.[1];
+ const candidate=all.filter(p=>kind==='pitcher'?p.isPitcher:!p.isPitcher&&(role==='DH'||p.pos===rolePos||p.id===currentId)).sort((a,b)=>(b.pos===rolePos?1:0)-(a.pos===rolePos?1:0)||Number(overall(b))-Number(overall(a)));
+ const overlay=document.createElement('div');overlay.className='gm-modal-backdrop';overlay.id='gmLineupPicker';
+ overlay.innerHTML='<section class="gm-modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+' 선수 교체"><div class="gm-modal-head"><div><span class="gm-eyebrow">PLAYER COMPARISON</span><h2>'+esc(title)+' 선수 교체</h2><p>선수 능력치를 비교하고 교체할 선수를 선택하세요.</p></div><button type="button" id="gmPickerClose" class="gm-icon-close" aria-label="닫기">✕</button></div>'+
+ (current?'<div class="gm-current-player">'+playerPortrait(current)+'<div><small>현재 배치 선수</small><b>'+esc(playerLabel(current))+'</b><span>'+esc(current.pos)+' · OVR '+overall(current)+' · '+conditionLabel(current)+'</span></div></div>':'')+
+ '<div class="gm-modal-list">'+(candidate.length?candidate.map(p=>'<div class="gm-candidate '+(p.id===currentId?'current':'')+'"><div class="gm-candidate-heading">'+playerPortrait(p)+'<div><b>'+esc(playerLabel(p))+'</b><small>'+esc(p.pos)+' · '+esc(playerTeamName(p))+' · '+conditionLabel(p)+'</small></div><div class="gm-candidate-ovr">OVR <b>'+overall(p)+'</b></div><button type="button" data-gm-select="'+esc(p.id)+'" '+(p.id===currentId?'disabled':'')+'>'+(p.id===currentId?'배치 중':'교체')+'</button></div>'+lineupStatRow(p,current)+'</div>').join(''):'<div class="gm-modal-empty">현재 '+esc(title)+' 포지션으로 등록된 다른 선수가 없습니다. 스카우트에서 해당 포지션 선수를 영입할 수 있습니다.</div>')+'</div></section>';
  document.body.appendChild(overlay);
- const close=()=>overlay.remove();overlay.querySelector('#lineupPickerClose').onclick=close;overlay.onclick=e=>{if(e.target===overlay)close()};
- overlay.querySelectorAll('[data-select-lineup]').forEach(btn=>btn.onclick=()=>{const id=btn.dataset.selectLineup;close();if(kind==='pitcher')replaceRotation(role,id);else replaceDefense(role,id)});
+ const close=()=>overlay.remove();overlay.querySelector('#gmPickerClose').onclick=close;overlay.onclick=e=>{if(e.target===overlay)close()};
+ overlay.querySelectorAll('[data-gm-select]').forEach(btn=>btn.onclick=()=>{const id=btn.dataset.gmSelect;close();kind==='pitcher'?replaceRotation(role,id):replaceDefense(role,id)});
+}
+function showBenchPicker(){
+ document.getElementById('gmBenchPicker')?.remove();
+ const d=lineupDraft,bats=state.club.players.filter(p=>!p.isPitcher&&!d.batting.includes(p.id)),max=Math.min(5,bats.length);
+ const cover=document.createElement('div');cover.id='gmBenchPicker';cover.className='gm-modal-backdrop';
+ cover.innerHTML='<section class="gm-modal gm-bench-dialog" role="dialog" aria-modal="true"><div class="gm-modal-head"><div><span class="gm-eyebrow">BENCH ROSTER</span><h2>교체선수 편성</h2><p>선발에 포함되지 않은 타자 '+max+'명을 선택하세요.</p></div><button type="button" id="gmBenchClose" class="gm-icon-close">✕</button></div><div class="gm-bench-select-list">'+bats.map(p=>'<label class="gm-bench-select-row"><input type="checkbox" value="'+esc(p.id)+'" data-gm-bench-check '+(d.bench.includes(p.id)?'checked':'')+'>'+playerPortrait(p)+'<span><b>'+esc(playerLabel(p))+'</b><small>'+esc(p.pos)+' · OVR '+overall(p)+'</small></span>'+conditionLabel(p)+'</label>').join('')+'</div><div class="gm-modal-actions"><button id="gmBenchCancel">취소</button><button id="gmBenchApply" class="primary">선택 적용</button></div></section>';
+ document.body.appendChild(cover);const close=()=>cover.remove();cover.querySelector('#gmBenchClose').onclick=close;cover.querySelector('#gmBenchCancel').onclick=close;cover.onclick=e=>{if(e.target===cover)close()};
+ const boxes=[...cover.querySelectorAll('[data-gm-bench-check]')];
+ boxes.forEach(input=>input.onchange=()=>{if(boxes.filter(x=>x.checked).length>max){input.checked=false;toast('교체선수는 '+max+'명까지 선택할 수 있습니다')}});
+ cover.querySelector('#gmBenchApply').onclick=()=>{const selected=boxes.filter(x=>x.checked).map(x=>x.value);if(selected.length!==max)return toast(max+'명을 선택해 주세요');d.bench=selected;d.dirty=true;close();renderLineup()};
+}
+function lineupAutoPick(){
+ const d=lineupDraft,bats=state.club.players.filter(p=>!p.isPitcher),pitch=state.club.players.filter(p=>p.isPitcher);
+ if(bats.length<9)return toast('라인업에 필요한 타자가 부족합니다');
+ const remaining=[...bats],defense={},native=[...LINEUP_POSITIONS].filter(x=>x[0]!=='DH');
+ for(const [pos,label] of native){
+  const pool=remaining.filter(p=>p.pos===label).sort((a,b)=>Number(overall(b))-Number(overall(a)));
+  if(pool.length){const p=pool[0];defense[pos]=p.id;remaining.splice(remaining.indexOf(p),1)}
+ }
+ for(const [pos] of LINEUP_POSITIONS)if(!defense[pos]){remaining.sort((a,b)=>Number(overall(b))-Number(overall(a)));const p=remaining.shift();if(p)defense[pos]=p.id}
+ const selected=new Set(Object.values(defense));
+ d.batting=[...bats].filter(p=>selected.has(p.id)).sort((a,b)=>{
+  const power=id=>Number(id.power||0),contact=id=>Number(id.contact||0),speed=id=>Number(id.speed||0);
+  return power(b)+contact(b)*.8+speed(b)*.2-(power(a)+contact(a)*.8+speed(a)*.2);
+ }).map(p=>p.id);
+ d.defense=defense;
+ const unassigned=[...pitch],rotation={};
+ for(const [role] of LINEUP_ROLES){
+  const ideal=role.startsWith('starter')?'선발':role==='closer'?'마무리':'중계';
+  const pool=unassigned.filter(p=>p.pos===ideal).sort((a,b)=>Number(overall(b))-Number(overall(a)));
+  const p=pool[0]||unassigned.sort((a,b)=>Number(overall(b))-Number(overall(a)))[0];
+  rotation[role]=p?.id||null;if(p)unassigned.splice(unassigned.indexOf(p),1);
+ }
+ d.rotation=rotation;normalizeBench();d.dirty=true;renderLineup();toast('능력치와 주포지션을 기준으로 자동 편성했습니다');
+}
+function gmLineupDragWiring(){
+ const rows=[...document.querySelectorAll('[data-lineup-order]')];let touch=null;
+ rows.forEach(row=>{
+  row.addEventListener('dragstart',e=>{if(e.target.closest('button')){e.preventDefault();return}dragBattingIndex=Number(row.dataset.lineupOrder);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(dragBattingIndex));row.classList.add('is-dragging')});
+  row.addEventListener('dragover',e=>{e.preventDefault();rows.forEach(r=>r.classList.remove('is-drop-target'));row.classList.add('is-drop-target')});
+  row.addEventListener('drop',e=>{e.preventDefault();const from=dragBattingIndex,to=Number(row.dataset.lineupOrder);dragBattingIndex=null;moveBatting(from,to)});
+  row.addEventListener('dragend',()=>{dragBattingIndex=null;rows.forEach(r=>r.classList.remove('is-dragging','is-drop-target'))});
+  row.addEventListener('pointerdown',e=>{if(e.pointerType==='mouse'||e.target.closest('button'))return;touch={id:e.pointerId,start:e.clientY,from:Number(row.dataset.lineupOrder),moving:false};});
+  row.addEventListener('pointermove',e=>{if(!touch||touch.id!==e.pointerId)return;const delta=e.clientY-touch.start;if(Math.abs(delta)>8){if(!touch.moving){touch.moving=true;row.setPointerCapture?.(e.pointerId);row.classList.add('is-dragging')}row.style.transform='translateY('+delta+'px) scale(1.015)'}});
+  row.addEventListener('pointerup',e=>{if(!touch||touch.id!==e.pointerId)return;const drag=touch;touch=null;row.style.transform='';row.classList.remove('is-dragging');if(!drag.moving)return;const target=document.elementFromPoint(e.clientX,e.clientY)?.closest('[data-lineup-order]');if(target)moveBatting(drag.from,Number(target.dataset.lineupOrder))});
+  row.addEventListener('pointercancel',()=>{touch=null;row.style.transform='';row.classList.remove('is-dragging')});
+ });
 }
 function renderLineup(){
  const c=state.club,el=document.getElementById('content');if(!c||!el)return;initLineupDraft(c);
- const d=lineupDraft,all=c.players,bats=all.filter(p=>!p.isPitcher),pitch=all.filter(p=>p.isPitcher),byId=id=>all.find(p=>p.id===id);
- const hitterCards=LINEUP_POSITIONS.map(([pos,label,x,y])=>{const p=byId(d.defense[pos]);return '<button type="button" class="diamond-position" data-pick-field="'+pos+'" style="left:'+x+'%;top:'+y+'%" title="'+label+' 교체 선수 비교"><span class="diamond-pos-label">'+pos+'</span>'+(p?playerPortrait(p,'field'):'')+'<span class="diamond-player-name">'+(p?esc(playerLabel(p)):'미지정')+'</span><span class="diamond-team-name">'+(p?esc(playerTeamName(p)):'')+'</span><span class="diamond-player-grade">'+(p?esc(p.grade):'-')+' · '+(p?overall(p):'-')+'</span></button>'}).join('');
- const starter=byId(d.rotation.starter1);
- const benchCards=d.bench.map((id,i)=>{const p=byId(id);return '<button class="lineup-bench-card" type="button" data-bench-card="'+esc(id)+'" title="교체선수 정보"><span class="bench-index">BENCH '+(i+1)+'</span>'+(p?playerPortrait(p):'')+'<span><b>'+(p?esc(playerLabel(p)):'대기')+'</b><small>'+(p?esc(playerTeamName(p)):'')+'</small><small>'+(p?esc(p.pos)+' · '+overall(p):'')+'</small></span></button>'}).join('');
- const field='<div class="lineup-field"><div class="lineup-crowd"></div><div class="lineup-turf"></div><div class="lineup-infield"><div class="lineup-diamond-shape"></div></div><div class="lineup-pitch-mound"></div><div class="lineup-foul foul-left"></div><div class="lineup-foul foul-right"></div>'+hitterCards+'<button type="button" class="diamond-position pitcher-pin" data-pick-pitcher="starter1" style="left:50%;top:69%"><span class="diamond-pos-label">SP</span>'+(starter?playerPortrait(starter,'field'):'')+'<span class="diamond-player-name">'+(starter?esc(playerLabel(starter)):'미지정')+'</span><span class="diamond-team-name">'+(starter?esc(playerTeamName(starter)):'')+'</span><span class="diamond-player-grade">'+(starter?overall(starter):'-')+'</span></button></div>';
- const batting='<div class="lineup-editor-panel"><div class="lineup-editor-head"><h3>1~9번 타순</h3><span>드래그해서 타순 변경</span></div><div class="lineup-sortable" id="lineupBatting">'+d.batting.map((id,i)=>{const p=byId(id);return '<div class="lineup-drag-item" draggable="true" data-batting-order="'+i+'"><span class="lineup-drag-handle" aria-label="드래그">⠿</span><span class="lineup-order">'+(i+1)+'</span>'+(p?playerPortrait(p):'')+'<div class="lineup-drag-player"><b>'+(p?esc(playerLabel(p)):'미지정')+'</b><small>'+(p?esc(playerTeamName(p)):'')+'</small></div><span class="lineup-drag-score">'+(p?overall(p):'--')+'</span><span class="lineup-drag-buttons"><button type="button" data-move-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="위로">↑</button><button type="button" data-move-down="'+i+'" '+(i===8?'disabled':'')+' aria-label="아래로">↓</button></span></div>'}).join('')+'</div></div>';
- const pitcherRows=LINEUP_ROLES.map(([role,label],i)=>{const p=byId(d.rotation[role]);return '<button type="button" class="lineup-pitch-card" data-pick-pitcher="'+role+'"><span class="lineup-pitch-index '+(i<5?'starter-type':i<9?'relief-type':'closer-type')+'">'+label+'</span>'+(p?playerPortrait(p):'')+'<span class="lineup-pitch-copy"><b>'+(p?esc(playerLabel(p)):'선수 지정')+'</b><small>'+(p?esc(playerTeamName(p))+' · '+p.pos:'투수 선택')+'</small></span><span class="lineup-pitch-overall">'+(p?overall(p):'—')+'</span><icon aria-hidden="true">›</icon></button>'}).join('');
- const pitcherView='<div class="lineup-pitchers-main"><div class="lineup-editor-panel"><div class="lineup-editor-head"><h3>선발 투수 1~5선발</h3><span>로테이션 지정</span></div>'+pitcherRows.split('</button>').slice(0,5).join('</button>')+'</button></div><div class="lineup-editor-panel"><div class="lineup-editor-head"><h3>계투 4명</h3><span>불펜 운용</span></div>'+pitcherRows.split('</button>').slice(5,9).join('</button>')+'</button></div><div class="lineup-editor-panel"><div class="lineup-editor-head"><h3>셋업 · 마무리</h3><span>승리조</span></div>'+pitcherRows.split('</button>').slice(9,11).join('</button>')+'</button></div></div>';
- const isB=lineupMode==='batter';
- el.innerHTML='<div class="lineup-page-title"><div><span class="team-eyebrow">DIAMOND GM · TEAM LINEUP</span><h2 class="sectiontitle">라인업 관리</h2><p class="muted">타자·투수 라인업을 각각 관리하고 저장하세요.</p></div><button id="lineupSave" class="primary" '+(!d.dirty?'disabled':'')+'>✓ 변경사항 저장</button></div>'+
- '<div class="lineup-mode-tabs"><button type="button" data-lineup-mode="batter" class="'+(isB?'selected':'')+'">⚾ 타자</button><button type="button" data-lineup-mode="pitcher" class="'+(!isB?'selected':'')+'">🔥 투수</button></div>'+
- (isB?'<div class="lineup-workspace"><div class="lineup-field-column"><div class="lineup-field-head"><strong>🏟️ 타자 포지션 배치</strong><span>프로필 클릭 → 동일 포지션 선수 스펙 비교 · 교체</span></div>'+field+'<div class="lineup-field-summary"><span>타선 평균 <strong>'+statNum(d.batting.reduce((sum,id)=>sum+(Number(byId(id)?.power)||0),0)/9)+'%</strong></span><span>수비 평균 <strong>'+statNum(d.batting.reduce((sum,id)=>sum+(Number(byId(id)?.defense)||0),0)/9)+'%</strong></span></div><div class="lineup-bench-area"><div class="lineup-bench-header"><strong>교체선수 5명</strong><span>후보 프로필 클릭 → 선수 정보</span></div><div class="lineup-bench-cards">'+benchCards+'</div><button type="button" id="lineupEditBench" class="lineup-manage-bench">교체선수 명단 변경</button></div></div><div class="lineup-editor">'+batting+'<div class="lineup-editor-actions"><button id="lineupReset">초기화</button><button id="lineupAuto">자동 배치</button><button id="lineupSaveBottom" class="primary" '+(!d.dirty?'disabled':'')+'>라인업 저장</button></div></div></div>':pitcherView+'<div class="lineup-editor-actions lineup-pitch-actions"><button id="lineupReset">초기화</button><button id="lineupAuto">자동 배치</button><button id="lineupSaveBottom" class="primary" '+(!d.dirty?'disabled':'')+'>투수 라인업 저장</button></div>');
- document.querySelectorAll('[data-lineup-mode]').forEach(btn=>btn.onclick=()=>{lineupMode=btn.dataset.lineupMode;renderLineup()});
- document.querySelectorAll('[data-pick-field]').forEach(btn=>btn.onclick=()=>lineupPicker(btn.dataset.pickField));
- document.querySelectorAll('[data-pick-pitcher]').forEach(btn=>btn.onclick=()=>lineupPicker(btn.dataset.pickPitcher,'pitcher'));
- document.querySelectorAll('[data-bench-card]').forEach(btn=>btn.onclick=()=>{const p=byId(btn.dataset.benchCard);if(p)openPlayerProfile(p)});
- const benchEdit=document.getElementById('lineupEditBench');if(benchEdit)benchEdit.onclick=showBenchPicker;
- document.querySelectorAll('[data-move-up]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.moveUp),Number(btn.dataset.moveUp)-1));
- document.querySelectorAll('[data-move-down]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.moveDown),Number(btn.dataset.moveDown)+1));
- const rows=[...document.querySelectorAll('.lineup-drag-item')];
- for(const row of rows){
-  row.addEventListener('dragstart',e=>{dragBattingIndex=Number(row.dataset.battingOrder);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',String(dragBattingIndex));row.classList.add('is-dragging')});
-  row.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';rows.forEach(r=>r.classList.remove('is-drop-target'));row.classList.add('is-drop-target')});
-  row.addEventListener('drop',e=>{e.preventDefault();const from=dragBattingIndex,to=Number(row.dataset.battingOrder);dragBattingIndex=null;moveBatting(from,to)});
-  row.addEventListener('dragend',()=>{dragBattingIndex=null;rows.forEach(r=>r.classList.remove('is-dragging','is-drop-target'))});
- }
- const save=async()=>{const payload={type:'saveLineup',batting:[...d.batting],defense:{...d.defense},bench:[...d.bench],rotation:{...d.rotation}};lineupDraft=null;await api(payload)};
- document.getElementById('lineupSave').onclick=save;document.getElementById('lineupSaveBottom').onclick=save;
- document.getElementById('lineupReset').onclick=()=>{lineupDraft=null;renderLineup()};
- document.getElementById('lineupAuto').onclick=()=>{
-  d.batting=[...bats].sort((a,b)=>Number(overall(b))-Number(overall(a))).slice(0,9).map(p=>p.id);
-  d.defense={};let used=new Set();const native={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
-  for(const id of d.batting){const pos=native[byId(id)?.pos];if(pos&&!d.defense[pos]){d.defense[pos]=id;used.add(id)}}
-  for(const [pos]of LINEUP_POSITIONS)if(!d.defense[pos]){const id=d.batting.find(id=>!used.has(id));if(id){d.defense[pos]=id;used.add(id)}}
-  const sorted=[...pitch].sort((a,b)=>Number(overall(b))-Number(overall(a)));d.rotation={};LINEUP_ROLES.forEach(([role],i)=>{d.rotation[role]=sorted[i]?.id||null});
-  normalizeBench();d.dirty=true;renderLineup();
+ const d=lineupDraft,all=c.players,byId=id=>all.find(p=>p.id===id),isB=lineupMode==='batter',batters=c.players.filter(p=>!p.isPitcher),pitchers=c.players.filter(p=>p.isPitcher),filledPitch=LINEUP_ROLES.filter(([role])=>d.rotation[role]).length;
+ const avg=ids=>ids.length?(ids.reduce((sum,id)=>sum+Number(overall(byId(id))||0),0)/ids.length).toFixed(1):'—';
+ const actionBar='<div class="gm-lineup-actions"><span class="gm-save-status '+(d.dirty?'unsaved':'')+'"><span class="gm-status-dot"></span>'+(d.dirty?'저장되지 않은 변경사항':'현재 라인업 저장됨')+'</span><button id="gmLineupReset" type="button" class="gm-action-secondary">↶ 변경 취소</button><button id="gmLineupAuto" type="button" class="gm-action-secondary">⚡ 자동 편성</button><button id="gmLineupSave" type="button" class="gm-action-save" '+(!d.dirty?'disabled':'')+'>✓ 라인업 저장</button></div>';
+ const hitterRows=d.batting.map((id,i)=>{
+  const p=byId(id),position=Object.keys(d.defense).find(k=>d.defense[k]===id)||'–';
+  return '<div class="gm-order-row" data-lineup-order="'+i+'" draggable="true" tabindex="0" aria-label="'+(i+1)+'번 타자 이동"><div class="gm-order-rank">'+(i+1)+'</div><span class="gm-grab" title="타순 드래그">⠿</span>'+(p?playerPortrait(p):'<div class="gm-empty-face">?</div>')+'<div class="gm-batter-identity"><b>'+(p?esc(playerLabel(p)):'미지정')+'</b><small>'+(p?esc(playerTeamName(p)):'')+'</small></div><span class="gm-hitter-pos">'+position+'</span><span class="gm-order-ovr">'+(p?overall(p):'–')+'</span><span class="gm-order-condition">'+(p?conditionLabel(p):'')+'</span><div class="gm-order-controls"><button type="button" data-gm-up="'+i+'" '+(i===0?'disabled':'')+' aria-label="타순 위로">↑</button><button type="button" data-gm-down="'+i+'" '+(i===d.batting.length-1?'disabled':'')+' aria-label="타순 아래로">↓</button></div></div>';
+ }).join('');
+ const defenseNodes=LINEUP_POSITIONS.map(([pos,label,x,y])=>{
+  const p=byId(d.defense[pos]);
+  return '<button type="button" class="gm-field-node" data-gm-field="'+pos+'" style="left:'+x+'%;top:'+y+'%" title="'+label+' 교체"><span class="gm-node-role">'+pos+'</span><span class="gm-node-name">'+(p?esc(p.name):'미지정')+'</span><span class="gm-node-rating">'+(p?'OVR '+overall(p):'선택')+'</span></button>';
+ }).join('');
+ const starting=byId(d.rotation.starter1);
+ const field='<div class="gm-field"><div class="gm-field-grass"></div><div class="gm-field-dirt"></div><div class="gm-field-inner"></div><div class="gm-field-base base-home"></div><div class="gm-field-base base-one"></div><div class="gm-field-base base-two"></div><div class="gm-field-base base-three"></div>'+defenseNodes+'<button type="button" class="gm-field-node gm-field-pitcher" data-gm-pitch="starter1" style="left:50%;top:68%" title="1선발 교체"><span class="gm-node-role">SP</span><span class="gm-node-name">'+(starting?esc(starting.name):'미지정')+'</span><span class="gm-node-rating">'+(starting?'OVR '+overall(starting):'선택')+'</span></button></div>';
+ const benchSlots=Array.from({length:5},(_,i)=>{const p=byId(d.bench[i]);return '<button class="gm-bench-slot" type="button" '+(p?'data-gm-bench-profile="'+esc(p.id)+'"':'data-gm-bench-edit="1"')+'><span class="gm-bench-index">'+String(i+1).padStart(2,'0')+'</span>'+(p?playerPortrait(p):'<span class="gm-bench-placeholder">+</span>')+'<span class="gm-bench-name">'+(p?esc(p.name):'미지정')+'</span><span class="gm-bench-meta">'+(p?esc(p.pos)+' · '+overall(p):'선수 선택')+'</span></button>'}).join('');
+ const hitters='<div class="gm-lineup-columns"><section class="gm-panel gm-batting"><header class="gm-panel-head"><div><span class="gm-panel-kicker">OFFENSE</span><h3>타순 편성 <small>1–9번</small></h3></div><span class="gm-panel-hint">⠿ 드래그로 순서 변경</span></header><div class="gm-batting-list">'+hitterRows+'</div><div class="gm-panel-foot"><span>총 '+d.batting.length+'명</span><span>타선 평균 OVR <b>'+avg(d.batting)+'</b></span></div></section><div class="gm-lineup-right"><section class="gm-panel gm-field-panel"><header class="gm-panel-head"><div><span class="gm-panel-kicker">DEFENSE</span><h3>수비 배치도</h3></div><span class="gm-panel-hint">선수 클릭 → 비교 · 교체</span></header>'+field+'<div class="gm-field-legend"><span><i class="gm-legend-dot"></i> 수비 위치를 클릭하면 같은 포지션의 선수가 표시됩니다.</span></div></section><section class="gm-panel gm-bench-panel"><header class="gm-panel-head"><div><span class="gm-panel-kicker">BENCH</span><h3>교체선수 <small>'+d.bench.length+'/5명</small></h3></div><button id="gmBenchEdit" type="button" class="gm-small-edit">편성 변경</button></header><div class="gm-bench-grid">'+benchSlots+'</div></section></div></div>';
+ const pitcherCard=([role,label],i)=>{
+  const p=byId(d.rotation[role]);return '<button type="button" class="gm-pitch-row" data-gm-pitch="'+role+'"><span class="gm-pitch-num">'+(i+1<10?'0':'')+(i+1)+'</span>'+(p?playerPortrait(p):'<span class="gm-pitch-empty">+</span>')+'<div class="gm-pitch-info"><b>'+(p?esc(playerLabel(p)):'선수 미지정')+'</b><small>'+(p?esc(playerTeamName(p)):'선수를 선택하세요')+'</small></div><span class="gm-pitch-role">'+label+'</span><span class="gm-pitch-rating">'+(p?overall(p):'—')+'</span><span class="gm-pitch-arrow">›</span></button>';
  };
-}
-function showBenchPicker(){
- const d=lineupDraft,bats=state.club.players.filter(p=>!p.isPitcher&&!d.batting.includes(p.id));
- document.getElementById('lineupBenchPicker')?.remove();
- const cover=document.createElement('div');cover.id='lineupBenchPicker';cover.className='lineup-picker-backdrop';
- cover.innerHTML='<div class="lineup-picker-dialog" role="dialog" aria-modal="true"><header><h2>교체선수 5명 선택</h2><button id="benchClose">✕</button></header><p class="muted">선발에 포함되지 않은 타자 5명을 선택하세요.</p><div class="lineup-bench-selection">'+bats.map(p=>'<label><input type="checkbox" value="'+esc(p.id)+'" data-bench-option '+(d.bench.includes(p.id)?'checked':'')+'>'+playerPortrait(p)+'<span>'+esc(playerLabel(p))+'<small>'+esc(p.pos)+' · '+esc(playerTeamName(p))+' · '+overall(p)+'</small></span></label>').join('')+'</div><div class="lineup-editor-actions"><button id="benchCancel">취소</button><button class="primary" id="benchApply">적용</button></div></div>';
- document.body.appendChild(cover);const close=()=>cover.remove();
- cover.querySelector('#benchClose').onclick=close;cover.querySelector('#benchCancel').onclick=close;cover.onclick=e=>{if(e.target===cover)close()};
- const opts=[...cover.querySelectorAll('[data-bench-option]')],max=Math.min(5,bats.length);
- opts.forEach(input=>input.onchange=()=>{if(opts.filter(x=>x.checked).length>max){input.checked=false;toast('교체선수는 최대 '+max+'명입니다')}});
- cover.querySelector('#benchApply').onclick=()=>{const chosen=opts.filter(x=>x.checked).map(x=>x.value);if(chosen.length!==max)return toast('교체선수 '+max+'명을 지정해 주세요');d.bench=chosen;d.dirty=true;close();renderLineup()};
+ const pitchGroup=(title,sub,arr,offset)=>'<section class="gm-panel gm-pitch-panel"><header class="gm-panel-head"><div><span class="gm-panel-kicker">'+sub+'</span><h3>'+title+'</h3></div><span class="gm-panel-hint">'+arr.filter(([r])=>d.rotation[r]).length+'/'+arr.length+'명</span></header><div class="gm-pitch-list">'+arr.map((item,i)=>pitcherCard(item,offset+i)).join('')+'</div></section>';
+ const pitchersView='<div class="gm-pitch-columns">'+pitchGroup('선발 로테이션','STARTING ROTATION',LINEUP_ROLES.slice(0,5),0)+'<div class="gm-pitch-stack">'+pitchGroup('계투진','BULLPEN',LINEUP_ROLES.slice(5,9),5)+pitchGroup('필승조','SETUP & CLOSER',LINEUP_ROLES.slice(9),9)+'</div></div>';
+ el.innerHTML='<div class="gm-lineup-shell"><div class="gm-lineup-heading"><div><span class="gm-eyebrow">TEAM MANAGEMENT / LINEUP</span><h2>라인업 관리</h2><p>선수를 배치하고, 타순을 변경하고, 팀 전력을 관리하세요.</p></div><div class="gm-lineup-team"><span class="gm-team-mark">'+esc(chosenTeam()?.symbol||'⚾')+'</span><span><b>'+esc(c.name)+'</b><small>시즌 '+(c.season||1)+' · 구단 운영</small></span></div></div><nav class="gm-lineup-tabs" aria-label="라인업 종류"><button type="button" data-gm-mode="batter" class="'+(isB?'active':'')+'">타자 라인업 <span>9명 + 교체 5명</span></button><button type="button" data-gm-mode="pitcher" class="'+(!isB?'active':'')+'">투수 라인업 <span>선발 5 · 계투 4 · 필승조 2</span></button></nav><div class="gm-lineup-metrics"><div><small>선발 타자</small><strong>'+d.batting.length+'<span> / 9</span></strong></div><div><small>교체선수</small><strong>'+d.bench.length+'<span> / 5</span></strong></div><div><small>투수 배치</small><strong>'+filledPitch+'<span> / 11</span></strong></div><div><small>타선 평균 OVR</small><strong>'+avg(d.batting)+'</strong></div></div>'+(isB?hitters:pitchersView)+actionBar+'</div>';
+ document.querySelectorAll('[data-gm-mode]').forEach(btn=>btn.onclick=()=>{lineupMode=btn.dataset.gmMode;renderLineup()});
+ document.querySelectorAll('[data-gm-field]').forEach(btn=>btn.onclick=()=>lineupPicker(btn.dataset.gmField));
+ document.querySelectorAll('[data-gm-pitch]').forEach(btn=>btn.onclick=()=>lineupPicker(btn.dataset.gmPitch,'pitcher'));
+ document.querySelectorAll('[data-gm-bench-profile]').forEach(btn=>btn.onclick=()=>{const p=byId(btn.dataset.gmBenchProfile);if(p)openPlayerProfile(p)});
+ document.querySelectorAll('[data-gm-bench-edit]').forEach(btn=>btn.onclick=showBenchPicker);
+ document.getElementById('gmBenchEdit')?.addEventListener('click',showBenchPicker);
+ document.querySelectorAll('[data-gm-up]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.gmUp),Number(btn.dataset.gmUp)-1));
+ document.querySelectorAll('[data-gm-down]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.gmDown),Number(btn.dataset.gmDown)+1));
+ gmLineupDragWiring();
+ document.getElementById('gmLineupReset').onclick=()=>{lineupDraft=null;renderLineup()};
+ document.getElementById('gmLineupAuto').onclick=lineupAutoPick;
+ document.getElementById('gmLineupSave').onclick=async()=>{
+  const payload={type:'saveLineup',batting:[...d.batting],defense:{...d.defense},bench:[...d.bench],rotation:{...d.rotation}};
+  const button=document.getElementById('gmLineupSave');button.disabled=true;button.textContent='저장 중…';
+  try{
+   const res=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+   const data=await res.json();if(!res.ok)throw Error(data.error||'저장 실패');
+   const prevTeams=state.teams||[];state=data;if(!state.teams)state.teams=prevTeams;
+   lineupDraft=null;render();toast(data.result?.message||'라인업이 저장되었습니다');
+  }catch(e){toast(e.message);button.disabled=false;button.textContent='✓ 라인업 저장'}
+ };
 }
 
 let scoutCurrency='cash';
