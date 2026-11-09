@@ -380,7 +380,14 @@ body{overflow-x:clip;min-width:0}
 .stadium::before,.stadium::after{content:none!important;display:none!important}
 .stadium .stadium-overlay{position:relative;z-index:2;background:none!important}
 .stadium .stadium-overlay h2,.stadium .stadium-overlay p,.stadium .stadium-overlay .classic-subtitle{position:relative;z-index:2;text-shadow:0 2px 6px #071a2b99}
-</style></head><body><div id="app"></div><script src="/avatar3d.js"></script><script>
+
+/* Cute 3D baseball portrait v3: sharper eyes, friendly pastel portrait cards. */
+.player-portrait{background:linear-gradient(145deg,#eaf4fc,#c5dbed);box-shadow:inset 0 0 0 1px #ffffffb8,0 2px 7px #1d466022;isolation:isolate;border:1px solid #d5e6f4}
+.player-portrait img{display:block;width:100%;height:100%;object-fit:cover;object-position:center center}
+.player-portrait.large{border-radius:15px;box-shadow:0 9px 25px #1a4b7130,inset 0 0 0 2px white}
+.player-portrait.field{border-radius:7px}
+.player-portrait .portrait-crest{z-index:3}
+</style></head><body><div id="app"></div><script src="/avatar3d.js?v=cute-3"></script><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';const overall=p=>statNum((Number(p.power)+Number(p.contact)+Number(p.eye)+Number(p.speed)+Number(p.defense)+Number(p.mental??p.stamina??55))/6);
 const statNum=n=>Math.min(99.99,Math.max(0,Number(n)||0)).toFixed(2);
@@ -395,12 +402,58 @@ const playerButton=p=>'<span class="player-caption"><button type="button" class=
 
 const CONDITION_LEVELS=['','최악','악','중','강','최강'];
 function conditionLabel(p){const n=Math.max(1,Math.min(5,Number(p.condition)||3));return '<span class="condition-label cl-'+n+'">'+(n<=2?'↓':n===3?'−':'↑')+' '+CONDITION_LEVELS[n]+'</span>'}
+// Cute clay-style portrait fallback is deliberately fully illustrated:
+// browsers without WebGL must never show the previous flat avatar.
 function playerPortrait(p,mode=''){
- const seed=Number(p.avatarSeed)||String(p.id||p.name).length*71;
- const currentTeam=playerTeam(p);
- const hair=['#292c30','#383028','#3b302d','#16191e'][seed%4],skin=(p.foreign?['#bc8861','#8e5d43','#d9a27c']:['#edc4a0','#dbab81','#e6b795'])[seed%3],shirt=currentTeam?.color||'#285eab';
- const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 108"><defs><linearGradient id="f" x2="1" y2="1"><stop stop-color="'+skin+'"/><stop offset="1" stop-color="#a16a4c"/></linearGradient></defs><rect width="100" height="108" fill="#d7e6f5"/><path d="M-6 108Q4 78 50 78Q97 79 106 108" fill="'+shirt+'"/><path d="M38 80L50 99L62 80" fill="#fff"/><ellipse cx="50" cy="46" rx="28" ry="36" fill="url(#f)"/><path d="M22 41Q18 13 50 12Q82 11 78 42L66 29Q47 35 31 29Z" fill="'+hair+'"/><circle cx="39" cy="49" r="2" fill="#222"/><circle cx="62" cy="49" r="2" fill="#222"/><path d="M43 64Q50 68 58 64" fill="none" stroke="#8a5b43" stroke-width="2"/></svg>';
- return '<span class="player-portrait '+mode+'" data-avatar-dna="'+encodeURIComponent(JSON.stringify(p.avatarDNA||{}))+'" data-avatar-kit="'+shirt+'"><img alt="" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'">'+(currentTeam?'<span class="portrait-crest" style="--crest:'+esc(currentTeam.color)+';--crest-alt:'+esc(currentTeam.secondary)+'">'+esc(currentTeam.symbol)+'</span>':'')+'</span>';
+ const d=p.avatarDNA||{},v=(key,m)=>Math.abs(Number(d[key]??p.avatarSeed??0))%m;
+ const team=playerTeam(p),kit=team?.color||'#2863a8';
+ const skins=['#f9d9bd','#f3cba9','#eac29d','#e3b792','#d7a882','#ca9972','#b98865','#a67556','#906044','#765039'];
+ const hairs=['#24252a','#3f3028','#5c4031','#704d35','#846448','#a58a6c','#c1a47e','#343039'];
+ const skin=skins[v('skinTone',10)],hair=hairs[v('hairColor',8)];
+ const shape=v('faceShape',7),style=v('hairStyle',14),eye=v('eyeShape',7),brow=v('eyebrowShape',7),mouth=v('mouthShape',8),nose=v('noseShape',8),feature=v('feature',8),beard=v('beardStyle',7);
+ const wide=43+shape*1.45,faceBottom=148+(shape%3)*2,earX=wide+8;
+ const cap=['#f7f5ec','#f1f1f4','#dee7f1','#f8efe2','#dce3ea'][v('hairStyle',5)],capShadow=['#c9c8c5','#c7cfda','#a9bdcc','#cdbfae','#aebccb'][v('hairStyle',5)];
+ const dot=Math.max(2.5,Math.min(4.4,2.9+v('eyeSize',6)*.27)),spread=16+v('eyeSpacing',6)*1.3;
+ const fringe=style===12?'':Array.from({length:3+(style%4)},(_,i)=>{const x=60+i*(61/(2+style%4));return '<ellipse cx="'+x.toFixed(1)+'" cy="'+(63+(i%2)*3)+'" rx="'+(6+(style%3))+'" ry="'+(10+(i%3)*2)+'" fill="'+hair+'" transform="rotate('+(i-2)*7+' '+x+' 63)"/>'}).join('');
+ const upperHair=style%4===0?'<path d="M45 71 Q61 38 85 47 Q113 41 136 69 Q120 59 108 65 Q91 55 77 67 Q58 60 45 77Z" fill="'+hair+'"/>':style%4===1?'<path d="M43 73 Q56 50 78 54 Q102 41 138 70 L130 77 Q106 62 92 65 Q64 58 47 80Z" fill="'+hair+'"/>':style%4===2?'<path d="M44 78 Q53 43 89 46 Q122 45 137 77 Q121 59 107 64 Q90 54 69 64 Q55 68 44 78Z" fill="'+hair+'"/>':'<path d="M47 75 Q54 48 81 50 Q112 44 136 71 Q114 61 93 64 Q68 59 47 78Z" fill="'+hair+'"/>';
+ const eyes=([-1,1]).map(side=>{
+  const x=90+side*spread,ry=eye%3===0?3.4:eye%3===1?4.8:2.8;
+  return '<ellipse cx="'+x+'" cy="106" rx="'+dot+'" ry="'+ry+'" fill="#303038"/><circle cx="'+(x-1)+'" cy="104.6" r="1.1" fill="#fffefa"/>'+
+   '<rect x="'+(x-9)+'" y="'+(89-brow%2*2)+'" width="18" height="'+(3+brow%3)+'" rx="2.5" fill="'+hair+'" transform="rotate('+(side*(brow%4-1)*4)+' '+x+' 91)"/>';
+ }).join('');
+ const blush='<ellipse cx="59" cy="122" rx="12" ry="6" fill="#e88f89" opacity=".18"/><ellipse cx="121" cy="122" rx="12" ry="6" fill="#e88f89" opacity=".18"/>';
+ const lips=mouth%3===0?'<path d="M83 136 Q90 140 97 136" stroke="#98665e" stroke-width="2.3" fill="none" stroke-linecap="round"/>':mouth%3===1?'<path d="M84 136 Q90 135 96 136" stroke="#91635e" stroke-width="2" fill="none" stroke-linecap="round"/>':'<ellipse cx="90" cy="136" rx="6.5" ry="1.7" fill="#996e65"/>';
+ const faceAccessory=feature===1?'<g fill="#aa7161" opacity=".38"><circle cx="57" cy="114" r="1.4"/><circle cx="63" cy="115" r="1.2"/><circle cx="117" cy="115" r="1.3"/></g>':feature===2?'<circle cx="119" cy="124" r="1.7" fill="#8b594a"/>':feature===3?'<g fill="none" stroke="#788797" stroke-width="2.5"><rect x="53" y="99" width="29" height="22" rx="10"/><rect x="98" y="99" width="29" height="22" rx="10"/><path d="M82 105 Q90 100 98 105"/></g>':'';
+ const beardArt=beard===0?'':beard===1?'<path d="M82 129 Q90 132 98 129" stroke="'+hair+'" stroke-width="2" opacity=".65"/>':beard>3?'<path d="M60 134 Q63 154 90 157 Q117 154 120 134 Q109 151 90 149 Q71 151 60 134" fill="'+hair+'" opacity=".25"/>':'';
+ const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 200">'+
+ '<defs><radialGradient id="bg" cx="35%" cy="16%" r="90%"><stop stop-color="#f5faff"/><stop offset=".66" stop-color="#dbe9f7"/><stop offset="1" stop-color="#bfcee5"/></radialGradient>'+
+ '<radialGradient id="skin" cx="32%" cy="25%" r="88%"><stop stop-color="#fff4df"/><stop offset=".26" stop-color="'+skin+'"/><stop offset=".80" stop-color="'+skin+'"/><stop offset="1" stop-color="#9f694f"/></radialGradient>'+
+ '<linearGradient id="hat" x1="0" y1="0" x2=".7" y2="1"><stop stop-color="#ffffff"/><stop offset=".55" stop-color="'+cap+'"/><stop offset="1" stop-color="'+capShadow+'"/></linearGradient>'+
+ '<linearGradient id="shirt" x1="0" y1="0" x2=".9" y2="1"><stop stop-color="'+kit+'"/><stop offset="1" stop-color="#172b49"/></linearGradient>'+
+ '<filter id="shadow" x="-30%" y="-35%" width="160%" height="170%"><feGaussianBlur stdDeviation="6"/></filter></defs>'+
+ '<rect width="180" height="200" rx="14" fill="url(#bg)"/>'+
+ '<ellipse cx="95" cy="192" rx="76" ry="15" fill="#243c61" opacity=".22" filter="url(#shadow)"/>'+
+ '<path d="M0 205 Q12 156 53 158 Q90 151 127 158 Q167 161 180 205Z" fill="url(#shirt)"/>'+
+ '<path d="M53 160 Q63 153 70 155 L90 172 L109 155 Q121 153 130 159 L107 197 L73 197Z" fill="#fcfbf4" opacity=".98"/>'+
+ '<path d="M73 200 L90 172 L107 200" fill="'+kit+'"/>'+
+ '<rect x="79" y="143" width="22" height="25" rx="8" fill="'+skin+'"/>'+
+ '<ellipse cx="90" cy="87" rx="'+(wide+2)+'" ry="56" fill="'+hair+'"/>'+
+ '<ellipse cx="'+(90-earX)+'" cy="105" rx="12" ry="17" fill="url(#skin)" stroke="#dba58d" stroke-width=".5"/>'+
+ '<ellipse cx="'+(90+earX)+'" cy="105" rx="12" ry="17" fill="url(#skin)" stroke="#dba58d" stroke-width=".5"/>'+
+ '<ellipse cx="90" cy="103" rx="'+wide+'" ry="'+(faceBottom-93)+'" fill="url(#skin)"/>'+
+ '<ellipse cx="90" cy="76" rx="'+(wide-5)+'" ry="35" fill="'+skin+'" opacity=".24"/>'+
+ upperHair+fringe+blush+eyes+
+ '<ellipse cx="90" cy="121" rx="'+(4+nose%3)+'" ry="'+(3.7+nose%2)+'" fill="'+skin+'" stroke="#cc9075" stroke-width=".65"/>'+
+ '<ellipse cx="88.5" cy="120" rx="2" ry="1.5" fill="#fff7e8" opacity=".5"/>'+lips+faceAccessory+beardArt+
+ '<path d="M41 64 Q42 27 80 24 Q127 18 140 62 L138 83 Q124 69 91 71 Q56 69 42 85Z" fill="url(#hat)" stroke="'+capShadow+'" stroke-width="1.2"/>'+
+ '<path d="M50 62 Q52 48 70 41 M130 61 Q127 42 106 35" fill="none" stroke="#fff" stroke-width="2" opacity=".75"/>'+
+ '<path d="M71 69 L71 55 Q90 43 109 55 L109 69" fill="#f9f8f1" stroke="'+capShadow+'" stroke-width="2"/>'+
+ '<rect x="77" y="55" width="26" height="7" rx="2.5" fill="#d1d0ce"/>'+
+ '<path d="M78 58 H100" stroke="#87919e" stroke-width="2.5" stroke-linecap="round"/>'+
+ '<path d="M44 78 Q90 64 137 77" stroke="'+capShadow+'" stroke-width="3" fill="none" opacity=".8"/>'+
+ '<ellipse cx="62" cy="88" rx="12" ry="4" fill="#fff" opacity=".15"/>'+
+ '</svg>';
+ return '<span class="player-portrait '+mode+'" data-avatar-dna="'+encodeURIComponent(JSON.stringify(d))+'" data-avatar-kit="'+kit+'" data-avatar-version="cute-3"><img alt="" loading="lazy" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'">'+(team?'<span class="portrait-crest" style="--crest:'+esc(team.color)+';--crest-alt:'+esc(team.secondary)+'">'+esc(team.symbol)+'</span>':'')+'</span>';
 }
 function friendlyResultModal(r){
  const overlay=document.createElement('div');overlay.className='friendly-result-overlay';overlay.innerHTML='<div class="friendly-result-card" role="dialog" aria-modal="true"><h2>'+({win:'🏆 승리',loss:'패배',draw:'무승부'}[r.outcome]||'결과')+'</h2><div class="friendly-final-score">'+r.ours+' : '+r.theirs+'</div><p>VS '+esc(r.opponent)+'</p><strong>'+(r.cash?'+'+money(r.cash):r.cp?'+'+r.cp+' CP':r.drinks?'🥤 스포츠음료 +'+r.drinks+'개':'보상 없음')+'</strong><h3>선수별 성적과 컨디션</h3><div class="friendly-stat-list">'+(r.playerStats||[]).map(p=>'<div>'+esc(p.name)+' <small>'+esc(p.summary)+'</small><b class="'+(p.delta>0?'raise':p.delta<0?'drop':'')+'">'+(p.delta>0?'↑ +1':p.delta<0?'↓ -1':'− 유지')+'</b></div>').join('')+'</div><button class="primary" id="closeFriendlyResult">확인</button></div>';document.body.appendChild(overlay);overlay.querySelector('#closeFriendlyResult').onclick=()=>overlay.remove();overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
