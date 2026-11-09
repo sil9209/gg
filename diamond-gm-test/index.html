@@ -688,6 +688,32 @@ main.shell.layout{padding-top:30px!important}
  main.shell.layout{padding-top:18px!important}
  .club-home{column-gap:0!important;row-gap:17px!important;margin-top:2px}
 }
+
+/* Compact store launcher replaces duplicate franchise pill in header. */
+.gm-header-shop{display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;min-height:38px;border:1px solid #c7def1;border-radius:10px;padding:8px 13px;background:#eaf5ff;color:#2368a6;font-size:12px;font-weight:900;transition:background .17s,transform .17s;cursor:pointer}
+.gm-header-shop:hover{background:#dceeff;transform:translateY(-1px)}
+.gm-shop-header{display:flex;justify-content:space-between;align-items:center;gap:18px;margin-bottom:18px;flex-wrap:wrap}
+.gm-shop-eyebrow{color:#5382ac;letter-spacing:.14em;font-size:10px;font-weight:900}
+.gm-shop-header h2{color:#244a6e;font-size:25px;font-weight:950;letter-spacing:-.03em;margin:4px 0}
+.gm-shop-header p{font-size:12px;color:#8399ae;margin:0}
+.gm-shop-wallet{min-width:185px;display:flex;flex-direction:column;gap:4px;border:1px solid #dbe8f3;background:#fff;border-radius:12px;padding:12px 18px;box-shadow:0 4px 12px #16486a0d}
+.gm-shop-wallet small{font-size:10px;color:#829bb0}.gm-shop-wallet strong{font-size:17px;color:#285f93}.gm-shop-wallet span{font-size:11px;color:#5d7d98}
+.gm-shop-tip{display:flex;align-items:center;gap:10px;background:#eff7ff;border:1px solid #d7e9fb;color:#587a99;border-radius:11px;padding:12px 15px;font-size:12px;line-height:1.55;margin-bottom:17px}
+.gm-shop-tip span{color:#2674b1;font-weight:950;font-size:16px}
+.gm-shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.gm-shop-card{border:1px solid #dce7f1;background:#fff;border-radius:15px;overflow:hidden;box-shadow:0 5px 17px #20577b10}
+.gm-shop-art{height:133px;display:flex;align-items:center;justify-content:center;gap:14px;background:linear-gradient(120deg,#dbeefa,#f3faff);font-size:61px}
+.gm-shop-art span{font-size:17px;font-weight:950;color:#3479aa;background:#ffffffb8;border:1px solid #d6e7f4;padding:8px 13px;border-radius:9px}
+.gm-shop-body{padding:20px}.gm-shop-body h3{font-size:17px;color:#244768;margin:0 0 7px;font-weight:900}
+.gm-shop-body p{font-size:12px;color:#8099ad;margin:0 0 17px;min-height:24px}
+.gm-shop-check{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid #e8eff5;color:#8396a7;font-size:12px}
+.gm-shop-check b{color:#2369a0;font-size:16px}
+.gm-shop-buy{width:100%;background:var(--team-accent,#276cbd);color:white;border:0;border-radius:10px;padding:11px;font-size:13px;font-weight:900}
+.gm-shop-buy:disabled{background:#e8edf2;color:#99a9b8}
+.gm-shop-footer{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;background:#fff;border:1px solid #dfe8f1;border-radius:13px;padding:17px 20px;margin-top:18px}
+.gm-shop-footer b{color:#24496a;font-size:13px}.gm-shop-footer p{color:#8399ad;font-size:11px;margin:4px 0 0}
+.gm-shop-footer button{background:#eaf4fe;border:1px solid #cee1f1;color:#236ba5;border-radius:9px;padding:10px 15px;font-size:12px;font-weight:850}
+@media(max-width:650px){.gm-shop-grid{grid-template-columns:1fr}.gm-shop-header h2{font-size:22px}.gm-shop-wallet{width:100%}.gm-header-shop{padding:7px 10px;font-size:11px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((Number(p.power)+Number(p.contact)+Number(p.eye)+Number(p.speed)+Number(p.defense)+Number(p.mental??p.stamina??55))/6);
@@ -844,7 +870,7 @@ function login(){
 }
 function create(){const t=chosenTeam();theme();app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button onclick="api({type:\'logout\'})">로그아웃</button></div></header>'+
 '<main class="shell"><div class="panel auth"><div style="text-align:center">'+(t?teamBadge(t):'')+'<h1>'+esc(t?.name||'새 구단')+' 창단</h1></div><p>가입하신 구단의 시즌을 시작합니다.</p><div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="metric"><b>5억원</b><div>초기 자금</div></div><div class="metric"><b>300 CP</b><div>성장 포인트</div></div><div class="metric"><b>25명</b><div>창단 선수</div></div></div><button id="createClubNow" class="primary" style="width:100%;margin-top:20px">구단 창단하고 시작하기</button></div></main>';document.getElementById('createClubNow').onclick=()=>api({type:'createClub'});}
-const tabs=[['home','🏠 홈'],['league','🏆 리그진행'],['lineup','🧢 라인업'],['scout','🔭 스카우트'],['friendly','⚾ 친선경기'],['market','🔄 이적시장'],['manage','⚙️ 구단관리']];
+const tabs=[['home','🏠 홈'],['league','🏆 리그진행'],['lineup','🧢 라인업'],['scout','🔭 스카우트'],['friendly','⚾ 친선경기'],['market','🔄 이적시장'],['shop','🛒 상점'],['manage','⚙️ 구단관리']];
 const logo='<button type="button" class="brand-logo brand-home" data-home-logo title="홈으로 이동" aria-label="DIAMOND GM 홈으로 이동"><span class="logo-mark"><span class="logo-baseball">⚾</span><span class="logo-spark">★</span></span><span class="logo-words"><span class="logo-name">DIAMOND <em>GM</em></span><small>BASEBALL MANAGER</small></span></button>';
 
 let lastRenderedTab=null;
@@ -872,7 +898,7 @@ function root(){
   '<button type="button" class="gm-nav-toggle" id="gmNavToggle" aria-expanded="false" aria-controls="gmNavPanel"><span class="gm-nav-hamburger">☰</span><span class="gm-nav-toggle-text"><b>빠른 메뉴</b><small>'+esc(tabs.find(t=>t[0]===activeTab)?.[1]||'🏠 홈')+'</small></span></button></aside>';
  app.innerHTML='<header class="top"><div class="shell head">'+logo+'<div class="stats">'+
   (t?'<span class="header-team">'+teamBadge(t,true)+'<b>'+esc(t.name)+'</b></span>':'')+
-  '<span class="pill">🏟 '+esc(c.name)+'</span>'+
+  '<button type="button" class="gm-header-shop" id="gmOpenShop" title="상점으로 이동">🛒 <span>상점</span></button>'+
   (state.user?.isAdmin?'<span class="admin-mode-tag">🔐 관리자</span>':'')+
   '<span class="pill">💰 '+money(c.cash)+'</span><span class="pill">💎 '+walletCP(c.cp)+' CP</span>'+
   '<button onclick="api({type:\'logout\'})">로그아웃</button></div></div></header>'+
@@ -881,6 +907,7 @@ function root(){
   '</section></main>'+dock;
  if(inManage)document.getElementById('manageBack').onclick=()=>{tab='manage';root()};
  document.querySelector('[data-home-logo]')?.addEventListener('click',()=>{tab='home';root();window.scrollTo(0,0)});
+ document.getElementById('gmOpenShop')?.addEventListener('click',()=>{if(tab!=='shop'){tab='shop';root()}});
  const dockEl=document.getElementById('gmNavDock'),toggle=document.getElementById('gmNavToggle'),panel=document.getElementById('gmNavPanel');
  toggle.onclick=()=>{
   const expand=panel.hidden;
@@ -1071,7 +1098,18 @@ function renderLineup(){
 }
 
 let scoutCurrency='cash';
-function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(c.name)+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
+function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='shop'){
+ const offers=[{id:'drink10',icon:'🥤',name:'스포츠음료 10개',desc:'선수 컨디션을 한 단계 올리는 회복 아이템',qty:10,price:1000000},
+ {id:'drink50',icon:'📦',name:'스포츠음료 50개',desc:'선수단 전체 컨디션 관리를 위한 묶음 상품',qty:50,price:4000000}];
+ el.innerHTML='<div class="gm-shop-header"><div><span class="gm-shop-eyebrow">DIAMOND GM / TEAM STORE</span><h2>🛒 구단 상점</h2><p>게임머니로 아이템을 구매하고 선수의 컨디션을 관리하세요.</p></div><div class="gm-shop-wallet"><small>보유 게임머니</small><strong>'+money(c.cash)+'</strong><span>🥤 스포츠음료 '+(c.sportsDrinks||0)+'개 보유</span></div></div>'+
+ '<div class="gm-shop-tip"><span>ⓘ</span> 스포츠음료 1개로 선수 한 명의 컨디션을 한 단계 상승시킬 수 있습니다. 사용은 친선경기 화면에서 가능합니다.</div>'+
+ '<div class="gm-shop-grid">'+offers.map(offer=>'<article class="gm-shop-card"><div class="gm-shop-art">'+offer.icon+'<span>'+offer.qty+'개</span></div><div class="gm-shop-body"><h3>'+offer.name+'</h3><p>'+offer.desc+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+money(offer.price)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+offer.id+'" '+(c.cash<offer.price?'disabled':'')+'>'+(c.cash<offer.price?'게임머니 부족':'구매하기')+'</button></div></article>').join('')+'</div>'+
+ '<div class="gm-shop-footer"><div><b>🥤 스포츠음료 사용하기</b><p>친선경기 메뉴의 컨디션 관리에서 선수에게 사용하세요.</p></div><button type="button" id="gmShopUse">친선경기 이동</button></div>';
+ document.querySelectorAll('[data-shop-buy]').forEach(btn=>btn.onclick=()=>{const item=offers.find(x=>x.id===btn.dataset.shopBuy);if(!item)return;if(confirm(item.name+'를 '+money(item.price)+'에 구매하시겠습니까?'))api({type:'shopBuy',item:item.id})});
+ document.getElementById('gmShopUse').onclick=()=>{tab='friendly';root()};
+ return
+}
+if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(c.name)+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
 const lg=state.league||{},prospects=c.players.filter(p=>Number.isFinite(Number(p.age))&&Number(p.age)<=25&&Number(p.age)>0).sort((a,b)=>Number(overall(b))-Number(overall(a))||Number(a.age)-Number(b.age)).slice(0,5);
 el.innerHTML='<div class="club-home"><div><div class="stadium"><div class="stadium-overlay"><div class="classic-subtitle">SEASON '+c.season+' · DIAMOND LEAGUE</div><h2>'+esc(c.name)+'</h2><p>10개 구단 정규시즌 · 매시간 자동 경기</p><p class="muted">일요일~목요일 144경기 · 토요일 가을야구</p><button id="stadiumLeague">🏆 리그 진행 · 순위 보기</button></div></div><div class="classic-shortcuts">'+tabs.filter(x=>['league','lineup','scout','friendly','market'].includes(x[0])).map(t=>'<button data-shortcut="'+t[0]+'"><span>'+t[1].split(' ')[0]+'</span>'+t[1].split(' ').slice(1).join(' ')+'</button>').join('')+'</div><div class="panel"><h3>⚾ 최근 경기 결과</h3>'+(lg.recent?.length?lg.recent.slice(0,4).map(g=>'<div class="item">'+leagueMatch(g)+'<b>'+esc(g.score)+'</b></div>').join(''):'<p class="muted">정규시즌 결과가 없습니다.</p>')+'</div></div><div class="home-right"><div class="panel"><h3>🏟 구단 정보</h3><div class="item">구단명 <b>'+esc(c.name)+'</b></div><div class="item">보유 선수 <b>'+c.players.length+'명</b></div><div class="item">구단자금 <b>'+money(c.cash)+'</b></div><div class="item">CP <b>'+walletCP(c.cp)+'</b></div><div class="item">리그 참가 구단 <b>10개</b></div></div><div class="panel"><h3>🌟 유망주 순위 <small class="muted">25세 이하 · 종합 능력치순</small></h3>'+(prospects.length?prospects.map((p,i)=>'<div class="item gm-prospect"><span class="gm-prospect-rank">'+(i+1)+'</span><span class="gm-prospect-details">'+playerButton(p)+'<small>'+Number(p.age)+'세 · '+esc(p.pos)+' · '+g(p)+'</small></span><b>'+statCell(overall(p))+'</b></div>').join(''):'<p class="muted">현재 25세 이하 유망주가 없습니다.</p>')+'</div><div class="panel"><h3>🏆 리그 TOP 5</h3>'+(lg.standings||[]).slice(0,5).map((x,i)=>'<div class="item"><span>'+(i+1)+'. '+leagueIdentity(x.name,x.teamId,x.ownerName)+'</span><b>'+x.wins+'승 '+x.losses+'패</b></div>').join('')+'</div></div></div>';
 document.getElementById('stadiumLeague').onclick=()=>{tab='league';root()};
