@@ -292,6 +292,26 @@ body{overflow-x:clip;min-width:0}
 .logo-words small{font-size:9px;letter-spacing:.18em;font-weight:850;color:#8295aa;line-height:2}
 .league-division-tabs{max-width:100%;gap:6px}
 @media(max-width:650px){.logo-mark{width:42px;height:42px}.logo-baseball{font-size:25px}.logo-name{font-size:20px}.logo-words small{font-size:7px}.brand-home{gap:8px}}
+
+.scout-popup-overlay{position:fixed;inset:0;z-index:350;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(9,25,43,.67);backdrop-filter:blur(3px)}
+.scout-popup-dialog{width:min(100%,480px);max-height:90dvh;overflow-y:auto;background:#fff;border:1px solid #dce6f2;border-radius:20px;box-shadow:0 25px 80px rgba(4,25,48,.38);animation:scoutPopupIn .2s ease-out}
+@keyframes scoutPopupIn{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+.scout-popup-header{display:flex;align-items:center;justify-content:space-between;padding:15px 23px;border-bottom:1px solid #e7edf4;font-size:11px;font-weight:850;letter-spacing:.13em;color:var(--team-accent)}
+.scout-popup-header button{padding:4px 10px;min-height:30px}
+.scout-popup-body{padding:27px 30px 30px;text-align:center}
+.scout-popup-emblem{width:75px;height:75px;margin:0 auto 17px;border-radius:50%;display:grid;place-items:center;font-size:36px;background:#e9f1fc;color:var(--team-accent)}
+.scout-popup-emblem.signed{background:#e6f7eb;color:#22a76b;font-size:43px}
+.scout-popup-body h2{font-size:25px;margin:5px 0 7px;color:#263e58}
+.scout-popup-caption{color:#667d95;margin:6px 0;font-size:14px}
+.scout-popup-fee{display:flex;justify-content:space-between;align-items:center;padding:17px 20px;background:#f4f8fd;border:1px solid #e4edf7;border-radius:12px;margin:25px 0 14px}
+.scout-popup-fee span{color:#5c7892}.scout-popup-fee strong{font-size:19px;color:var(--team-accent)}
+.scout-popup-warning{font-size:12px;color:#7a8da2;margin:0 0 24px}
+.scout-popup-actions{display:flex;gap:10px;margin-top:24px}
+.scout-popup-actions button{flex:1;min-height:45px}
+.scout-result-eyebrow{color:#1c9861;font-size:12px;font-weight:850}
+.scout-result-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:23px;text-align:left}
+.scout-result-stat{display:flex;justify-content:space-between;align-items:center;padding:11px 13px;background:#f5f9fd;border:1px solid #e5eef7;border-radius:9px;font-size:12px;color:#617991}
+@media(max-width:480px){.scout-popup-dialog{border-radius:15px}.scout-popup-body{padding:23px 17px}.scout-popup-header{padding:13px 17px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>Number(n||0).toLocaleString('ko-KR')+'원';const overall=p=>statNum((Number(p.power)+Number(p.contact)+Number(p.eye)+Number(p.speed)+Number(p.defense)+Number(p.mental??p.stamina??55))/6);
@@ -305,7 +325,7 @@ const playerButton=p=>'<button type="button" class="player-name-link" data-profi
 const fieldNames={contact:'정확',power:'파워',eye:'선구',speed:'주력',defense:'수비',mental:'정신'};
 const g=p=>'<span class="grade '+esc(p.grade)+'">'+esc(p.grade)+'</span>';
 function toast(txt){document.querySelector('.msg')?.remove();let x=document.createElement('div');x.className='msg';x.textContent=txt;document.body.append(x);setTimeout(()=>x.remove(),3500)}
-async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout')selectedTeam=null;if(x.result?.message)toast(x.result.message);render()}catch(e){toast(e.message)}}
+async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout')selectedTeam=null;if(x.result?.message&&body.type!=='scout')toast(x.result.message);render();if(body.type==='scout'&&x.result?.scouted)showScoutResult(x.result.scouted)}catch(e){toast(e.message)}}
 async function start(){try{state=await(await fetch('/api/state')).json()}catch(e){toast('서버에 연결할 수 없습니다')}render()}
 
 function chosenTeam(){return (state.teams||[]).find(t=>t.id===(state.club?.teamId||state.user?.teamId||selectedTeam))||null}
@@ -386,7 +406,7 @@ const contracts=[
 {id:'era',icon:'📅',label:'연도 지정',sub:'시대별 선수 탐색',desc:'2000년대, 2010년대, 2020년대 중 하나를 지정합니다.',cost:18000000,tone:'purple'},
 {id:'franchise',icon:'🏟️',label:'연고 구단',sub:'우리 팀 선수 집중 탐색',desc:'현재 구단 소속 가상 선수를 영입하며 능력치 보너스가 적용됩니다.',cost:25000000,tone:'gold'}];
 const history=Array.isArray(c.scoutHistory)?c.scoutHistory:[];
-const newPlayer=state.result?.scouted;
+const newPlayer=null;
 el.innerHTML='<div class="scout-topline"><div><span class="team-eyebrow">PLAYER RECRUITMENT</span><h2 class="sectiontitle">스카우트 센터</h2><p class="muted">스카우트의 전문 분야를 선택하고 나만의 선수를 발굴하세요.</p></div><div class="scout-wallet"><span>보유 자금</span><b>'+money(c.cash)+'</b><small>선수단 '+c.players.length+' / 80명</small></div></div>'+
 '<div class="scout-banner"><div class="scout-banner-copy"><span class="scout-tag">DIAMOND GM · RECRUITMENT OFFICE</span><h3>다음 시즌의 주인공을 찾으세요</h3><p>목적에 맞는 스카우트를 파견하고,<br>팀의 약점을 채울 새로운 선수를 영입하세요.</p></div><div class="scout-banner-art" aria-hidden="true"><span>⚾</span><div>SCOUTING<br>REPORT</div></div></div>'+
 (newPlayer?'<div class="scout-reveal"><span class="scout-reveal-icon">★</span><div><small>NEW SIGNING · 영입 성공</small><h3>'+playerButton(newPlayer)+'</h3><p>'+esc(newPlayer.pos)+' · '+g(newPlayer)+' · 종합 '+overall(newPlayer)+'</p></div><button id="scoutGoRoster">선수단에서 확인 →</button></div>':'')+
@@ -395,8 +415,8 @@ el.innerHTML='<div class="scout-topline"><div><span class="team-eyebrow">PLAYER 
 '<div class="scout-lower"><div class="panel scout-history"><div class="scout-history-title"><h3>최근 영입 기록</h3><span>최대 30건</span></div>'+(history.length?'<div class="scout-history-scroll"><table><thead><tr><th>선수명</th><th>시즌</th><th>포지션</th><th>등급</th><th>능력치</th><th>스카우트</th><th>영입일</th></tr></thead><tbody>'+history.slice(0,12).map(h=>'<tr><td>'+playerButton(h.player)+'</td><td>'+shortYear(h.player)+'</td><td>'+esc(h.player.pos)+'</td><td>'+g(h.player)+'</td><td>'+overall(h.player)+'</td><td>'+esc(h.label)+'</td><td>'+new Date(h.time).toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul'})+'</td></tr>').join('')+'</tbody></table></div>':'<div class="scout-empty">아직 영입 기록이 없습니다. 원하는 스카우트를 선택해 첫 선수를 만나보세요.</div>')+'</div><div class="panel scout-guide"><h3>스카우트 안내</h3><div class="scout-guide-item"><b>01</b><p>영입된 선수는 즉시 선수단에 등록됩니다.</p></div><div class="scout-guide-item"><b>02</b><p>선수 등급은 E 또는 D에서 시작하며, CP로 E → D → C → B → A 순서로 성장합니다.</p></div><div class="scout-guide-item"><b>03</b><p>영입한 선수는 라인업에 배치하거나 이적시장에 등록할 수 있습니다.</p></div></div></div>';
 document.querySelectorAll('[data-scout-kind]').forEach(b=>b.onclick=()=>{
  const kind=b.dataset.scoutKind,x=contracts.find(t=>t.id===kind),era=document.getElementById('scoutEra')?.value;
- if(!x||!confirm(x.label+'를 의뢰하시겠습니까?\n비용: '+money(x.cost)+'\n영입 후 취소할 수 없습니다.'))return;
- api({type:'scout',kind,era});
+ if(!x)return;
+ showScoutConfirm(x,era);
 });
 if(document.getElementById('scoutGoRoster'))document.getElementById('scoutGoRoster').onclick=()=>{tab='manage';root()};
 return}
@@ -420,6 +440,34 @@ el.innerHTML='<div class="league-titlebar"><div><span class="team-eyebrow">DIAMO
 document.getElementById('refreshLeague').onclick=async()=>{state=await(await fetch('/api/state')).json();content()};return}}
 
 function bindDetail(){document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{const p=state.club.players.find(x=>x.id===b.dataset.player);const d=document.getElementById('playerDetail');d.innerHTML='<div class="panel"><h3>'+playerButton(p)+' '+g(p)+'</h3><p class="muted">'+esc(p.pos)+' / 종합 '+overall(p)+'</p><div class="toolbar"><button id="upSelected" '+(p.grade==='A'?'disabled':'')+'>등급 성장 (1 CP)</button>'+Object.keys(fieldNames).map(k=>'<button data-train="'+k+'">'+fieldNames[k]+' 훈련 (100만원)</button>').join('')+'</div></div>';document.getElementById('upSelected').onclick=()=>api({type:'upgrade',id:p.id});document.querySelectorAll('[data-train]').forEach(x=>x.onclick=()=>api({type:'train',id:p.id,key:x.dataset.train}));d.scrollIntoView({behavior:'smooth',block:'nearest'})})}
+
+
+function closeScoutPopup(){document.getElementById('scoutPopup')?.remove()}
+function scoutPopup(content){
+ closeScoutPopup();
+ const overlay=document.createElement('div');
+ overlay.id='scoutPopup';overlay.className='scout-popup-overlay';
+ overlay.innerHTML='<div class="scout-popup-dialog" role="dialog" aria-modal="true" aria-labelledby="scoutPopupTitle">'+content+'</div>';
+ document.body.appendChild(overlay);
+ overlay.addEventListener('click',e=>{if(e.target===overlay)closeScoutPopup()});
+ overlay.querySelector('[data-popup-close]')?.addEventListener('click',closeScoutPopup);
+ overlay.querySelector('[data-popup-close]')?.focus();
+}
+function showScoutConfirm(contract,era){
+ scoutPopup('<div class="scout-popup-header"><span>SCOUT REQUEST</span><button type="button" data-popup-close aria-label="닫기">✕</button></div><div class="scout-popup-body"><div class="scout-popup-emblem">⚾</div><h2 id="scoutPopupTitle">스카우트 의뢰</h2><p class="scout-popup-caption">'+esc(contract.label)+'를 진행하시겠습니까?</p>'+(contract.id==='era'?'<p class="scout-popup-caption">대상 시즌: '+esc(era||'2000')+'년대</p>':'')+'<div class="scout-popup-fee"><span>의뢰 비용</span><strong>'+money(contract.cost)+'</strong></div><p class="scout-popup-warning">확인 시 비용이 차감되며 선수 1명이 영입됩니다.</p><div class="scout-popup-actions"><button type="button" data-popup-close>취소</button><button type="button" id="scoutPopupConfirm" class="primary">의뢰 시작</button></div></div>');
+ document.getElementById('scoutPopupConfirm').onclick=()=>{
+  const confirmButton=document.getElementById('scoutPopupConfirm');
+  confirmButton.disabled=true;confirmButton.textContent='선수 영입 중…';
+  closeScoutPopup();
+  api({type:'scout',kind:contract.id,era});
+ };
+}
+function showScoutResult(p){
+ const statMarkup=Object.keys(fieldNames).map(k=>'<div class="scout-result-stat"><span>'+esc(fieldNames[k])+'</span>'+statCell(p[k]??(k==='mental'?p.stamina:55))+'</div>').join('');
+ scoutPopup('<div class="scout-popup-header"><span>NEW PLAYER SIGNED</span><button type="button" data-popup-close aria-label="닫기">✕</button></div><div class="scout-popup-body"><div class="scout-popup-emblem signed">★</div><div class="scout-result-eyebrow">영입 성공</div><h2 id="scoutPopupTitle">'+esc(playerLabel(p))+'</h2><p class="scout-popup-caption">'+esc(p.pos)+' · '+g(p)+' · 종합 '+statCell(overall(p))+'</p><div class="scout-result-stats">'+statMarkup+'</div><div class="scout-popup-actions"><button type="button" data-popup-close>닫기</button><button type="button" id="scoutViewPlayer" class="primary">선수 정보 보기</button></div></div>');
+ document.getElementById('scoutViewPlayer').onclick=()=>{closeScoutPopup();openPlayerProfile(p)};
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeScoutPopup()});
 
 function findPlayerProfile(id){const club=state.club;return (club?.players||[]).find(p=>p.id===id)||(state.listings||[]).map(l=>l.player).find(p=>p.id===id)||(club?.scoutHistory||[]).map(h=>h.player).find(p=>p.id===id)||null}
 function openPlayerProfile(p){
