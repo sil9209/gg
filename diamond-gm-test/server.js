@@ -385,6 +385,20 @@ else if(a.type==='saveLineup'){
  result={message:'타자 및 투수 라인업을 저장했습니다'};
 }
 else if(a.type==='lineup'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(a.pitcher){if(!p.isPitcher)throw Error('투수를 선택하세요');c.pitcher=p.id}else{if(p.isPitcher)throw Error('타자를 선택하세요');c.lineup=c.lineup.filter(x=>x!==p.id);c.lineup.splice(Math.max(0,Math.min(8,Number(a.slot)||0)),0,p.id);c.lineup=c.lineup.slice(0,9)}fix(c)}
+else if(a.type==='shopBuy'){
+ const offers={
+  drink10:{label:'스포츠음료 10개',quantity:10,price:1000000},
+  drink50:{label:'스포츠음료 50개',quantity:50,price:4000000}
+ };
+ const offer=offers[String(a.item||'')];
+ if(!offer)throw Error('판매하지 않는 상품입니다');
+ if(!Number.isFinite(c.cash)||c.cash<offer.price)throw Error('보유 게임머니가 부족합니다');
+ if(!Number.isSafeInteger(c.sportsDrinks||0)||c.sportsDrinks<0)throw Error('보유 상품 정보가 올바르지 않습니다');
+ if(c.sportsDrinks+offer.quantity>999999)throw Error('스포츠음료 최대 보관 수량을 초과했습니다');
+ c.cash-=offer.price;
+ c.sportsDrinks=(c.sportsDrinks||0)+offer.quantity;
+ result={message:offer.label+' 구매 완료',purchasedItem:String(a.item),quantity:offer.quantity};
+}
 else if(a.type==='useDrink'){
  const p=c.players.find(p=>p.id===a.id);if(!p)throw Error('선수가 없습니다');
  ensurePlayer(p);if((c.sportsDrinks||0)<1)throw Error('스포츠음료가 부족합니다');
