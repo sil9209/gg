@@ -2,7 +2,7 @@ const http=require('http'),fs=require('fs'),crypto=require('crypto');
 const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
 const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomUUID();const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const names1=['김','박','이','최','정','강','조','윤','장','임','한','오','서','신','권','황'],names2=['도현','성준','재원','민수','지훈','태영','현우','주원','준혁','승민','태준','지성','건우','동현','진우','정민'];
-function player(owner){const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];return {id:uid(),owner,name:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,37),games:0,avg:0,hr:0,era:0}}
+function player(owner){const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];return {id:uid(),owner,name:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,37),lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0}}
 
 const STAT_KEYS=['contact','power','eye','speed','defense','mental'];
 const CAP=99.99;
@@ -43,6 +43,7 @@ function syncGrowth(now=Date.now()){
 }
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
+if((db.clubs||[]).length||(db.listings||[]).length)save();
 function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 function fix(c){const bat=c.players.filter(p=>!p.isPitcher),pitch=c.players.filter(p=>p.isPitcher);c.lineup=[...new Set((c.lineup||[]).filter(id=>bat.some(p=>p.id===id)))];for(const p of bat)if(c.lineup.length<9&&!c.lineup.includes(p.id))c.lineup.push(p.id);if(!pitch.some(p=>p.id===c.pitcher))c.pitcher=pitch[0]?.id||null}
 function save(){fs.writeFileSync(PATH,JSON.stringify(db))}
