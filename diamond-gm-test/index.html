@@ -387,7 +387,13 @@ body{overflow-x:clip;min-width:0}
 .player-portrait.large{border-radius:15px;box-shadow:0 9px 25px #1a4b7130,inset 0 0 0 2px white}
 .player-portrait.field{border-radius:7px}
 .player-portrait .portrait-crest{z-index:3}
-.admin-mode-tag{border:1px solid #f3d58e;background:#fff4d8;color:#79521d;font-size:11px;font-weight:900;padding:8px 11px;border-radius:9px;white-space:nowrap}.stats .pill{white-space:nowrap}</style></head><body><div id="app"></div><script src="/avatar3d.js?v=cute-3"></script><script>
+.admin-mode-tag{border:1px solid #f3d58e;background:#fff4d8;color:#79521d;font-size:11px;font-weight:900;padding:8px 11px;border-radius:9px;white-space:nowrap}.stats .pill{white-space:nowrap}
+/* Prevent accidental page-selection/asset-dragging. Keep form controls and lineup sorting usable. */
+html,body,#app,#app *{-webkit-user-select:none;user-select:none}
+input,textarea,select,[contenteditable="true"],[contenteditable="true"] *{-webkit-user-select:text!important;user-select:text!important}
+img,a{-webkit-user-drag:none}
+.lineup-drag-item{-webkit-user-drag:element;cursor:grab}
+</style></head><body><div id="app"></div><script src="/avatar3d.js?v=cute-3"></script><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((Number(p.power)+Number(p.contact)+Number(p.eye)+Number(p.speed)+Number(p.defense)+Number(p.mental??p.stamina??55))/6);
 const statNum=n=>Math.min(99.99,Math.max(0,Number(n)||0)).toFixed(2);
@@ -747,6 +753,24 @@ function openPlayerProfile(p){
 }
 document.addEventListener('click',e=>{const btn=e.target.closest('[data-profile]');if(btn){e.preventDefault();e.stopPropagation();openPlayerProfile(findPlayerProfile(btn.dataset.profile))}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')document.getElementById('playerProfileOverlay')?.remove()});
+
+
+/* Casual browser shortcut and content-drag deterrents. This cannot disable browser devtools globally. */
+document.addEventListener('keydown',event=>{
+ const key=String(event.key||'').toLowerCase();
+ const mod=event.ctrlKey||event.metaKey,shift=event.shiftKey;
+ const developerShortcut=key==='f12'||(mod&&shift&&['i','j','c','k'].includes(key))||(mod&&['u','s'].includes(key))||(event.metaKey&&event.altKey&&['i','j','c'].includes(key));
+ if(developerShortcut){event.preventDefault();event.stopImmediatePropagation()}
+},true);
+document.addEventListener('contextmenu',event=>{
+ if(!event.target.closest?.('input,textarea,select,[contenteditable="true"]'))event.preventDefault()
+},true);
+document.addEventListener('dragstart',event=>{
+ if(!event.target.closest?.('.lineup-drag-item'))event.preventDefault();
+},true);
+document.addEventListener('selectstart',event=>{
+ if(!event.target.closest?.('input,textarea,select,[contenteditable="true"]'))event.preventDefault();
+},true);
 
 function render(){theme();if(!state.user)return selectedTeam?login():selectTeam();if(!state.club)return create();root()}start();
 </script></body></html>
