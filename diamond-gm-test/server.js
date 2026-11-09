@@ -267,8 +267,8 @@ else if(a.type==='scout'){
  if(currency==='cp'&&c.cp<cost)throw Error('스카우트 CP가 부족합니다');
  let range=null;
  if(kind==='era'){
-  const ranges={'2000':[2000,2009],'2010':[2010,2019],'2020':[2020,2026]};
-  range=ranges[String(a.era||'')];if(!range)throw Error('스카우트 연도를 선택하세요');
+  const yr=Number(a.era);if(!Number.isInteger(yr)||yr<2000||yr>2026)throw Error('2000~2026년 중 정확한 연도를 선택하세요');
+  range=[yr,yr];
  }
  const roll=Math.random(),level=currency==='cash'?(roll<.50?5:roll<.80?6:roll<.95?7:8):(roll<.50?7:roll<.80?8:roll<.95?9:10);
  const p=player(u.id);
