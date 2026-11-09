@@ -714,8 +714,67 @@ main.shell.layout{padding-top:30px!important}
 .gm-shop-footer b{color:#24496a;font-size:13px}.gm-shop-footer p{color:#8399ad;font-size:11px;margin:4px 0 0}
 .gm-shop-footer button{background:#eaf4fe;border:1px solid #cee1f1;color:#236ba5;border-radius:9px;padding:10px 15px;font-size:12px;font-weight:850}
 @media(max-width:650px){.gm-shop-grid{grid-template-columns:1fr}.gm-shop-header h2{font-size:22px}.gm-shop-wallet{width:100%}.gm-header-shop{padding:7px 10px;font-size:11px}}
+
+/* Player roster column sorting — visible ascending/descending direction. */
+.gm-roster-sort-help{margin:-2px 0 11px;color:#8597aa;font-size:11px}
+.gm-roster-sort{display:inline-flex;align-items:center;gap:5px;padding:6px 7px;margin:-6px -7px;border:0;min-height:27px;border-radius:6px;background:transparent;color:inherit;font:inherit;font-weight:800;white-space:nowrap;cursor:pointer}
+.gm-roster-sort span{font-size:10px;color:#9fb3c6;line-height:1}
+.gm-roster-sort:hover,.gm-roster-sort:focus-visible{background:#e4effa;color:#2069a5;outline:none}
+.gm-roster-sort.is-sorted{color:var(--team-accent,#2468a8);background:#e8f3ff}
+.gm-roster-sort.is-sorted span{color:var(--team-accent,#2468a8)}
+.gm-roster-manage{white-space:nowrap;background:#eef6ff;border:1px solid #cbdff2;border-radius:9px;color:#2a689d;font-size:11px;font-weight:850;padding:7px 11px}
+.gm-roster-manage:hover{background:#dfeeff}
+.gm-roster-table th{white-space:nowrap}
+.gm-roster-modal-overlay{position:fixed;inset:0;background:#0a1f38bf;backdrop-filter:blur(3px);z-index:800;display:flex;align-items:center;justify-content:center;padding:16px}
+.gm-roster-modal-dialog{background:white;width:min(100%,700px);max-height:min(90dvh,900px);overflow-y:auto;border-radius:18px;border:1px solid #d6e5f2;box-shadow:0 22px 70px #09203858;animation:scoutPopupIn .18s ease-out}
+.gm-roster-modal-head{display:flex;justify-content:space-between;align-items:center;padding:15px 22px;border-bottom:1px solid #e1ebf4;font-size:10px;color:#668aa9;letter-spacing:.15em;font-weight:900}
+.gm-roster-modal-head button{border:1px solid #d9e6f1;border-radius:8px;min-height:28px;padding:4px 9px;background:#f8fbfe;color:#6b85a0}
+.gm-roster-modal-summary{display:flex;align-items:center;gap:18px;padding:19px 23px;background:linear-gradient(120deg,#edf6ff,#fff)}
+.gm-roster-modal-summary>.player-portrait.large{flex:none;width:102px!important;height:120px!important}
+.gm-roster-modal-info{flex:1;min-width:0}
+.gm-roster-eyebrow{color:#6a8ba8;font-size:11px;font-weight:700}
+.gm-roster-modal-info h2{color:#234b6e;font-size:23px;line-height:1.3;margin:6px 0 10px}
+.gm-roster-modal-tags{display:flex;align-items:center;flex-wrap:wrap;gap:9px;font-size:11px;font-weight:850;color:#3b709c}
+.gm-roster-modal-grow{display:flex;align-items:center;gap:11px;margin-top:13px}
+.gm-roster-modal-grow label{color:#8297ab;font-size:11px;font-weight:850;white-space:nowrap}
+.gm-roster-modal-grow select{max-width:250px;width:100%;padding:8px 10px;border:1px solid #cbddec;border-radius:8px;background:#fff;font-size:12px;color:#2e638b}
+.gm-roster-modal-content{padding:20px 22px}
+.gm-roster-modal-sectiontitle{display:flex;justify-content:space-between;gap:9px;align-items:center;margin-bottom:13px}
+.gm-roster-modal-sectiontitle h3{margin:0;font-size:15px;color:#294d70}
+.gm-roster-modal-sectiontitle span{font-size:10px;color:#91a4b5}
+.gm-roster-modal-stats{border:1px solid #e1eaf3;border-radius:11px;overflow:hidden}
+.gm-roster-modal-stat{display:grid;grid-template-columns:39px minmax(0,1fr) 65px 110px;gap:10px;align-items:center;padding:9px 11px;border-bottom:1px solid #ebf0f5}
+.gm-roster-modal-stat:last-child{border:0}
+.gm-roster-modal-stat>span{font-size:12px;color:#436685;font-weight:800}
+.gm-roster-modal-bar{height:10px;border-radius:8px;background:#e5edf5;overflow:hidden}
+.gm-roster-modal-bar>div{height:100%;border-radius:8px;background:#628fad}
+.gm-roster-modal-bar.stat-bg-gray>div{background:#929ba7}
+.gm-roster-modal-bar.stat-bg-green>div{background:#28a571}
+.gm-roster-modal-bar.stat-bg-blue>div{background:#2a83cd}
+.gm-roster-modal-bar.stat-bg-red>div{background:#d95d5d}
+.gm-roster-modal-stat strong{font-size:11px;font-variant-numeric:tabular-nums;text-align:right}
+.gm-roster-modal-stat button{background:#edf5ff;color:#2c70a9;border:1px solid #cce0f1;border-radius:7px;padding:6px 8px;min-height:30px;font-size:10px;font-weight:850;white-space:nowrap}
+.gm-roster-modal-stat button:disabled{color:#a1b1bf;background:#f3f5f7;border-color:#e5ebf1}
+.gm-roster-modal-upgrade{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#f5f9fe;border:1px solid #e0ebf5;border-radius:11px;padding:13px 15px;margin-top:16px}
+.gm-roster-modal-upgrade strong,.gm-roster-modal-upgrade small{display:block}
+.gm-roster-modal-upgrade strong{font-size:12px;color:#2d587a}
+.gm-roster-modal-upgrade small{font-size:10px;color:#8da2b3;margin-top:5px}
+.gm-roster-modal-upgrade button{white-space:nowrap;background:var(--team-accent,#2771b5);color:#fff;border:0;border-radius:9px;padding:10px 14px;font-weight:850;font-size:11px}
+.gm-roster-modal-upgrade button:disabled{background:#dfe8ef;color:#93a6b6}
+.gm-roster-modal-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 22px;background:#f9fbfe;border-top:1px solid #e4edf5;font-size:10px;color:#899daf}
+.gm-roster-modal-footer button{background:#edf3f8;color:#4e7394;border:1px solid #d8e5ef;border-radius:8px;padding:7px 16px;font-size:12px;font-weight:800}
+@media(max-width:650px){
+.gm-roster-modal-overlay{padding:8px}
+.gm-roster-modal-summary{padding:13px;gap:11px}.gm-roster-modal-summary>.player-portrait.large{width:76px!important;height:90px!important}
+.gm-roster-modal-info h2{font-size:17px}.gm-roster-modal-grow{flex-wrap:wrap}
+.gm-roster-modal-content{padding:12px}.gm-roster-modal-sectiontitle{flex-wrap:wrap}
+.gm-roster-modal-stat{grid-template-columns:32px minmax(0,1fr) 60px;gap:7px;padding:9px 7px}
+.gm-roster-modal-stat button{grid-column:1/-1;width:100%}
+.gm-roster-modal-upgrade{flex-wrap:wrap}.gm-roster-modal-upgrade button{width:100%}
+}
+@media(prefers-reduced-motion:reduce){.gm-roster-modal-dialog{animation:none}}
 </style></head><body><div id="app"></div><script>
-const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
+const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((Number(p.power)+Number(p.contact)+Number(p.eye)+Number(p.speed)+Number(p.defense)+Number(p.mental??p.stamina??55))/6);
 const statNum=n=>Math.min(99.99,Math.max(0,Number(n)||0)).toFixed(2);
 const statColor=n=>Number(n)<50?'gray':Number(n)<70?'green':Number(n)<90?'blue':'red';
@@ -819,7 +878,7 @@ const growthOptions=p=>'<option value="balanced" '+(!p.growthFocusSelected?'sele
 const growthText=p=>p.growthFocusSelected?fieldNames[p.growthFocus]+' 집중 ×5 · 다른 능력치 ×0.5':'균형 성장 · 6개 능력치 동일';
 const g=p=>'<span class="grade '+esc(p.grade)+'">성장타입 '+esc(p.grade)+'</span>';
 function toast(txt){document.querySelector('.msg')?.remove();let x=document.createElement('div');x.className='msg';x.textContent=txt;document.body.append(x);setTimeout(()=>x.remove(),3500)}
-async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout'){selectedTeam=null;lastRenderedTab=null;}if(x.result?.message&&!['scout','friendly'].includes(body.type))toast(x.result.message);render();if(body.type==='scout'&&x.result?.scouted)showScoutResult(x.result.scouted);if(body.type==='scoutDecision')closeScoutPopup();if(body.type==='friendly'&&x.result?.friendly)friendlyResultModal(x.result.friendly)}catch(e){toast(e.message)}}
+async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout'){selectedTeam=null;lastRenderedTab=null;}if(x.result?.message&&!['scout','friendly'].includes(body.type))toast(x.result.message);render();if(body.type==='scout'&&x.result?.scouted)showScoutResult(x.result.scouted);if(body.type==='scoutDecision')closeScoutPopup();if(body.type==='friendly'&&x.result?.friendly)friendlyResultModal(x.result.friendly);return x}catch(e){toast(e.message);return null}}
 async function start(){try{state=await(await fetch('/api/state')).json()}catch(e){toast('서버에 연결할 수 없습니다')}render()}
 
 function chosenTeam(){return (state.teams||[]).find(t=>t.id===(state.club?.teamId||state.user?.teamId||selectedTeam))||null}
@@ -926,8 +985,43 @@ function root(){
   if(tab===requestedTab)window.scrollTo({left:sameTab?previousX:0,top:sameTab?previousY:0,behavior:'instant'});
  });
 }
-function getP(){return state.club.players.filter(p=>!filter||(p.name+p.year+p.pos).includes(filter)).sort((a,b)=>sort==='overall'?overall(b)-overall(a):sort==='year'?b.year-a.year:a.name.localeCompare(b.name))}
-function table(players,actions){return '<div class="scroll"><table><thead><tr><th>선수</th><th>연도</th><th>포지션</th><th>성장타입</th><th>종합</th><th>정확</th><th>파워</th><th>선구</th><th>주력</th><th>수비</th><th>정신</th>'+(actions?'<th>관리</th>':'')+'</tr></thead><tbody>'+players.map(p=>'<tr><td><span class="roster-portrait">'+playerPortrait(p)+playerButton(p)+'</span></td><td>'+shortYear(p)+'</td><td>'+esc(p.pos)+'</td><td>'+g(p)+'</td><td><b>'+overall(p)+'</b></td>'+Object.keys(fieldNames).map(k=>'<td>'+statCell(p[k]??(k==='mental'?p.stamina:55))+'</td>').join('')+(actions?'<td><button data-player="'+p.id+'" data-action="detail">관리</button></td>':'')+'</tr>').join('')+'</tbody></table></div>'}
+
+const ROSTER_SORT_COLUMNS=[['name','선수'],['year','연도'],['pos','포지션'],['grade','성장타입'],['overall','종합'],...Object.entries(fieldNames).map(([key,label])=>[key,label])];
+const ROSTER_NUMERIC=['year','overall',...Object.keys(fieldNames)];
+function rosterSortValue(p,key){
+ if(key==='overall')return Number(overall(p));
+ if(key==='year')return Number(p.year)||0;
+ if(key==='grade')return ({E:1,D:2,C:3,B:4,A:5})[p.grade]||0;
+ if(key==='name')return String(p.name||'');
+ if(key==='pos')return String(p.pos||'');
+ return Number(p[key]??(key==='mental'?p.stamina:0))||0;
+}
+function getP(){
+ const rows=state.club.players.filter(p=>!filter||(String(p.name)+String(p.year)+String(p.pos)).toLowerCase().includes(filter.toLowerCase()));
+ const numeric=ROSTER_NUMERIC.includes(sort)||sort==='grade';
+ return rows.sort((a,b)=>{
+  const va=rosterSortValue(a,sort),vb=rosterSortValue(b,sort);
+  const diff=numeric?va-vb:String(va).localeCompare(String(vb),'ko');
+  return (rosterSortDirection==='asc'?diff:-diff)||String(a.name||'').localeCompare(String(b.name||''),'ko')||String(a.id).localeCompare(String(b.id));
+ });
+}
+function table(players,actions){
+ const header=(key,label)=>{
+  if(!actions)return '<th>'+esc(label)+'</th>';
+  const selected=sort===key,dir=selected?rosterSortDirection:'none';
+  return '<th aria-sort="'+(dir==='asc'?'ascending':dir==='desc'?'descending':'none')+'"><button type="button" class="gm-roster-sort '+(selected?'is-sorted':'')+'" data-roster-sort="'+key+'" aria-label="'+esc(label)+' 기준 정렬">'+esc(label)+'<span aria-hidden="true">'+(selected?(dir==='asc'?'▲':'▼'):'↕')+'</span></button></th>';
+ };
+ return '<div class="scroll gm-roster-scroll"><table class="gm-roster-table"><thead><tr>'+ROSTER_SORT_COLUMNS.map(([key,label])=>header(key,label)).join('')+(actions?'<th>관리</th>':'')+'</tr></thead><tbody>'+players.map(p=>'<tr><td><span class="roster-portrait">'+playerPortrait(p)+playerButton(p)+'</span></td><td>'+shortYear(p)+'</td><td>'+esc(p.pos)+'</td><td>'+g(p)+'</td><td><b>'+overall(p)+'</b></td>'+Object.keys(fieldNames).map(key=>'<td>'+statCell(p[key]??(key==='mental'?p.stamina:55))+'</td>').join('')+(actions?'<td><button type="button" class="gm-roster-manage" data-player="'+esc(p.id)+'" data-action="detail">관리</button></td>':'')+'</tr>').join('')+'</tbody></table></div>';
+}
+function refreshRosterTable(){
+ const target=document.getElementById('rosterTable');if(!target)return;
+ const previous=target.querySelector('.gm-roster-scroll'),left=previous?.scrollLeft||0,top=previous?.scrollTop||0;
+ target.innerHTML=table(getP(),true);
+ const next=target.querySelector('.gm-roster-scroll');if(next){next.scrollLeft=left;next.scrollTop=top}
+ bindDetail();
+ const sel=document.getElementById('sortPlayer');
+ if(sel&&sel.querySelector('option[value="'+sort+'"]'))sel.value=sort;
+}
 
 function leagueIdentity(name,teamId,ownerName){
  const team=(state.teams||[]).find(t=>t.id===teamId)||(state.teams||[]).find(t=>t.name===name);
@@ -1152,7 +1246,13 @@ if(tab==='friendly'){
  document.getElementById('friendlyPlay').onclick=()=>{if(confirm('친선경기 1회를 사용하여 경기를 진행하시겠습니까?'))api({type:'friendly',tier:Number(document.getElementById('friendlyTier').value),reward:document.querySelector('input[name="friendlyReward"]:checked')?.value||'cash'})};
  document.querySelectorAll('[data-drink]').forEach(b=>b.onclick=()=>api({type:'useDrink',id:b.dataset.drink}));
  return}
-if(tab==='roster'){el.innerHTML='<h2 class="sectiontitle">선수단 관리 <small class="muted">'+c.players.length+'/80</small></h2><div class="panel"><div class="toolbar"><input id="findPlayer" placeholder="선수명/연도/포지션 검색" value="'+esc(filter)+'"><select id="sortPlayer"><option value="overall">종합 능력치순</option><option value="year">최신 연도순</option><option value="name">이름순</option></select><button id="scout">스카우트 (500만원)</button></div><div id="rosterTable">'+table(getP(),true)+'</div></div><div id="playerDetail"></div>';document.getElementById('findPlayer').oninput=e=>{filter=e.target.value;document.getElementById('rosterTable').innerHTML=table(getP(),true);bindDetail()};document.getElementById('sortPlayer').value=sort;document.getElementById('sortPlayer').onchange=e=>{sort=e.target.value;content()};document.getElementById('scout').onclick=()=>api({type:'scout'});bindDetail();return}
+if(tab==='roster'){
+ el.innerHTML='<h2 class="sectiontitle">선수단 관리 <small class="muted">'+c.players.length+'/80</small></h2><div class="panel"><div class="toolbar"><input id="findPlayer" placeholder="선수명/연도/포지션 검색" value="'+esc(filter)+'"><select id="sortPlayer">'+[['overall','종합 능력치순'],['year','연도순'],['name','선수명순'],['pos','포지션순'],['grade','성장타입순'],...Object.entries(fieldNames).map(([k,v])=>[k,v+'순'])].map(([key,label])=>'<option value="'+key+'">'+label+'</option>').join('')+'</select><button type="button" id="scout">스카우트 센터</button></div><div class="gm-roster-sort-help">표의 <b>선수·연도·포지션·성장타입·종합·능력치</b> 제목을 클릭하면 오름차순/내림차순으로 정렬됩니다.</div><div id="rosterTable">'+table(getP(),true)+'</div></div>';
+ document.getElementById('findPlayer').oninput=e=>{filter=e.target.value;refreshRosterTable()};
+ document.getElementById('sortPlayer').value=sort;
+ document.getElementById('sortPlayer').onchange=e=>{sort=e.target.value;rosterSortDirection=['name','pos'].includes(sort)?'asc':'desc';refreshRosterTable()};
+ document.getElementById('scout').onclick=()=>{tab='scout';root()};
+ bindDetail();return}
 if(tab==='train'){
  el.innerHTML='<h2 class="sectiontitle">선수 육성</h2><div class="panel"><p class="muted">성장타입 승급 비용: 1 CP / 회 · 실패 시 유지</p><div class="grid">'+[['E → D','65%'],['D → C','50%'],['C → B','25%'],['B → A','10%']].map(x=>'<div class="metric">'+x[0]+'<strong>'+x[1]+'</strong></div>').join('')+'</div></div>'+
  '<div class="panel"><div class="gm-growth-guideline"><b>선수별 성장 방향</b><span>균형: 6개 능력치 각각 +0.02/경기 · 집중: 선택 능력치 +0.10, 나머지 각각 +0.01/경기</span><small>출전 성장 보너스도 같은 비율 적용 · 성장타입 E~A의 기본 성장 공통</small></div>'+
@@ -1176,8 +1276,51 @@ el.innerHTML='<div class="league-titlebar"><div><span class="team-eyebrow">DIAMO
 '<details class="panel league-rewards-accordion"><summary class="league-rewards-trigger"><span class="league-rewards-heading"><strong>🎁 8단계 리그별 최종 순위 보상</strong><small>리그별 게임머니 · CP · AI 평균 전력 확인</small></span><span class="league-rewards-expand-label"><span class="label-closed">보상표 펼치기</span><span class="label-open">보상표 접기</span><span class="league-rewards-arrow" aria-hidden="true">⌄</span></span></summary><div class="league-rewards-body"><p class="muted">구단별 최종 순위에 따라 게임머니와 CP가 차등 지급됩니다. AI 평균 전력은 각 리그의 기준입니다.</p><div class="scoreboard"><table><thead><tr><th>구분</th>'+tiers.map((n,i)=>'<th>'+esc(n)+'<small style="display:block">AI 평균 '+(lg.tiers?.[i]?.average||'-')+'</small></th>').join('')+'</tr></thead><tbody>'+Array.from({length:10},(_,i)=>'<tr><td><b>'+(i+1)+'위</b></td>'+tiers.map((_,t)=>{const baseCash=[30000000,25000000,20000000,16000000,13000000,10000000,8000000,6000000,4000000,2000000],baseCP=[50,40,32,25,20,16,12,9,7,5];return '<td class="'+(tier===t?'league-current-tier':'')+'">'+money(Math.round(baseCash[i]*(1+t*.6)/1000000)*1000000)+'<small style="display:block;color:#6c8196">+'+Math.round(baseCP[i]*(1+t*.5))+' CP</small></td>'}).join('')+'</tr>').join('')+'</tbody></table></div></div></details>';
 document.getElementById('refreshLeague').onclick=async()=>{state=await(await fetch('/api/state')).json();content()};return}}
 
-function bindDetail(){document.querySelectorAll('[data-player]').forEach(b=>b.onclick=()=>{const p=state.club.players.find(x=>x.id===b.dataset.player);const d=document.getElementById('playerDetail');d.innerHTML='<div class="panel"><h3>'+playerButton(p)+' '+g(p)+'</h3><p class="muted">'+esc(p.pos)+' / 종합 '+overall(p)+'</p><div class="toolbar"><button id="upSelected" '+(p.grade==='A'?'disabled':'')+'>등급 성장 (1 CP)</button>'+Object.keys(fieldNames).map(k=>'<button data-train="'+k+'">'+fieldNames[k]+' 훈련 (100만원)</button>').join('')+'</div></div>';document.getElementById('upSelected').onclick=()=>api({type:'upgrade',id:p.id});document.querySelectorAll('[data-train]').forEach(x=>x.onclick=()=>api({type:'train',id:p.id,key:x.dataset.train}));d.scrollIntoView({behavior:'smooth',block:'nearest'})})}
 
+function bindDetail(){
+ document.querySelectorAll('[data-roster-sort]').forEach(button=>button.onclick=()=>{
+  const key=button.dataset.rosterSort;
+  if(!ROSTER_SORT_COLUMNS.some(([k])=>k===key))return;
+  if(sort===key)rosterSortDirection=rosterSortDirection==='desc'?'asc':'desc';
+  else{sort=key;rosterSortDirection=['name','pos'].includes(key)?'asc':'desc'}
+  refreshRosterTable();
+ });
+ document.querySelectorAll('[data-player][data-action="detail"]').forEach(button=>button.onclick=()=>{
+  const player=state.club?.players.find(p=>p.id===button.dataset.player);
+  if(player)openRosterManage(player);
+ });
+}
+function closeRosterManage(){document.getElementById('gmRosterManageOverlay')?.remove()}
+function openRosterManage(p){
+ if(!p)return;
+ closeRosterManage();
+ const overlay=document.createElement('div');
+ overlay.className='gm-roster-modal-overlay';overlay.id='gmRosterManageOverlay';
+ const stats=Object.entries(fieldNames).map(([key,label])=>{
+  const val=Number(p[key]??(key==='mental'?p.stamina:55))||0;
+  return '<div class="gm-roster-modal-stat"><span>'+esc(label)+'</span><div class="gm-roster-modal-bar stat-bg-'+statColor(val)+'"><div style="width:'+Math.min(100,val)+'%"></div></div><strong>'+statCell(val)+'</strong><button type="button" data-manage-train="'+key+'" '+(state.club.cash<1000000||val>=99.99?'disabled':'')+'>훈련 · 100만원</button></div>';
+ }).join('');
+ overlay.innerHTML='<section class="gm-roster-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="gmRosterManageTitle"><header class="gm-roster-modal-head"><span>PLAYER MANAGEMENT</span><button type="button" class="gm-roster-dialog-close" aria-label="닫기">✕</button></header><div class="gm-roster-modal-summary">'+playerPortrait(p,'large')+'<div class="gm-roster-modal-info"><span class="gm-roster-eyebrow">'+esc(playerTeamName(p))+' · '+esc(p.pos)+' · '+Number(p.age)+'세</span><h2 id="gmRosterManageTitle">'+esc(playerLabel(p))+'</h2><div class="gm-roster-modal-tags">'+g(p)+conditionLabel(p)+'<span>종합 '+overall(p)+'</span></div><div class="gm-roster-modal-grow"><label for="gmRosterFocus">성장 방향</label><select id="gmRosterFocus">'+growthOptions(p)+'</select></div></div></div><div class="gm-roster-modal-content"><div class="gm-roster-modal-sectiontitle"><h3>능력치 관리</h3><span>훈련 시 게임머니 100만원 사용</span></div><div class="gm-roster-modal-stats">'+stats+'</div><div class="gm-roster-modal-upgrade"><div><strong>성장타입 승급</strong><small>E → D → C → B → A · 실패해도 하락하지 않음</small></div><button type="button" id="gmRosterUpgrade" '+(p.grade==='A'||state.club.cp<1?'disabled':'')+'>승급 도전 · 1 CP</button></div></div><footer class="gm-roster-modal-footer"><span>최고 능력치 99.99%</span><button type="button" class="gm-roster-dialog-close">닫기</button></footer></section>';
+ document.body.appendChild(overlay);
+ overlay.addEventListener('click',event=>{if(event.target===overlay)closeRosterManage()});
+ overlay.querySelectorAll('.gm-roster-dialog-close').forEach(btn=>btn.onclick=closeRosterManage);
+ const act=async payload=>{
+  overlay.querySelectorAll('button').forEach(button=>button.disabled=true);
+  const result=await api(payload);
+  if(result?.club&&tab==='roster'){
+   const updated=result.club.players.find(x=>x.id===p.id);
+   if(updated)openRosterManage(updated);
+   else closeRosterManage();
+  }else{
+   overlay.querySelectorAll('button').forEach(button=>button.disabled=false);
+  }
+ };
+ overlay.querySelector('#gmRosterFocus').onchange=e=>act({type:'setGrowthFocus',id:p.id,focus:e.target.value});
+ overlay.querySelector('#gmRosterUpgrade').onclick=()=>act({type:'upgrade',id:p.id});
+ overlay.querySelectorAll('[data-manage-train]').forEach(btn=>btn.onclick=()=>act({type:'train',id:p.id,key:btn.dataset.manageTrain}));
+ overlay.querySelector('.gm-roster-dialog-close')?.focus({preventScroll:true});
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('gmRosterManageOverlay')){e.preventDefault();closeRosterManage()}});
 
 function closeScoutPopup(){document.getElementById('scoutPopup')?.remove()}
 function scoutPopup(content){
