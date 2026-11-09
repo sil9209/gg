@@ -634,6 +634,18 @@ img,a{-webkit-user-drag:none}
 .gm-prospect-details{display:flex;flex:1;min-width:0;flex-direction:column;align-items:flex-start;gap:4px}
 .gm-prospect-details small{display:block;font-size:10px;color:#8298ad}
 @media(max-width:650px){.gm-nav-dock{right:12px;bottom:12px}.gm-nav-toggle{padding:9px 12px;min-height:51px}.gm-nav-panel{width:216px}}
+
+/* Real square rotated 45 degrees: symmetric baseball infield without the previous Y-axis flattening. */
+.gm-field{height:425px!important;position:relative;isolation:isolate}
+.gm-field-dirt,.gm-field-inner{position:absolute;left:50%!important;top:61%!important;aspect-ratio:1!important;height:auto!important;transform:translate(-50%,-50%) rotate(45deg)!important;border-radius:2px!important}
+.gm-field-dirt{width:min(40%,220px)!important;background:#c8a277!important;border:5px solid #f6e5bd!important;box-shadow:0 9px 30px #1333234b,inset 0 0 0 3px #af865c!important}
+.gm-field-inner{width:min(28%,152px)!important;background:#3a8c59!important;border:3px solid #f7ecd1!important;box-shadow:inset 0 0 0 2px #75ac75!important}
+.gm-field-base.base-home{left:50%!important;top:95%!important}
+.gm-field-base.base-two{left:50%!important;top:27%!important}
+.gm-field-base.base-one{left:73%!important;top:61%!important}
+.gm-field-base.base-three{left:27%!important;top:61%!important}
+.gm-field-node{z-index:5}
+@media(max-width:620px){.gm-field{height:386px!important}.gm-field-dirt{width:min(40%,195px)!important}.gm-field-inner{width:min(28%,132px)!important}}
 </style></head><body><div id="app"></div><script src="/avatar3d.js?v=cute-3"></script><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((Number(p.power)+Number(p.contact)+Number(p.eye)+Number(p.speed)+Number(p.defense)+Number(p.mental??p.stamina??55))/6);
@@ -832,7 +844,7 @@ function leagueMatch(g){
 
 
 /* Diamond GM / Lineup Studio v2: separate batting, field depth and pitching roles. */
-const LINEUP_POSITIONS=[['CF','중견수',50,13],['LF','좌익수',19,27],['RF','우익수',81,27],['SS','유격수',35,49],['2B','2루수',65,49],['3B','3루수',17,68],['1B','1루수',83,68],['C','포수',49,91],['DH','지명타자',85,91]];
+const LINEUP_POSITIONS=[['CF','중견수',50,13],['LF','좌익수',17,28],['RF','우익수',83,28],['SS','유격수',34,50],['2B','2루수',66,50],['3B','3루수',22,69],['1B','1루수',78,69],['C','포수',50,91],['DH','지명타자',87,91]];
 const LINEUP_ROLES=[...Array.from({length:5},(_,i)=>['starter'+(i+1),(i+1)+'선발']),...Array.from({length:4},(_,i)=>['relief'+(i+1),'계투 '+(i+1)]),['setup','셋업'],['closer','마무리']];
 const LINEUP_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 let lineupDraft=null,lineupMode='batter',dragBattingIndex=null;
