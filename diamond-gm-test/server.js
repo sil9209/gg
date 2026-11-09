@@ -267,7 +267,30 @@ function topUpAdminWallet(u,c){
  if(isAdminUser(u)&&c){c.cash=ADMIN_CASH;c.cp=ADMIN_CP}
 }
 
-const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
+
+/* Five editable shop slots. Only the server determines the actual purchase reward and price. */
+const DEFAULT_SHOP_CATALOG=[
+ {id:'slot1',active:true,kind:'sportsDrink',name:'스포츠음료 10개',desc:'선수 컨디션을 한 단계 올리는 회복 아이템',icon:'🥤',quantity:10,price:1000000},
+ {id:'slot2',active:true,kind:'sportsDrink',name:'스포츠음료 50개',desc:'선수단 전체 컨디션 관리를 위한 묶음 상품',icon:'📦',quantity:50,price:4000000},
+ {id:'slot3',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000},
+ {id:'slot4',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000},
+ {id:'slot5',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000}
+];
+function shopCatalog(){
+ if(!Array.isArray(db.shopCatalog)||db.shopCatalog.length!==5)db.shopCatalog=DEFAULT_SHOP_CATALOG.map(x=>({...x}));
+ return db.shopCatalog;
+}
+function shopPublicCatalog(user){
+ return shopCatalog().map(item=>(isAdminUser(user)||item.active)?{...item}:{id:item.id,active:false});
+}
+function cleanShopText(value,length,required=false){
+ const text=String(value??'').trim().replace(/[\u0000-\u001F\u007F]/g,' ');
+ if(required&&!text)throw Error('상품명과 아이콘을 입력하세요');
+ if([...text].length>length)throw Error('상품 설명이 너무 깁니다');
+ return text;
+}
+
+const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,shopItems:shopPublicCatalog(u),teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -397,19 +420,34 @@ else if(a.type==='saveLineup'){
  result={message:'타자 및 투수 라인업을 저장했습니다'};
 }
 else if(a.type==='lineup'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(a.pitcher){if(!p.isPitcher)throw Error('투수를 선택하세요');c.pitcher=p.id}else{if(p.isPitcher)throw Error('타자를 선택하세요');c.lineup=c.lineup.filter(x=>x!==p.id);c.lineup.splice(Math.max(0,Math.min(8,Number(a.slot)||0)),0,p.id);c.lineup=c.lineup.slice(0,9)}fix(c)}
+else if(a.type==='shopSave'){
+ if(!isAdminUser(u))throw Error('관리자 계정만 상점 상품을 수정할 수 있습니다');
+ const slot=Number(a.slot);
+ if(!Number.isInteger(slot)||slot<1||slot>5)throw Error('상품 위치가 올바르지 않습니다');
+ const active=a.active===true;
+ const current=shopCatalog()[slot-1];
+ const reset=a.reset===true;
+ if(reset){
+  db.shopCatalog[slot-1]={...DEFAULT_SHOP_CATALOG[slot-1],active:false};
+ }else{
+  const name=cleanShopText(a.name,40,active),desc=cleanShopText(a.desc,160),icon=cleanShopText(a.icon,5,active);
+  const price=Number(a.price),quantity=Number(a.quantity);
+  if(!Number.isSafeInteger(price)||price<1000||price>1000000000)throw Error('가격은 1,000원~10억원 사이의 정수로 입력하세요');
+  if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000)throw Error('수량은 1~10,000개 사이의 정수로 입력하세요');
+  db.shopCatalog[slot-1]={id:current.id,active,kind:'sportsDrink',name,desc,icon,quantity,price};
+ }
+ result={message:slot+'번 상품이 '+(db.shopCatalog[slot-1].active?'판매 중으로 저장':'입고중으로 저장')+'되었습니다'};
+}
 else if(a.type==='shopBuy'){
- const offers={
-  drink10:{label:'스포츠음료 10개',quantity:10,price:1000000},
-  drink50:{label:'스포츠음료 50개',quantity:50,price:4000000}
- };
- const offer=offers[String(a.item||'')];
- if(!offer)throw Error('판매하지 않는 상품입니다');
+ const offer=shopCatalog().find(x=>x.id===String(a.item||'')&&x.active===true);
+ if(!offer||offer.kind!=='sportsDrink')throw Error('판매 중인 상품이 아닙니다');
+ if(!Number.isSafeInteger(offer.price)||offer.price<1000)throw Error('상품 가격이 올바르지 않습니다');
  if(!Number.isFinite(c.cash)||c.cash<offer.price)throw Error('보유 게임머니가 부족합니다');
  if(!Number.isSafeInteger(c.sportsDrinks||0)||c.sportsDrinks<0)throw Error('보유 상품 정보가 올바르지 않습니다');
  if(c.sportsDrinks+offer.quantity>999999)throw Error('스포츠음료 최대 보관 수량을 초과했습니다');
  c.cash-=offer.price;
  c.sportsDrinks=(c.sportsDrinks||0)+offer.quantity;
- result={message:offer.label+' 구매 완료',purchasedItem:String(a.item),quantity:offer.quantity};
+ result={message:offer.name+' 구매 완료',purchasedItem:offer.id,quantity:offer.quantity};
 }
 else if(a.type==='useDrink'){
  const p=c.players.find(p=>p.id===a.id);if(!p)throw Error('선수가 없습니다');
