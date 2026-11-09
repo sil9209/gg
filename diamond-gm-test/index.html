@@ -774,8 +774,8 @@ main.shell.layout{padding-top:30px!important}
 }
 @media(prefers-reduced-motion:reduce){.gm-roster-modal-dialog{animation:none}}
 </style></head><body><div id="app"></div><script>
-const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',selectedTeam=null;
-const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((Number(p.power)+Number(p.contact)+Number(p.eye)+Number(p.speed)+Number(p.defense)+Number(p.mental??p.stamina??55))/6);
+const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
+const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
 const statNum=n=>Math.min(99.99,Math.max(0,Number(n)||0)).toFixed(2);
 const statColor=n=>Number(n)<50?'gray':Number(n)<70?'green':Number(n)<90?'blue':'red';
 const statCell=n=>'<span class="stat-number stat-'+statColor(n)+'">'+statNum(n)+'%</span>';
@@ -873,9 +873,12 @@ function friendlyResultModal(r){
  const overlay=document.createElement('div');overlay.className='friendly-result-overlay';overlay.innerHTML='<div class="friendly-result-card" role="dialog" aria-modal="true"><h2>'+({win:'🏆 승리',loss:'패배',draw:'무승부'}[r.outcome]||'결과')+'</h2><div class="friendly-final-score">'+r.ours+' : '+r.theirs+'</div><p>VS '+esc(r.opponent)+'</p><strong>'+(r.cash?'+'+money(r.cash):r.cp?'+'+r.cp+' CP':r.drinks?'🥤 스포츠음료 +'+r.drinks+'개':'보상 없음')+'</strong><h3>선수별 성적과 컨디션</h3><div class="friendly-stat-list">'+(r.playerStats||[]).map(p=>'<div>'+esc(p.name)+' <small>'+esc(p.summary)+'</small><b class="'+(p.delta>0?'raise':p.delta<0?'drop':'')+'">'+(p.delta>0?'↑ +1':p.delta<0?'↓ -1':'− 유지')+'</b></div>').join('')+'</div><button class="primary" id="closeFriendlyResult">확인</button></div>';document.body.appendChild(overlay);overlay.querySelector('#closeFriendlyResult').onclick=()=>overlay.remove();overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
 }
 
-const fieldNames={contact:'정확',power:'파워',eye:'선구',speed:'주력',defense:'수비',mental:'정신'};
-const growthOptions=p=>'<option value="balanced" '+(!p.growthFocusSelected?'selected':'')+'>균형 성장</option>'+Object.keys(fieldNames).map(k=>'<option value="'+k+'" '+(p.growthFocusSelected&&p.growthFocus===k?'selected':'')+'>'+fieldNames[k]+' 집중</option>').join('');
-const growthText=p=>p.growthFocusSelected?fieldNames[p.growthFocus]+' 집중 ×5 · 다른 능력치 ×0.5':'균형 성장 · 6개 능력치 동일';
+const fieldNames={contact:'정확',power:'파워',eye:'선구',speed:'주력',mental:'정신',defense:'수비'};
+const pitcherFieldNames={velocity:'구속',stuff:'구위',control:'제구',break:'변화',mental:'정신',stamina:'체력'};
+const playerFieldNames=p=>p.isPitcher?pitcherFieldNames:fieldNames;
+const attributeValue=(p,key)=>Number(p?.[key]??(key==='mental'?p?.stamina:0))||0;
+const growthOptions=p=>'<option value="balanced" '+(!p.growthFocusSelected?'selected':'')+'>균형 성장</option>'+Object.keys(playerFieldNames(p)).map(k=>'<option value="'+k+'" '+(p.growthFocusSelected&&p.growthFocus===k?'selected':'')+'>'+playerFieldNames(p)[k]+' 집중</option>').join('');
+const growthText=p=>p.growthFocusSelected?(playerFieldNames(p)[p.growthFocus]||'능력치')+' 집중 ×5 · 다른 능력치 ×0.5':'균형 성장 · 6개 능력치 동일';
 const g=p=>'<span class="grade '+esc(p.grade)+'">성장타입 '+esc(p.grade)+'</span>';
 function toast(txt){document.querySelector('.msg')?.remove();let x=document.createElement('div');x.className='msg';x.textContent=txt;document.body.append(x);setTimeout(()=>x.remove(),3500)}
 async function api(body){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout'){selectedTeam=null;lastRenderedTab=null;}if(x.result?.message&&!['scout','friendly'].includes(body.type))toast(x.result.message);render();if(body.type==='scout'&&x.result?.scouted)showScoutResult(x.result.scouted);if(body.type==='scoutDecision')closeScoutPopup();if(body.type==='friendly'&&x.result?.friendly)friendlyResultModal(x.result.friendly);return x}catch(e){toast(e.message);return null}}
@@ -986,8 +989,8 @@ function root(){
  });
 }
 
-const ROSTER_SORT_COLUMNS=[['name','선수'],['year','연도'],['pos','포지션'],['grade','성장타입'],['overall','종합'],...Object.entries(fieldNames).map(([key,label])=>[key,label])];
-const ROSTER_NUMERIC=['year','overall',...Object.keys(fieldNames)];
+const rosterColumns=()=>[['name','선수'],['year','연도'],['pos','포지션'],['grade','성장타입'],['overall','종합'],...Object.entries(rosterView==='pitcher'?pitcherFieldNames:fieldNames).map(([key,label])=>[key,label])];
+const ROSTER_NUMERIC=['year','overall',...Object.keys(fieldNames),...Object.keys(pitcherFieldNames)];
 function rosterSortValue(p,key){
  if(key==='overall')return Number(overall(p));
  if(key==='year')return Number(p.year)||0;
@@ -997,7 +1000,7 @@ function rosterSortValue(p,key){
  return Number(p[key]??(key==='mental'?p.stamina:0))||0;
 }
 function getP(){
- const rows=state.club.players.filter(p=>!filter||(String(p.name)+String(p.year)+String(p.pos)).toLowerCase().includes(filter.toLowerCase()));
+ const rows=state.club.players.filter(p=>p.isPitcher===(rosterView==='pitcher')&&(!filter||(String(p.name)+String(p.year)+String(p.pos)).toLowerCase().includes(filter.toLowerCase())));
  const numeric=ROSTER_NUMERIC.includes(sort)||sort==='grade';
  return rows.sort((a,b)=>{
   const va=rosterSortValue(a,sort),vb=rosterSortValue(b,sort);
@@ -1011,7 +1014,7 @@ function table(players,actions){
   const selected=sort===key,dir=selected?rosterSortDirection:'none';
   return '<th aria-sort="'+(dir==='asc'?'ascending':dir==='desc'?'descending':'none')+'"><button type="button" class="gm-roster-sort '+(selected?'is-sorted':'')+'" data-roster-sort="'+key+'" aria-label="'+esc(label)+' 기준 정렬">'+esc(label)+'<span aria-hidden="true">'+(selected?(dir==='asc'?'▲':'▼'):'↕')+'</span></button></th>';
  };
- return '<div class="scroll gm-roster-scroll"><table class="gm-roster-table"><thead><tr>'+ROSTER_SORT_COLUMNS.map(([key,label])=>header(key,label)).join('')+(actions?'<th>관리</th>':'')+'</tr></thead><tbody>'+players.map(p=>'<tr><td><span class="roster-portrait">'+playerPortrait(p)+playerButton(p)+'</span></td><td>'+shortYear(p)+'</td><td>'+esc(p.pos)+'</td><td>'+g(p)+'</td><td><b>'+overall(p)+'</b></td>'+Object.keys(fieldNames).map(key=>'<td>'+statCell(p[key]??(key==='mental'?p.stamina:55))+'</td>').join('')+(actions?'<td><button type="button" class="gm-roster-manage" data-player="'+esc(p.id)+'" data-action="detail">관리</button></td>':'')+'</tr>').join('')+'</tbody></table></div>';
+ return '<div class="scroll gm-roster-scroll"><table class="gm-roster-table"><thead><tr>'+rosterColumns().map(([key,label])=>header(key,label)).join('')+(actions?'<th>관리</th>':'')+'</tr></thead><tbody>'+players.map(p=>'<tr><td><span class="roster-portrait">'+playerPortrait(p)+playerButton(p)+'</span></td><td>'+shortYear(p)+'</td><td>'+esc(p.pos)+'</td><td>'+g(p)+'</td><td><b>'+overall(p)+'</b></td>'+Object.keys(rosterView==='pitcher'?pitcherFieldNames:fieldNames).map(key=>'<td>'+statCell(attributeValue(p,key))+'</td>').join('')+(actions?'<td><button type="button" class="gm-roster-manage" data-player="'+esc(p.id)+'" data-action="detail">관리</button></td>':'')+'</tr>').join('')+'</tbody></table></div>';
 }
 function refreshRosterTable(){
  const target=document.getElementById('rosterTable');if(!target)return;
@@ -1080,8 +1083,8 @@ function moveBatting(from,to){
  const item=document.querySelector('[data-lineup-order="'+to+'"]');item?.classList.add('gm-order-arrived');
 }
 function lineupStatRow(p,compare){
- const stats=['contact','power','eye','speed','defense','mental'];
- return '<div class="gm-compare-stats">'+stats.map(key=>{const val=Number(p[key]??p.stamina??0),base=Number(compare?.[key]??compare?.stamina??0),delta=val-base;return '<div class="gm-compare-stat"><small>'+esc(fieldNames[key])+'</small><b>'+val.toFixed(2)+'</b>'+(compare&&p.id!==compare.id?'<em class="'+(delta>0?'good':delta<0?'bad':'')+'">'+(delta>0?'+':'')+delta.toFixed(2)+'</em>':'<em>기준</em>')+'</div>'}).join('')+'</div>';
+ const stats=Object.keys(playerFieldNames(p));
+ return '<div class="gm-compare-stats">'+stats.map(key=>{const val=attributeValue(p,key),base=attributeValue(compare,key),delta=val-base;return '<div class="gm-compare-stat"><small>'+esc(playerFieldNames(p)[key])+'</small><b>'+val.toFixed(2)+'</b>'+(compare&&p.id!==compare.id?'<em class="'+(delta>0?'good':delta<0?'bad':'')+'">'+(delta>0?'+':'')+delta.toFixed(2)+'</em>':'<em>기준</em>')+'</div>'}).join('')+'</div>';
 }
 function lineupPicker(role,kind='batter'){
  document.getElementById('gmLineupPicker')?.remove();
@@ -1280,7 +1283,7 @@ document.getElementById('refreshLeague').onclick=async()=>{state=await(await fet
 function bindDetail(){
  document.querySelectorAll('[data-roster-sort]').forEach(button=>button.onclick=()=>{
   const key=button.dataset.rosterSort;
-  if(!ROSTER_SORT_COLUMNS.some(([k])=>k===key))return;
+  if(!rosterColumns().some(([k])=>k===key))return;
   if(sort===key)rosterSortDirection=rosterSortDirection==='desc'?'asc':'desc';
   else{sort=key;rosterSortDirection=['name','pos'].includes(key)?'asc':'desc'}
   refreshRosterTable();
@@ -1296,8 +1299,8 @@ function openRosterManage(p){
  closeRosterManage();
  const overlay=document.createElement('div');
  overlay.className='gm-roster-modal-overlay';overlay.id='gmRosterManageOverlay';
- const stats=Object.entries(fieldNames).map(([key,label])=>{
-  const val=Number(p[key]??(key==='mental'?p.stamina:55))||0;
+ const stats=Object.entries(playerFieldNames(p)).map(([key,label])=>{
+  const val=attributeValue(p,key);
   return '<div class="gm-roster-modal-stat"><span>'+esc(label)+'</span><div class="gm-roster-modal-bar stat-bg-'+statColor(val)+'"><div style="width:'+Math.min(100,val)+'%"></div></div><strong>'+statCell(val)+'</strong><button type="button" data-manage-train="'+key+'" '+(state.club.cash<1000000||val>=99.99?'disabled':'')+'>훈련 · 100만원</button></div>';
  }).join('');
  overlay.innerHTML='<section class="gm-roster-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="gmRosterManageTitle"><header class="gm-roster-modal-head"><span>PLAYER MANAGEMENT</span><button type="button" class="gm-roster-dialog-close" aria-label="닫기">✕</button></header><div class="gm-roster-modal-summary">'+playerPortrait(p,'large')+'<div class="gm-roster-modal-info"><span class="gm-roster-eyebrow">'+esc(playerTeamName(p))+' · '+esc(p.pos)+' · '+Number(p.age)+'세</span><h2 id="gmRosterManageTitle">'+esc(playerLabel(p))+'</h2><div class="gm-roster-modal-tags">'+g(p)+conditionLabel(p)+'<span>종합 '+overall(p)+'</span></div><div class="gm-roster-modal-grow"><label for="gmRosterFocus">성장 방향</label><select id="gmRosterFocus">'+growthOptions(p)+'</select></div></div></div><div class="gm-roster-modal-content"><div class="gm-roster-modal-sectiontitle"><h3>능력치 관리</h3><span>훈련 시 게임머니 100만원 사용</span></div><div class="gm-roster-modal-stats">'+stats+'</div><div class="gm-roster-modal-upgrade"><div><strong>성장타입 승급</strong><small>E → D → C → B → A · 실패해도 하락하지 않음</small></div><button type="button" id="gmRosterUpgrade" '+(p.grade==='A'||state.club.cp<1?'disabled':'')+'>승급 도전 · 1 CP</button></div></div><footer class="gm-roster-modal-footer"><span>최고 능력치 99.99%</span><button type="button" class="gm-roster-dialog-close">닫기</button></footer></section>';
@@ -1350,7 +1353,7 @@ async function decideScout(decision){
  await api({type:'scoutDecision',decision,id:offer.id});
 }
 function showScoutResult(p){
- const statMarkup=Object.keys(fieldNames).map(k=>'<div class="scout-result-stat"><span>'+esc(fieldNames[k])+'</span>'+statCell(p[k]??(k==='mental'?p.stamina:55))+'</div>').join('');
+ const statMarkup=Object.keys(playerFieldNames(p)).map(k=>'<div class="scout-result-stat"><span>'+esc(playerFieldNames(p)[k])+'</span>'+statCell(attributeValue(p,k))+'</div>').join('');
  scoutPopup('<div class="scout-popup-header"><span>SCOUT RESULT</span><button type="button" class="scout-info-close" aria-label="안내">✕</button></div><div class="scout-popup-body"><div class="scout-portrait-wrap">'+playerPortrait(p,'large')+'</div><div class="scout-result-eyebrow">새로운 선수 발견 · Lv'+(p.level||'-')+'</div><h2 id="scoutPopupTitle">'+esc(playerLabel(p))+'</h2><p class="scout-popup-caption">'+esc(playerTeamName(p))+'</p><p class="scout-popup-caption">'+esc(p.pos)+' · '+g(p)+' · 종합 '+statCell(overall(p))+'</p><div class="scout-result-stats">'+statMarkup+'</div><div class="scout-popup-actions"><button type="button" id="scoutRelease">방출하기 (+100만원)</button><button type="button" id="scoutRecruit" class="primary">영입하기</button></div></div>');
  document.getElementById('scoutRecruit').onclick=()=>decideScout('recruit');
  document.getElementById('scoutRelease').onclick=()=>decideScout('release');
@@ -1369,7 +1372,7 @@ function openPlayerProfile(p){
  document.getElementById('playerProfileOverlay')?.remove();
  const t=(state.teams||[]).find(x=>x.id===p.originTeam)||(state.teams||[]).find(x=>x.id===state.club?.teamId);
  const overlay=document.createElement('div');overlay.id='playerProfileOverlay';overlay.className='player-profile-overlay';
- overlay.innerHTML='<div class="player-profile-card" role="dialog" aria-modal="true" aria-label="선수 상세 정보"><div class="player-profile-top"><span>PLAYER INFORMATION</span><button type="button" class="close-profile" aria-label="닫기">✕</button></div><div class="player-profile-overview">'+playerPortrait(p,'large')+'<div><div class="player-profile-role">'+esc(p.pos)+' · '+shortYear(p)+' 시즌</div><h2>'+esc(playerLabel(p))+'</h2><small class="profile-team-name">'+esc(playerTeamName(p))+'</small><div class="player-profile-meta">'+conditionLabel(p)+' '+g(p)+' <span>종합 '+statCell(overall(p))+'</span><span>'+(t?esc(t.name):'가상 선수')+'</span></div></div></div><div class="player-growth-info"><strong>성장 방향</strong> · '+esc(growthText(p))+'<br><strong>기본 성장</strong> · '+(p.growthFocusSelected?'집중 +0.10 / 나머지 +0.01':'전 능력치 각각 +0.02')+' / 경기 1회<br><strong>출전 성장</strong> · '+(p.grade==='A'&&p.age>=36?'36세부터 A타입 출전 성장 중단':'성장타입·나이에 따른 추가 성장')+'</div>'+(state.club?.players?.some(x=>x.id===p.id)?'<div class="gm-profile-growth-picker"><label>성장 방향<select id="gmProfileGrowth" data-growth-focus="'+esc(p.id)+'">'+growthOptions(p)+'</select></label></div>':'')+'<div class="player-profile-stats"><h3>선수 능력치</h3>'+Object.keys(fieldNames).map(k=>{const val=Number(p[k]??(k==='mental'?p.stamina:55))||0;return '<div class="player-profile-stat"><span>'+fieldNames[k]+'</span><div class="player-profile-bar stat-bg-'+statColor(val)+'"><div style="width:'+Math.min(100,val)+'%"></div></div><strong>'+statCell(val)+'</strong></div>'}).join('')+'</div><div class="player-profile-bottom"><span>연도 '+shortYear(p)+' · 나이 '+getAge(p)+'세 · '+esc(p.pos)+'</span><button type="button" class="close-profile">닫기</button></div></div>';
+ overlay.innerHTML='<div class="player-profile-card" role="dialog" aria-modal="true" aria-label="선수 상세 정보"><div class="player-profile-top"><span>PLAYER INFORMATION</span><button type="button" class="close-profile" aria-label="닫기">✕</button></div><div class="player-profile-overview">'+playerPortrait(p,'large')+'<div><div class="player-profile-role">'+esc(p.pos)+' · '+shortYear(p)+' 시즌</div><h2>'+esc(playerLabel(p))+'</h2><small class="profile-team-name">'+esc(playerTeamName(p))+'</small><div class="player-profile-meta">'+conditionLabel(p)+' '+g(p)+' <span>종합 '+statCell(overall(p))+'</span><span>'+(t?esc(t.name):'가상 선수')+'</span></div></div></div><div class="player-growth-info"><strong>성장 방향</strong> · '+esc(growthText(p))+'<br><strong>기본 성장</strong> · '+(p.growthFocusSelected?'집중 +0.10 / 나머지 +0.01':'전 능력치 각각 +0.02')+' / 경기 1회<br><strong>출전 성장</strong> · '+(p.grade==='A'&&p.age>=36?'36세부터 A타입 출전 성장 중단':'성장타입·나이에 따른 추가 성장')+'</div>'+(state.club?.players?.some(x=>x.id===p.id)?'<div class="gm-profile-growth-picker"><label>성장 방향<select id="gmProfileGrowth" data-growth-focus="'+esc(p.id)+'">'+growthOptions(p)+'</select></label></div>':'')+'<div class="player-profile-stats"><h3>선수 능력치</h3>'+Object.keys(playerFieldNames(p)).map(k=>{const val=attributeValue(p,k);return '<div class="player-profile-stat"><span>'+playerFieldNames(p)[k]+'</span><div class="player-profile-bar stat-bg-'+statColor(val)+'"><div style="width:'+Math.min(100,val)+'%"></div></div><strong>'+statCell(val)+'</strong></div>'}).join('')+'</div><div class="player-profile-bottom"><span>연도 '+shortYear(p)+' · 나이 '+getAge(p)+'세 · '+esc(p.pos)+'</span><button type="button" class="close-profile">닫기</button></div></div>';
  document.body.appendChild(overlay);const close=()=>overlay.remove();overlay.addEventListener('click',e=>{if(e.target===overlay)close()});overlay.querySelectorAll('.close-profile').forEach(b=>b.onclick=close);overlay.querySelector('.close-profile').focus();overlay.querySelector('#gmProfileGrowth')?.addEventListener('change',event=>api({type:'setGrowthFocus',id:event.target.dataset.growthFocus,focus:event.target.value}));
 }
 document.addEventListener('click',e=>{const btn=e.target.closest('[data-profile]');if(btn){e.preventDefault();e.stopPropagation();openPlayerProfile(findPlayerProfile(btn.dataset.profile))}});
