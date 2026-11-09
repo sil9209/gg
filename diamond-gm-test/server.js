@@ -60,7 +60,24 @@ if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TE
 else{if(!c)throw Error('구단을 먼저 창단하세요');
 if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
 else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!['power','contact','eye','speed','defense','stamina'].includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=99)throw Error('최대 능력치');c.cash-=1000000;p[stat]=Math.min(99,p[stat]+rand(1,3));result={message:'훈련 성공! 능력치 '+p[stat]}}
-else if(a.type==='scout'){if(c.cash<5000000)throw Error('스카우트 비용 500만원 부족');if(c.players.length>=80)throw Error('선수단 최대 80명');c.cash-=5000000;c.players.push(player(u.id));result={message:'새 선수를 영입했습니다'}}
+else if(a.type==='scout'){
+const contracts={basic:{label:'일반 스카우트',cost:5000000},pitcher:{label:'투수 전문 스카우트',cost:12000000},hitter:{label:'타자 전문 스카우트',cost:12000000},era:{label:'연도 지정 스카우트',cost:18000000},franchise:{label:'연고 구단 스카우트',cost:25000000}};
+const kind=String(a.kind||'basic'),contract=contracts[kind];
+if(!contract)throw Error('선택할 수 없는 스카우트 유형입니다');
+if(c.players.length>=80)throw Error('선수단 최대 80명입니다');
+if(c.cash<contract.cost)throw Error('스카우트 비용이 부족합니다');
+const p=player(u.id);
+if(kind==='pitcher'){p.isPitcher=true;p.pos=['선발','중계','마무리'][rand(0,2)]}
+if(kind==='hitter'){p.isPitcher=false;p.pos=['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)]}
+if(kind==='era'){const ranges={'2000':[2000,2009],'2010':[2010,2019],'2020':[2020,2026]},range=ranges[String(a.era||'')];if(!range)throw Error('스카우트 연도를 선택하세요');p.year=rand(range[0],range[1])}
+if(kind==='franchise'){p.originTeam=c.teamId||u.teamId||'twins';for(const stat of ['power','contact','eye','speed','defense','stamina'])p[stat]=Math.min(90,p[stat]+rand(2,8))}
+if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
+c.cash-=contract.cost;c.players.push(p);
+c.scoutHistory=Array.isArray(c.scoutHistory)?c.scoutHistory:[];
+c.scoutHistory.unshift({id:uid(),kind,label:contract.label,cost:contract.cost,player:{id:p.id,name:p.name,year:p.year,pos:p.pos,grade:p.grade,originTeam:p.originTeam,isPitcher:p.isPitcher,power:p.power,contact:p.contact,eye:p.eye,speed:p.speed,defense:p.defense,stamina:p.stamina},time:Date.now()});
+c.scoutHistory=c.scoutHistory.slice(0,30);
+result={message:contract.label+' 성공 · '+p.year+' '+p.name+' 영입 완료',scouted:p};
+}
 else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.price);if(!p)throw Error('선수 없음');if(!Number.isSafeInteger(price)||price<100000||price>100000000000)throw Error('가격은 10만원 이상');if(c.players.length<=15)throw Error('선수단 최소 15명 유지');c.players=c.players.filter(x=>x.id!==p.id);db.listings.push({id:uid(),seller:u.id,player:p,price,date:Date.now()});fix(c);result={message:'판매 등록 완료'}}
 else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.seller===u.id);if(i<0)throw Error('판매글 없음');if(c.players.length>=80)throw Error('선수단이 가득 참');c.players.push(db.listings.splice(i,1)[0].player);fix(c)}
 else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
