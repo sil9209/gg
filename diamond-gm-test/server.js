@@ -51,7 +51,7 @@ function ensurePlayer(p,now=Date.now()){
  for(const stat of STAT_KEYS)p[stat]=statValue(p[stat]);
  if(!['E','D','C','B','A'].includes(p.grade))p.grade='E';if(!Number.isInteger(p.condition)||p.condition<1||p.condition>5)p.condition=3;if(typeof p.foreign!=='boolean')p.foreign=/\s/.test(String(p.name));if(!Number.isInteger(p.avatarSeed))p.avatarSeed=parseInt(crypto.createHash('sha256').update(String(p.id)).digest('hex').slice(0,7),16);if(!p.avatarDNA||p.avatarVersion!==1)assignAvatarDNA(p);
  if(!Number.isFinite(p.lastGrowthWeek))p.lastGrowthWeek=weekStart(now);
- if(!STAT_KEYS.includes(p.growthFocus)){const hash=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.growthFocus=STAT_KEYS[hash[0]%STAT_KEYS.length]}
+ if(p.growthFocusSelected!==true){p.growthFocus=null;p.growthFocusSelected=false}else if(!STAT_KEYS.includes(p.growthFocus)){p.growthFocus=null;p.growthFocusSelected=false}
  if(!Number.isFinite(p.gameGrowthCount))p.gameGrowthCount=0;
  return p;
 }
@@ -71,14 +71,23 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
  for(const p of c.players){
   ensurePlayer(p);
   if(p.age>=45)continue;
-  p[p.growthFocus]=statValue(p[p.growthFocus]+0.02*count);
+  // Game-wide development applies equally to all grades and to every rostered player.
+  // Balanced: +0.02 per stat/game. Focus: selected stat +0.10, other five +0.01.
+  for(const key of STAT_KEYS){
+   const multiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
+   const basic=0.02*multiplier*count;
+   p[key]=statValue(p[key]+basic);
+  }
   p.gameGrowthCount+=count;
-  if(active.has(p.id)){
-   if(p.grade==='A'&&p.age>=36)continue;
+  // On-field bonus still respects grade/age constraints, but follows the same allocation.
+  if(active.has(p.id)&&!(p.grade==='A'&&p.age>=36)){
    const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12}[p.grade]||0.03;
    const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
-   const focus=p.isPitcher?'mental':'contact';
-   p[focus]=statValue(p[focus]+gradeRate*ageRate*count);
+   for(const key of STAT_KEYS){
+    const multiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
+    const bonus=(gradeRate*ageRate/6)*multiplier*count;
+    p[key]=statValue(p[key]+bonus);
+   }
   }
  }
 }
@@ -273,7 +282,16 @@ if(a.type==='logout'){sessions.delete(getCookie(req));return send(res,200,{user:
 if(!u)throw Error('로그인이 필요합니다');let c=db.clubs.find(x=>x.owner===u.id),result=null;topUpAdminWallet(u,c);
 if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);db.clubs.push(c)}
 else{if(!c)throw Error('구단을 먼저 창단하세요');
-if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
+if(a.type==='setGrowthFocus'){
+ const p=c.players.find(x=>x.id===a.id);
+ if(!p)throw Error('선수를 찾을 수 없습니다');
+ const focus=String(a.focus||'balanced');
+ if(focus!=='balanced'&&!STAT_KEYS.includes(focus))throw Error('선택할 수 없는 집중 성장 능력치가 아닙니다');
+ p.growthFocusSelected=focus!=='balanced';
+ p.growthFocus=p.growthFocusSelected?focus:null;
+ result={message:p.name+' 성장 전략: '+(p.growthFocusSelected?({contact:'정확',power:'파워',eye:'선구',speed:'주력',defense:'수비',mental:'정신'}[p.growthFocus]+' 집중'):'균형 성장')+' 설정 완료'};
+}
+else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
 else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!['power','contact','eye','speed','defense','mental'].includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
 else if(a.type==='scout'){
  const configs={
