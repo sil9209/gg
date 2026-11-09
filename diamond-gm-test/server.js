@@ -82,24 +82,21 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
  for(const p of c.players){
   ensurePlayer(p);
   if(p.age>=45)continue;
-  // Game-wide development applies equally to all grades and to every rostered player.
-  // Balanced: +0.02 per stat/game. Focus: selected stat +0.10, other five +0.01.
+  const isSuper=p.grade==='S';
+  const canField=active.has(p.id)&&!(p.grade==='A'&&p.age>=36);
+  const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
+  const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12,S:0.24}[p.grade]||0.03;
   for(const key of statKeys(p)){
-   const multiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
-   const basic=0.02*(p.grade==='S'?2:1)*multiplier*count;
-   p[key]=statValue(p[key]+basic);
+   const focusMultiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
+   // Quantize the normal-grade component first; S doubles exactly that same component.
+   // A-tier and S-tier of equal age/focus therefore advance at a strict 1:2 ratio
+   // except when an attribute has hit its 99.99 cap.
+   const baseline=statValue(0.02*focusMultiplier*count);
+   const activeBonus=canField?statValue((isSuper?gradeRate/2:gradeRate)*ageRate/6*focusMultiplier*count):0;
+   const multiplier=isSuper?2:1;
+   p[key]=statValue(p[key]+multiplier*(baseline+activeBonus));
   }
   p.gameGrowthCount+=count;
-  // On-field bonus still respects grade/age constraints, but follows the same allocation.
-  if(active.has(p.id)&&!(p.grade==='A'&&p.age>=36)){
-   const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12,S:0.24}[p.grade]||0.03;
-   const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
-   for(const key of statKeys(p)){
-    const multiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
-    const bonus=(gradeRate*ageRate/6)*multiplier*count;
-    p[key]=statValue(p[key]+bonus);
-   }
-  }
  }
 }
 function creditLeagueGames(now=Date.now()){
