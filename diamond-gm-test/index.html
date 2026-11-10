@@ -1108,6 +1108,21 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-special-carousel>.gm-special-card{box-sizing:border-box!important;flex:0 0 160px!important;width:160px!important;min-width:160px!important;max-width:160px!important;height:160px!important;min-height:160px!important;max-height:160px!important;aspect-ratio:1 / 1!important;overflow:hidden!important;user-select:none!important;-webkit-user-select:none!important}
 .gm-special-card-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:650px){.gm-special-carousel>.gm-special-card{flex:0 0 136px!important;width:136px!important;min-width:136px!important;max-width:136px!important;height:136px!important;min-height:136px!important;max-height:136px!important;padding:10px!important}}
+
+.gm-finance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px;margin:16px 0 20px}
+.gm-finance-kpi{border:1px solid #dae8f5;background:#f5f9fe;border-radius:13px;padding:18px;min-width:0}
+.gm-finance-kpi small{font-size:12px;color:#7890a5;font-weight:800;display:block}
+.gm-finance-kpi strong{font-size:clamp(16px,1.6vw,23px);display:block;margin-top:9px;color:#24486a;overflow-wrap:anywhere}
+.gm-finance-kpi.salary{background:#fff8ed;border-color:#ecdcc4}.gm-finance-kpi.salary strong{color:#aa711d}
+.gm-finance-kpi.remaining{background:#ecf8f1;border-color:#cbe7d6}.gm-finance-kpi.remaining strong{color:#187948}
+.gm-finance-kpi.remaining.negative{background:#fff2f2;border-color:#efcdcd}.gm-finance-kpi.remaining.negative strong{color:#b54747}
+.gm-finance-squads{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.gm-finance-squads>div{padding:13px 15px;background:#f9fbfe;border:1px solid #dfebf4;border-radius:10px;display:flex;justify-content:space-between;align-items:center;gap:9px}
+.gm-finance-squads span{font-size:12px;color:#738ba2}.gm-finance-squads b{color:#294d70;white-space:nowrap;font-size:13px}
+.gm-finance-table{overflow-x:auto;border:1px solid #e1eaf4;border-radius:12px}
+.gm-finance-table table{min-width:620px;width:100%}.gm-finance-table th,.gm-finance-table td{font-size:12px}.gm-finance-table td:last-child,.gm-finance-table th:last-child{text-align:right}
+.gm-finance-table tfoot td{background:#eef5fc;font-weight:850}.gm-finance-note{font-size:11px;color:#8092a7;line-height:1.8;margin-bottom:18px}
+@media(max-width:750px){.gm-finance-grid{grid-template-columns:1fr}.gm-finance-squads{grid-template-columns:1fr}.gm-finance-kpi{padding:14px 16px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1216,6 +1231,26 @@ const growthOptions=p=>'<option value="balanced" '+(!p.growthFocusSelected?'sele
 const growthText=p=>p.growthFocusSelected?(playerFieldNames(p)[p.growthFocus]||'능력치')+' 집중 ×5 · 다른 능력치 ×0.5':'균형 성장 · 6개 능력치 동일';
 const g=p=>'<span class="grade '+esc(p.grade)+'">성장타입 '+esc(p.grade)+'</span>';
 
+const gmSalaryMultipliers={E:1,D:1.1,C:1.25,B:1.5,A:1.9,S:2.3};
+function gmEstimatedSalary(p){
+ const rating=Math.max(0,Math.min(99.99,Number(overall(p))||0));
+ return Math.round((2000000+Math.max(0,rating-40)*150000)*(gmSalaryMultipliers[p.grade]||1)*(p.foreign?1.3:1)/100000)*100000;
+}
+function gmFinanceContent(c){
+ const first=firstTeamIds(c);
+ const rows=(c.players||[]).map(p=>({player:p,salary:gmEstimatedSalary(p),squad:first.has(p.id)?'1군':'2군'}));
+ const current=Number(c.cash)||0,total=rows.reduce((sum,r)=>sum+r.salary,0),balance=current-total;
+ const firstRows=rows.filter(r=>r.squad==='1군'),secondRows=rows.filter(r=>r.squad==='2군');
+ const sum=arr=>arr.reduce((n,r)=>n+r.salary,0);
+ const tableRows=rows.sort((a,b)=>b.salary-a.salary||Number(overall(b.player))-Number(overall(a.player))).map(r=>'<tr><td>'+esc(playerLabel(r.player))+'</td><td>'+r.squad+'</td><td>'+esc(r.player.pos)+'</td><td>'+esc(r.player.grade)+'</td><td>'+overall(r.player)+'</td><td><b>'+money(r.salary)+'</b></td></tr>').join('');
+ return '<h2 class="sectiontitle">💰 자금관리</h2><p class="muted">구단 보유 자금과 예상 선수단 연봉을 확인합니다.</p><div class="panel">'+
+ '<div class="gm-finance-grid"><div class="gm-finance-kpi"><small>현재 보유 자금</small><strong>'+money(current)+'</strong></div><div class="gm-finance-kpi salary"><small>선수단 연간 예상 연봉</small><strong>− '+money(total)+'</strong></div><div class="gm-finance-kpi remaining '+(balance<0?'negative':'')+'"><small>연봉 차감 후 예상 잔액</small><strong>'+money(balance)+'</strong></div></div>'+
+ '<div class="gm-finance-squads"><div><span>1군 예상 연봉 · '+firstRows.length+'명</span><b>'+money(sum(firstRows))+'</b></div><div><span>2군 예상 연봉 · '+secondRows.length+'명</span><b>'+money(sum(secondRows))+'</b></div></div>'+
+ '<p class="gm-finance-note">※ 현재 게임에는 확정 연봉과 급여 지급 시스템이 없어 예상치로 계산합니다. 연봉 산식은 기본 200만원 + (종합 40 초과분 × 15만원)에 성장타입별 배율(E 1.0, D 1.1, C 1.25, B 1.5, A 1.9, S 2.3), 외국인 배율(1.3)을 적용해 10만원 단위로 반올림합니다. 실제 보유 게임머니는 차감되지 않습니다.</p>'+
+ '<h3>선수별 예상 연봉 <small>'+rows.length+'명</small></h3><div class="gm-finance-table"><table><thead><tr><th>선수</th><th>구분</th><th>포지션</th><th>등급</th><th>종합</th><th>연간 예상 연봉</th></tr></thead><tbody>'+tableRows+'</tbody><tfoot><tr><td colspan="5">연봉 총액</td><td>'+money(total)+'</td></tr></tfoot></table></div></div>';
+}
+
+
 const specialAbilityData=p=>(Array.isArray(p?.specialAbilities)?p.specialAbilities:[])
  .map(id=>(state.specialAbilityCatalog||[]).find(x=>x.id===id)).filter(Boolean).slice(0,8);
 const specialAbilityBadges=(p,short=false)=>{
@@ -1298,7 +1333,7 @@ function root(){
  lastRenderedTab=tab;
  const c=state.club;
  theme();
- const t=chosenTeam(),inManage=tab==='roster'||tab==='train'||tab==='specials';
+ const t=chosenTeam(),inManage=tab==='roster'||tab==='train'||tab==='specials'||tab==='finance';
  const activeTab=inManage?'manage':tab;
  const dock='<aside class="gm-nav-dock" id="gmNavDock" aria-label="게임 빠른 메뉴">'+
   '<div class="gm-nav-panel" id="gmNavPanel" hidden><div class="gm-nav-head"><strong>빠른 메뉴</strong><small>DIAMOND GM</small></div>'+
@@ -1311,7 +1346,7 @@ function root(){
   '<span class="pill">💰 '+money(c.cash)+'</span><span class="pill">💎 '+walletCP(c.cp)+' CP</span>'+
   '<button onclick="api({type:\'logout\'})">로그아웃</button></div></div></header>'+
   '<main class="shell layout"><section id="content">'+
-  (inManage?'<div class="manage-breadcrumb"><button type="button" id="manageBack">← 구단관리</button><span> / '+(tab==='roster'?'선수단 관리':tab==='specials'?'특수능력':'선수 육성')+'</span></div>':'')+
+  (inManage?'<div class="manage-breadcrumb"><button type="button" id="manageBack">← 구단관리</button><span> / '+(tab==='roster'?'선수단 관리':tab==='specials'?'특수능력':tab==='finance'?'자금관리':'선수 육성')+'</span></div>':'')+
   '</section></main>'+dock;
  if(inManage)document.getElementById('manageBack').onclick=()=>{tab='manage';root()};
  document.querySelector('[data-home-logo]')?.addEventListener('click',()=>{tab='home';root();window.scrollTo(0,0)});
@@ -1774,7 +1809,8 @@ function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(
  document.getElementById('gmShopUse').onclick=()=>{tab='lineup';lineupMode='batter';root()};
  return
 }
-if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button><button class="manage-link" data-manage="specials"><strong>✦ 특수능력</strong><small>선수별 랜덤 특수능력 뽑기 · 최대 8개</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(c.name)+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
+if(tab==='finance'){el.innerHTML=gmFinanceContent(c);return}
+if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button><button class="manage-link" data-manage="specials"><strong>✦ 특수능력</strong><small>선수별 랜덤 특수능력 뽑기 · 최대 8개</small></button><button class="manage-link" data-manage="finance"><strong>💰 자금관리</strong><small>선수별 연봉 · 연봉 총액 · 예상 잔액</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(c.name)+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
 const lg=state.league||{},prospects=c.players.filter(p=>Number.isFinite(Number(p.age))&&Number(p.age)<=25&&Number(p.age)>0).sort((a,b)=>Number(overall(b))-Number(overall(a))||Number(a.age)-Number(b.age)).slice(0,5);
 el.innerHTML='<div class="club-home"><div><div class="stadium"><div class="stadium-overlay"><div class="classic-subtitle">SEASON '+c.season+' · DIAMOND LEAGUE</div><h2>'+esc(c.name)+'</h2><p>10개 구단 정규시즌 · 매시간 자동 경기</p><p class="muted">일요일~목요일 144경기 · 토요일 가을야구</p><button id="stadiumLeague">🏆 리그 진행 · 순위 보기</button></div></div><div class="classic-shortcuts">'+tabs.filter(x=>['league','lineup','scout','friendly','market'].includes(x[0])).map(t=>'<button data-shortcut="'+t[0]+'"><span>'+t[1].split(' ')[0]+'</span>'+t[1].split(' ').slice(1).join(' ')+'</button>').join('')+'</div><div class="panel"><h3>⚾ 최근 경기 결과</h3>'+(lg.recent?.length?lg.recent.slice(0,4).map((g,i)=>'<div class="item">'+leagueMatch(g)+'<b>'+esc(g.score)+'</b><button type="button" data-home-box="'+i+'">상세정보</button></div>').join(''):'<p class="muted">정규시즌 결과가 없습니다.</p>')+'</div></div><div class="home-right"><div class="panel"><h3>🏟 구단 정보</h3><div class="item">구단명 <b>'+esc(c.name)+'</b></div><div class="item">보유 선수 <b>'+c.players.length+'명</b></div><div class="item">구단자금 <b>'+money(c.cash)+'</b></div><div class="item">CP <b>'+walletCP(c.cp)+'</b></div><div class="item">리그 참가 구단 <b>10개</b></div></div><div class="panel"><h3>🌟 유망주 순위 <small class="muted">25세 이하 · 종합 능력치순</small></h3>'+(prospects.length?prospects.map((p,i)=>'<div class="item gm-prospect"><span class="gm-prospect-rank">'+(i+1)+'</span><span class="gm-prospect-details">'+playerButton(p)+'<small>'+Number(p.age)+'세 · '+esc(p.pos)+' · '+g(p)+'</small></span><b>'+statCell(overall(p))+'</b></div>').join(''):'<p class="muted">현재 25세 이하 유망주가 없습니다.</p>')+'</div><div class="panel"><h3>🏆 리그 TOP 5</h3>'+(lg.standings||[]).slice(0,5).map((x,i)=>'<div class="item"><span>'+(i+1)+'. '+leagueIdentity(x.name,x.teamId,x.ownerName)+'</span><b>'+x.wins+'승 '+x.losses+'패</b></div>').join('')+'</div></div></div>';
 document.getElementById('stadiumLeague').onclick=()=>{tab='league';root()};
