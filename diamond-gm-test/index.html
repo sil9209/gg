@@ -1051,6 +1051,27 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-batch-confirm-accept{background:#215f9d;color:#fff;border-color:#215f9d!important}
 .gm-batch-confirm-actions button:focus-visible,.gm-batch-confirm-close:focus-visible{outline:3px solid #80b8e7;outline-offset:2px}
 @media(max-width:420px){.gm-batch-confirm{border-radius:17px;padding:18px}.gm-batch-confirm-top h3{font-size:18px}.gm-batch-confirm-item strong{font-size:17px}}
+
+/* Development filters, skill cards and unified confirmation dialogs */
+.gm-division-filter{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 17px;align-items:center}
+.gm-filter-button{padding:8px 16px!important;font-size:12px!important;border-radius:9px!important;color:#486783!important;border:1px solid #cedfed!important;background:#f5f9fd!important;font-weight:800!important}
+.gm-filter-button.active{background:#276cbd!important;color:#fff!important;border-color:#276cbd!important}
+.gm-filter-divider{height:25px;width:1px;background:#d7e2ed;margin:0 6px}
+.gm-growth-rate{font-size:11px;color:#2774ac;background:#eaf4ff;border:1px solid #d3e7fc;border-radius:8px;padding:7px 9px;font-weight:800;white-space:nowrap}
+.gm-growth-open{font-size:11px!important;padding:5px 10px!important;min-height:34px!important;white-space:nowrap}
+.gm-growth-empty{text-align:center;color:#8799ac;padding:28px}
+.gm-growth-modal-backdrop,.gm-confirm-backdrop{position:fixed;inset:0;z-index:1000;background:#132b4399;display:grid;place-items:center;padding:16px}
+.gm-growth-modal,.gm-confirm-dialog{width:min(450px,100%);max-height:90dvh;overflow:auto;background:#fff;color:#254363;border:1px solid #d7e4f1;border-radius:18px;padding:23px;box-shadow:0 20px 70px #142d4c54}
+.gm-growth-modal-header{display:flex;align-items:start;justify-content:space-between;gap:15px}.gm-growth-modal h3{margin:0;font-size:20px}.gm-growth-modal p{color:#7389a0;font-size:12px}
+.gm-growth-chances{display:grid;gap:8px;margin-top:16px}.gm-growth-chances div{display:flex;justify-content:space-between;gap:15px;background:#f4f8fd;padding:11px 14px;border-radius:9px;font-weight:800}.gm-growth-chances .current{background:#e7f3ff;border:1px solid #96c4ed}
+.gm-special-carousel{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;touch-action:pan-x;user-select:none;-webkit-user-select:none;cursor:grab;padding:7px 2px 14px;scrollbar-width:thin}
+.gm-special-carousel.dragging{cursor:grabbing;scroll-snap-type:none}
+.gm-special-card{flex:0 0 clamp(130px,17vw,170px);aspect-ratio:1 / 1;scroll-snap-align:start;border:2px solid #d4e1ef!important;background:#f7fbff!important;color:#24476a!important;border-radius:12px!important;min-height:0!important;height:auto!important;padding:12px!important;display:flex;flex-direction:column;justify-content:space-between;text-align:left!important;gap:5px;box-shadow:none!important}
+.gm-special-card.selected{border-color:#2878c5!important;background:#e8f3ff!important;box-shadow:0 0 0 2px #a4cafa!important}
+.gm-special-card-top{display:flex;justify-content:space-between;align-items:center}.gm-special-card-name{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gm-special-card-sub{font-size:11px;color:#718aa2;line-height:1.6}.gm-special-card-skills{font-size:11px;font-weight:800;color:#327bb4}.gm-special-carousel-note{font-size:11px;color:#899bad;margin:0 0 8px}
+.gm-confirm-eyebrow{font-size:10px;font-weight:900;letter-spacing:.15em;color:#4687c2;margin-bottom:7px}.gm-confirm-dialog h3{font-size:20px;line-height:1.35;margin:0 0 12px;color:#234363}.gm-confirm-message{font-size:13px;white-space:pre-line;line-height:1.8;color:#596f86;margin-bottom:20px}.gm-confirm-actions{display:flex;justify-content:flex-end;gap:9px}.gm-confirm-actions button{min-width:88px}.gm-confirm-actions .primary{color:#fff}
+.gm-nav-dock{bottom:auto!important;top:var(--gm-dock-top,auto)}.gm-nav-toggle{touch-action:none}.gm-nav-dock.is-dragging .gm-nav-toggle{cursor:grabbing!important}
+@media(max-width:650px){.gm-filter-button{padding:7px 12px!important}.gm-special-card{flex-basis:136px}.gm-training-row{gap:7px}.gm-growth-rate{font-size:10px}.gm-growth-open{font-size:10px!important}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1260,6 +1281,7 @@ function root(){
  document.querySelector('[data-home-logo]')?.addEventListener('click',()=>{tab='home';root();window.scrollTo(0,0)});
  document.getElementById('gmOpenShop')?.addEventListener('click',()=>{if(tab!=='shop'){tab='shop';root()}});
  const dockEl=document.getElementById('gmNavDock'),toggle=document.getElementById('gmNavToggle'),panel=document.getElementById('gmNavPanel');
+ bindGameDockDrag();
  toggle.onclick=()=>{
   const expand=panel.hidden;
   panel.hidden=!expand;
@@ -1497,11 +1519,11 @@ function renderLineup(){
  };
  drinkButton.onclick=()=>{
   const p=byId(itemTarget.value);
-  if(p&&!drinkButton.disabled&&confirm(p.name+' 선수에게 스포츠음료 1개를 사용하시겠습니까?'))api({type:'useDrink',id:p.id});
+  if(p&&!drinkButton.disabled)gmConfirm(p.name+' 선수에게 스포츠음료 1개를 사용하시겠습니까?').then(ok=>{if(ok)api({type:'useDrink',id:p.id})});
  };
  boostButton.onclick=()=>{
   const p=byId(itemTarget.value);
-  if(p&&!boostButton.disabled&&confirm(p.name+' 선수에게 성장부스터를 사용하여 성장타입을 S로 영구 변경하시겠습니까?'))api({type:'useGrowthBooster',id:p.id});
+  if(p&&!boostButton.disabled)gmConfirm(p.name+' 선수에게 성장부스터를 사용하여 성장타입을 S로 영구 변경하시겠습니까?').then(ok=>{if(ok)api({type:'useGrowthBooster',id:p.id})});
  };
 
  document.querySelectorAll('[data-gm-up]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.gmUp),Number(btn.dataset.gmUp)-1));
@@ -1573,13 +1595,85 @@ function openShopEditor(item){
    price:Number(priceInput.value)});
  };
  overlay.querySelector('#gmShopClear').onclick=()=>{
-  if(confirm(slot+'번 상품을 비우고 입고중으로 변경하시겠습니까?'))send({type:'shopSave',slot,reset:true});
+  gmConfirm(slot+'번 상품을 비우고 입고중으로 변경하시겠습니까?').then(ok=>{if(ok)send({type:'shopSave',slot,reset:true})});
  };
  overlay.querySelector('.gm-shop-editor-close')?.focus({preventScroll:true});
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('gmShopEditor')){e.preventDefault();closeShopEditor()}});
 
 let scoutCurrency='cash',specialTrainPlayerId=null;
+
+let growthFilterKind='batter',growthFilterSquad='first',specialFilterKind='batter',specialFilterSquad='first';
+function firstTeamIds(c){
+ const ids=new Set([...(c.lineup||[]),...(c.benchIds||[]),...Object.values(c.defensePositions||{}),...Object.values(c.pitcherRotation||{}),...Object.values(c.pitcherAssignments||{})]);
+ if(c.pitcher)ids.add(c.pitcher);
+ // For unassigned lineups provide initial 1st-team rosters, without changing server data.
+ for(const isPitcher of [false,true])if(!c.players.some(p=>p.isPitcher===isPitcher&&ids.has(p.id)))c.players.filter(p=>p.isPitcher===isPitcher).slice(0,isPitcher?11:14).forEach(p=>ids.add(p.id));
+ return ids;
+}
+function developmentPlayers(c,kind,squad){
+ const first=firstTeamIds(c);
+ return c.players.filter(p=>p.isPitcher===(kind==='pitcher')&&(squad==='first'?first.has(p.id):!first.has(p.id)));
+}
+function developmentFilters(kind,squad){
+ return '<div class="gm-division-filter" aria-label="선수 분류">'+
+ ['batter','pitcher'].map((v,i)=>'<button type="button" class="gm-filter-button '+(kind===v?'active':'')+'" data-development-kind="'+v+'" aria-pressed="'+(kind===v)+'">'+(i?'투수':'타자')+'</button>').join('')+
+ '<span class="gm-filter-divider"></span>'+
+ ['first','second'].map((v,i)=>'<button type="button" class="gm-filter-button '+(squad===v?'active':'')+'" data-development-squad="'+v+'" aria-pressed="'+(squad===v)+'">'+(i?'2군':'1군')+'</button>').join('')+'</div>';
+}
+function bindDevelopmentFilters(which){
+ document.querySelectorAll('[data-development-kind]').forEach(b=>b.onclick=()=>{if(which==='train')growthFilterKind=b.dataset.developmentKind;else{specialFilterKind=b.dataset.developmentKind;specialTrainPlayerId=null}content()});
+ document.querySelectorAll('[data-development-squad]').forEach(b=>b.onclick=()=>{if(which==='train')growthFilterSquad=b.dataset.developmentSquad;else{specialFilterSquad=b.dataset.developmentSquad;specialTrainPlayerId=null}content()});
+}
+const gmUpgradeOdds=[['E','D',65],['D','C',50],['C','B',25],['B','A',10]];
+function growthRate(p){return gmUpgradeOdds.find(x=>x[0]===p.grade)?.[2]??null}
+function openGrowthChart(p){
+ document.getElementById('gmGrowthChart')?.remove();
+ const box=document.createElement('div');box.id='gmGrowthChart';box.className='gm-growth-modal-backdrop';
+ box.innerHTML='<section class="gm-growth-modal" role="dialog" aria-modal="true" aria-label="'+esc(p.name)+' 성장표"><div class="gm-growth-modal-header"><div><h3>'+esc(playerLabel(p))+' 성장표</h3><p>'+esc(p.pos)+' · '+p.age+'세 · 현재 '+esc(p.grade)+'등급</p></div><button type="button" class="gm-growth-close" aria-label="닫기">✕</button></div>'+
+ '<div class="gm-growth-chances">'+gmUpgradeOdds.map(x=>'<div class="'+(p.grade===x[0]?'current':'')+'"><span>'+x[0]+' → '+x[1]+'</span><strong>'+x[2]+'%</strong></div>').join('')+'</div><p>승급 1회당 1 CP · 실패 시 등급 유지'+(growthRate(p)===null?' · 최고 등급 도달':' · 현재 승급 성공률 '+growthRate(p)+'%')+'</p></section>';
+ document.body.appendChild(box);
+ const close=()=>box.remove();box.querySelector('.gm-growth-close').onclick=close;box.onclick=e=>{if(e.target===box)close()};
+ box.querySelector('.gm-growth-close').focus();
+}
+function gmConfirm(message,{title='진행 확인',confirmText='확인',danger=false}={}){
+ return new Promise(resolve=>{
+  document.getElementById('gmConfirmOverlay')?.remove();
+  const overlay=document.createElement('div');overlay.className='gm-confirm-backdrop';overlay.id='gmConfirmOverlay';
+  overlay.innerHTML='<section class="gm-confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="gmConfirmTitle" aria-describedby="gmConfirmMessage"><div class="gm-confirm-eyebrow">DIAMOND GM</div><h3 id="gmConfirmTitle">'+esc(title)+'</h3><div class="gm-confirm-message" id="gmConfirmMessage">'+esc(message)+'</div><div class="gm-confirm-actions"><button type="button" data-confirm="cancel">취소</button><button type="button" class="'+(danger?'primary':'primary')+'" data-confirm="ok">'+esc(confirmText)+'</button></div></section>';
+  const previous=document.activeElement;document.body.appendChild(overlay);
+  const finish=ok=>{document.removeEventListener('keydown',keys,true);overlay.remove();if(previous?.isConnected)previous.focus();resolve(ok)};
+  const keys=e=>{if(e.key==='Escape'){e.preventDefault();finish(false)}};
+  document.addEventListener('keydown',keys,true);overlay.querySelector('[data-confirm="cancel"]').onclick=()=>finish(false);overlay.querySelector('[data-confirm="ok"]').onclick=()=>finish(true);overlay.onclick=e=>{if(e.target===overlay)finish(false)};
+  overlay.querySelector('[data-confirm="cancel"]').focus();
+ });
+}
+function bindSpecialCarousel(){
+ const track=document.getElementById('specialPlayerCards');if(!track)return;
+ let startX=0,startScroll=0,dragged=false,active=false;
+ track.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;active=true;dragged=false;startX=e.clientX;startScroll=track.scrollLeft;track.setPointerCapture(e.pointerId)});
+ track.addEventListener('pointermove',e=>{if(!active)return;const dx=e.clientX-startX;if(Math.abs(dx)>5)dragged=true;if(dragged){track.classList.add('dragging');track.scrollLeft=startScroll-dx}});
+ track.addEventListener('pointerup',()=>{active=false;setTimeout(()=>track.classList.remove('dragging'),50)});
+ track.addEventListener('pointercancel',()=>{active=false;track.classList.remove('dragging')});
+ track.addEventListener('click',e=>{if(dragged){e.preventDefault();e.stopPropagation();dragged=false;return}const card=e.target.closest('[data-special-player]');if(card){specialTrainPlayerId=card.dataset.specialPlayer;content()}},true);
+}
+function bindGameDockDrag(){
+ const dock=document.getElementById('gmNavDock'),handle=document.getElementById('gmNavToggle'),panel=document.getElementById('gmNavPanel');
+ if(!dock||!handle)return;
+ const key='diamond-gm-dock-top-v1',margin=8;
+ const clamp=n=>Math.max(margin,Math.min(n,window.innerHeight-dock.offsetHeight-margin));
+ let saved=Number(localStorage.getItem(key));
+ if(Number.isFinite(saved)&&saved>0)dock.style.top=clamp(saved)+'px';
+ else dock.style.top=clamp(window.innerHeight-dock.offsetHeight-19)+'px';
+ let startY=0,startTop=0,dragging=false,active=false,blockClick=false;
+ handle.addEventListener('pointerdown',e=>{if(e.button!==0)return;active=true;dragging=false;startY=e.clientY;startTop=dock.getBoundingClientRect().top;handle.setPointerCapture(e.pointerId)});
+ handle.addEventListener('pointermove',e=>{if(!active)return;const dy=e.clientY-startY;if(Math.abs(dy)>5)dragging=true;if(dragging){dock.classList.add('is-dragging');dock.style.top=clamp(startTop+dy)+'px'}});
+ handle.addEventListener('pointerup',()=>{if(dragging){blockClick=true;localStorage.setItem(key,String(Math.round(dock.getBoundingClientRect().top)))}active=false;dragging=false;dock.classList.remove('is-dragging')});
+ handle.addEventListener('pointercancel',()=>{active=false;dragging=false;dock.classList.remove('is-dragging')});
+ handle.addEventListener('click',e=>{if(blockClick){e.preventDefault();e.stopImmediatePropagation();blockClick=false}},true);
+ window.addEventListener('resize',()=>{if(dock.isConnected)dock.style.top=clamp(dock.getBoundingClientRect().top)+'px'},{once:true});
+}
+
 
 /* Multi-rule scout selection. Each enabled criterion is combined with AND. */
 const scoutSelectionRules={ageEnabled:false,minAge:30,levelEnabled:false,minLevel:8,specialEnabled:false};
@@ -1638,7 +1732,7 @@ function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(
  '<article class="gm-shop-card"><div class="gm-shop-art">'+(admin?'<button type="button" class="gm-shop-edit" data-shop-edit="'+item.id+'">✎ 수정</button>':'')+'<span class="gm-shop-product-icon">'+esc(item.icon||'🥤')+'</span><span>'+Number(item.quantity||0)+'개</span></div><div class="gm-shop-body"><h3>'+esc(item.name||'상품')+'</h3><p>'+esc(item.desc||'')+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+shopPrice(item)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+item.id+'" '+(!canBuy(item)?'disabled':'')+'>'+(!canBuy(item)?(item.kind==='growthBooster'?'CP 부족':'게임머니 부족'):'구매하기')+'</button></div></article>':
  '<article class="gm-shop-card gm-shop-coming">'+(admin?'<button type="button" class="gm-shop-coming-trigger" data-shop-edit="'+item.id+'" aria-label="'+item.id+' 상품 등록">입고중</button>':'<span>입고중</span>')+'</article>').join('')+'</div>'+
  '<div class="gm-shop-footer"><div><b>🥤 🚀 보유 아이템 사용하기</b><p>라인업의 타순 편성 화면에서 선수를 지정해 사용하세요.</p></div><button type="button" id="gmShopUse">라인업 이동</button></div>';
- document.querySelectorAll('[data-shop-buy]').forEach(btn=>btn.onclick=()=>{const item=offers.find(x=>x.id===btn.dataset.shopBuy);if(!item?.active)return;if(confirm(item.name+'를 '+shopPrice(item)+'에 구매하시겠습니까?'))api({type:'shopBuy',item:item.id})});
+ document.querySelectorAll('[data-shop-buy]').forEach(btn=>btn.onclick=()=>{const item=offers.find(x=>x.id===btn.dataset.shopBuy);if(!item?.active)return;gmConfirm(item.name+'를 '+shopPrice(item)+'에 구매하시겠습니까?').then(ok=>{if(ok)api({type:'shopBuy',item:item.id})})});
  if(admin)document.querySelectorAll('[data-shop-edit]').forEach(btn=>btn.onclick=()=>openShopEditor(offers.find(x=>x.id===btn.dataset.shopEdit)));
  document.getElementById('gmShopUse').onclick=()=>{tab='lineup';lineupMode='batter';root()};
  return
@@ -1689,27 +1783,27 @@ if(tab==='friendly'){
  '<div class="panel friendly-form"><h3>상대 구단 선택</h3><p class="muted">AI 평균이 높은 리그일수록 승리 보상이 커집니다.</p><label>상대 리그<select id="friendlyTier">'+tiers.map((t,i)=>'<option value="'+i+'" '+(i===(state.league?.tier||0)?'selected':'')+'>'+esc(t.name)+' · 평균 '+t.average+'</option>').join('')+'</select></label><div class="friendly-rewards"><label><input type="radio" name="friendlyReward" value="cash" checked> 💰 자금 보상</label><label><input type="radio" name="friendlyReward" value="cp"> 💎 CP 보상</label></div><button id="friendlyPlay" class="primary" '+(used>=10?'disabled':'')+'>⚾ 친선경기 시작</button><p class="muted">한국시간 자정에 10회 초기화 · 무승부는 보상 없음 · 리그 순위 영향 없음</p></div>'+
  '<div class="gm-friendly-item-note">🥤 스포츠음료와 🚀 성장부스터는 <button type="button" id="gmFriendlyToLineup">라인업에서 사용</button>할 수 있습니다.</div>'+
  '<div class="panel"><h3>최근 친선경기</h3>'+(c.friendlyHistory?.length?c.friendlyHistory.slice(0,6).map((r,i)=>'<div class="item"><b>'+esc(r.opponent)+' '+r.ours+' : '+r.theirs+'</b><span>'+(r.cash?'+'+money(r.cash):r.cp?'+'+r.cp+' CP':r.drinks?'🥤 +'+r.drinks+'개':'—')+'</span>'+(r.detail?'<button type="button" data-friendly-box="'+i+'">상세정보</button>':'')+'</div>').join(''):'<p class="muted">기록이 없습니다.</p>')+'</div>';
- document.getElementById('friendlyPlay').onclick=()=>{if(confirm('친선경기 1회를 사용하여 경기를 진행하시겠습니까?'))api({type:'friendly',tier:Number(document.getElementById('friendlyTier').value),reward:document.querySelector('input[name="friendlyReward"]:checked')?.value||'cash'})};
+ document.getElementById('friendlyPlay').onclick=()=>{{const tier=Number(document.getElementById('friendlyTier').value),reward=document.querySelector('input[name="friendlyReward"]:checked')?.value||'cash';gmConfirm('친선경기 1회를 사용하여 경기를 진행하시겠습니까?').then(ok=>{if(ok)api({type:'friendly',tier,reward})})}};
  document.getElementById('gmFriendlyToLineup').onclick=()=>{tab='lineup';lineupMode='batter';root()};
  document.querySelectorAll('[data-friendly-box]').forEach(b=>b.onclick=()=>openGameBoxScore(c.friendlyHistory[Number(b.dataset.friendlyBox)]?.detail,'친선경기 상세정보'));
  return}
 if(tab==='specials'){
- const players=[...c.players].sort((a,b)=>Number(overall(b))-Number(overall(a)));
+ const players=developmentPlayers(c,specialFilterKind,specialFilterSquad).sort((a,b)=>Number(overall(b))-Number(overall(a)));
  if(!players.some(p=>p.id===specialTrainPlayerId))specialTrainPlayerId=players[0]?.id||null;
  const picked=players.find(p=>p.id===specialTrainPlayerId);
  const owned=picked?specialAbilityData(picked):[];
  const trainingPool=(state.specialAbilityCatalog||[]).filter(x=>picked&&x.source==='training'&&x.type===(picked.isPitcher?'pitcher':'batter')&&!owned.some(o=>o.id===x.id));
  el.innerHTML='<h2 class="sectiontitle">✦ 특수능력 훈련</h2><p class="muted">선수별 최대 8개 · 훈련용 능력 중 무작위 1개 획득 · 중복 없음. 현재 포지션과 맞지 않는 능력도 획득할 수 있습니다.</p>'+
- '<div class="panel gm-special-work"><label>선수 선택<select id="specialPlayerSelect">'+players.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===specialTrainPlayerId?'selected':'')+'>'+esc(playerLabel(p))+' · '+esc(p.pos)+' · '+specialAbilityData(p).length+'/8</option>').join('')+'</select></label>'+
+ '<div class="panel gm-special-work">'+developmentFilters(specialFilterKind,specialFilterSquad)+'<b>선수 선택</b><p class="gm-special-carousel-note">카드를 좌우로 드래그하여 선수를 선택하세요.</p><div class="gm-special-carousel" id="specialPlayerCards">'+(players.length?players.map(p=>'<button type="button" class="gm-special-card '+(p.id===specialTrainPlayerId?'selected':'')+'" data-special-player="'+esc(p.id)+'"><span class="gm-special-card-top">'+g(p)+(p.id===specialTrainPlayerId?'✓':'')+'</span><span class="gm-special-card-name">'+esc(playerLabel(p))+'</span><span class="gm-special-card-sub">'+p.age+'세 · '+esc(p.pos)+'<br>종합 '+overall(p)+'</span><span class="gm-special-card-skills">특수능력 '+specialAbilityData(p).length+'/8</span></button>').join(''):'<p class="gm-growth-empty">해당 분류의 선수가 없습니다.</p>')+'</div>'+
  (picked?'<div class="gm-special-player">'+playerPortrait(picked)+playerButton(picked)+'<span>'+g(picked)+'</span></div>':'')+
  '<div class="gm-special-work-action"><strong>5 CP / 1회</strong><small>현재 보유 '+walletCP(c.cp)+' CP</small><button type="button" id="specialDraw" class="primary" '+(!picked||owned.length>=8||trainingPool.length===0||c.cp<5?'disabled':'')+'>✦ 랜덤 특수능력 뽑기</button></div><p class="muted">스카우트 전용 능력은 이곳에서 획득할 수 없습니다. 예: 포수도 키스톤 콤비를 뽑을 수 있지만, 실제로 2루수·유격수로 출장할 때만 발동합니다.</p></div>'+
  '<div class="panel gm-special-slots"><h3>특수능력 슬롯 <small>'+owned.length+' / 8</small></h3><div class="gm-special-slot-grid">'+Array.from({length:8},(_,i)=>owned[i]?'<div class="gm-special-slot filled"><b>✦ '+esc(owned[i].name)+'</b><small>'+esc(owned[i].desc)+'</small><button type="button" class="gm-special-remove" data-remove-ability="'+esc(owned[i].id)+'" aria-label="'+esc(owned[i].name)+' 삭제">삭제</button></div>':'<div class="gm-special-slot"><b>'+(i+1)+'</b><small>빈 슬롯</small></div>').join('')+'</div></div>';
- document.getElementById('specialPlayerSelect').onchange=e=>{specialTrainPlayerId=e.target.value;content()};
+ bindDevelopmentFilters('specials');bindSpecialCarousel();
  document.querySelectorAll('[data-remove-ability]').forEach(button=>button.onclick=async()=>{
   if(!picked)return;
   const abilityId=button.dataset.removeAbility;
   const skill=owned.find(x=>x.id===abilityId);
-  if(!skill||!confirm(''+picked.name+' 선수의 '+skill.name+' 특수능력을 삭제하시겠습니까?\n삭제 후 복구할 수 없으며 CP는 환급되지 않습니다.'))return;
+  if(!skill||!await gmConfirm(picked.name+' 선수의 '+skill.name+' 특수능력을 삭제하시겠습니까?\n삭제 후 복구할 수 없으며 CP는 환급되지 않습니다.',{title:'특수능력 삭제 확인',danger:true,confirmText:'삭제'}))return;
   button.disabled=true;
   const response=await api({type:'removeSpecialAbility',id:picked.id,abilityId});
   if(!response&&button.isConnected)button.disabled=false;
@@ -1736,15 +1830,19 @@ if(tab==='roster'){
  document.getElementById('sortPlayer').onchange=e=>{sort=e.target.value;rosterSortDirection=['name','pos'].includes(sort)?'asc':'desc';refreshRosterTable()};
  document.getElementById('scout').onclick=()=>{tab='scout';root()};
  bindDetail();return}
+
 if(tab==='train'){
- el.innerHTML='<h2 class="sectiontitle">선수 육성</h2><div class="panel"><p class="muted">성장타입 승급 비용: 1 CP / 회 · 실패 시 유지</p><div class="grid">'+[['E → D','65%'],['D → C','50%'],['C → B','25%'],['B → A','10%']].map(x=>'<div class="metric">'+x[0]+'<strong>'+x[1]+'</strong></div>').join('')+'</div></div>'+
- '<div class="panel"><div class="gm-growth-guideline"><b>선수별 성장 방향</b><span>균형: 6개 능력치 각각 +0.02/경기 · 집중: 선택 능력치 +0.10, 나머지 각각 +0.01/경기</span><small>출전 성장 보너스도 같은 비율 적용 · 성장타입 E~A의 기본 성장 공통</small></div>'+
- c.players.map(p=>'<div class="gm-training-row"><div class="gm-training-person">'+playerPortrait(p)+'<div>'+playerButton(p)+'<small>'+esc(p.pos)+' · '+p.age+'세 · 종합 '+overall(p)+'</small>'+g(p)+'</div></div><label class="gm-growth-select-label">성장 방향<select data-growth-focus="'+esc(p.id)+'">'+growthOptions(p)+'</select><small>'+esc(growthText(p))+'</small></label><button class="gm-training-upgrade" data-upgrade="'+esc(p.id)+'" '+(['A','S'].includes(p.grade)||c.cp<1?'disabled':'')+'>승급 1 CP</button></div>').join('')+'</div>';
+ const visible=developmentPlayers(c,growthFilterKind,growthFilterSquad);
+ el.innerHTML='<h2 class="sectiontitle">선수 육성</h2><div class="panel">'+developmentFilters(growthFilterKind,growthFilterSquad)+
+ '<div class="gm-growth-guideline"><b>선수별 성장 방향</b><span>균형: 6개 능력치 각각 +0.02/경기 · 집중: 선택 능력치 +0.10, 나머지 각각 +0.01/경기</span><small>승급 비용 1 CP · 실패 시 등급 유지</small></div>'+
+ (visible.length?visible.map(p=>'<div class="gm-training-row"><div class="gm-training-person">'+playerPortrait(p)+'<div>'+playerButton(p)+'<small>'+esc(p.pos)+' · '+p.age+'세 · 종합 '+overall(p)+'</small>'+g(p)+'</div></div><label class="gm-growth-select-label">성장 방향<select data-growth-focus="'+esc(p.id)+'">'+growthOptions(p)+'</select><small>'+esc(growthText(p))+'</small></label><span class="gm-growth-rate">'+(growthRate(p)===null?'최고 등급':'성공률 '+growthRate(p)+'%')+'</span><button type="button" class="gm-growth-open" data-growth-chart="'+esc(p.id)+'">성장표 ›</button><button class="gm-training-upgrade" data-upgrade="'+esc(p.id)+'" '+(['A','S'].includes(p.grade)||c.cp<1?'disabled':'')+'>승급 1 CP</button></div>').join(''):'<div class="gm-growth-empty">해당 분류의 선수가 없습니다.</div>')+'</div>';
+ bindDevelopmentFilters('train');
+ document.querySelectorAll('[data-growth-chart]').forEach(b=>b.onclick=()=>{const p=c.players.find(x=>x.id===b.dataset.growthChart);if(p)openGrowthChart(p)});
  document.querySelectorAll('[data-upgrade]').forEach(btn=>btn.onclick=()=>api({type:'upgrade',id:btn.dataset.upgrade}));
  document.querySelectorAll('[data-growth-focus]').forEach(sel=>sel.onchange=async()=>{const result=await api({type:'setGrowthFocus',id:sel.dataset.growthFocus,focus:sel.value},{skipRender:true});if(result?.club){const p=result.club.players.find(x=>x.id===sel.dataset.growthFocus);const label=sel.parentElement?.querySelector('small');if(p&&label)label.textContent=growthText(p)}});
  return}
 if(tab==='lineup'){renderLineup();return}
-if(tab==='market'){let arr=state.listings.filter(l=>(marketPos==='전체'||l.player.pos===marketPos)&&(grade==='전체'||l.player.grade===grade));el.innerHTML='<h2 class="sectiontitle">유저 간 이적시장</h2><div class="panel"><div class="toolbar"><select id="marketPos"><option>전체</option>'+['선발','중계','마무리','포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'].map(v=>'<option>'+v+'</option>').join('')+'</select><select id="marketGrade">'+['전체','S','A','B','C','D','E'].map(v=>'<option value="'+v+'">'+(v==='전체'?'전체 성장타입':'성장타입 '+v)+'</option>').join('')+'</select><button onclick="content()">새로고침</button></div>'+(arr.length?arr.map(l=>'<div class="item"><div><span class="market-portrait">'+playerPortrait(l.player)+playerButton(l.player)+'</span> '+g(l.player)+' '+(specialAbilityData(l.player).length?specialAbilityBadges(l.player,true):'')+'<div class="muted">'+esc(l.player.pos)+' · 종합 '+overall(l.player)+' · '+esc(l.sellerName)+'</div></div><div style="text-align:right"><b class="highlight">'+money(l.price)+'</b><div><button data-buy="'+l.id+'">'+(l.seller===state.user.id?'등록 취소':'구매')+'</button></div></div></div>').join(''):'<p class="muted">조건에 맞는 매물이 없습니다.</p>')+'</div><div class="panel"><h3>내 선수 판매하기</h3><div class="toolbar"><select id="sellPlayer">'+c.players.map(p=>'<option value="'+p.id+'">'+esc(playerLabel(p)+' · '+p.pos+' · 성장타입 '+p.grade)+'</option>').join('')+'</select><input id="sellPrice" type="number" min="100000" step="100000" value="10000000" placeholder="판매가 (원)"><button class="primary" id="sell">판매 등록</button></div></div>';document.getElementById('marketPos').value=marketPos;document.getElementById('marketGrade').value=grade;document.getElementById('marketPos').onchange=e=>{marketPos=e.target.value;content()};document.getElementById('marketGrade').onchange=e=>{grade=e.target.value;content()};document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>api({type:b.textContent==='등록 취소'?'cancel':'buy',id:b.dataset.buy}));document.getElementById('sell').onclick=()=>{if(confirm('이 가격에 선수를 등록하시겠습니까?'))api({type:'list',id:document.getElementById('sellPlayer').value,price:Number(document.getElementById('sellPrice').value)})};return}
+if(tab==='market'){let arr=state.listings.filter(l=>(marketPos==='전체'||l.player.pos===marketPos)&&(grade==='전체'||l.player.grade===grade));el.innerHTML='<h2 class="sectiontitle">유저 간 이적시장</h2><div class="panel"><div class="toolbar"><select id="marketPos"><option>전체</option>'+['선발','중계','마무리','포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'].map(v=>'<option>'+v+'</option>').join('')+'</select><select id="marketGrade">'+['전체','S','A','B','C','D','E'].map(v=>'<option value="'+v+'">'+(v==='전체'?'전체 성장타입':'성장타입 '+v)+'</option>').join('')+'</select><button onclick="content()">새로고침</button></div>'+(arr.length?arr.map(l=>'<div class="item"><div><span class="market-portrait">'+playerPortrait(l.player)+playerButton(l.player)+'</span> '+g(l.player)+' '+(specialAbilityData(l.player).length?specialAbilityBadges(l.player,true):'')+'<div class="muted">'+esc(l.player.pos)+' · 종합 '+overall(l.player)+' · '+esc(l.sellerName)+'</div></div><div style="text-align:right"><b class="highlight">'+money(l.price)+'</b><div><button data-buy="'+l.id+'">'+(l.seller===state.user.id?'등록 취소':'구매')+'</button></div></div></div>').join(''):'<p class="muted">조건에 맞는 매물이 없습니다.</p>')+'</div><div class="panel"><h3>내 선수 판매하기</h3><div class="toolbar"><select id="sellPlayer">'+c.players.map(p=>'<option value="'+p.id+'">'+esc(playerLabel(p)+' · '+p.pos+' · 성장타입 '+p.grade)+'</option>').join('')+'</select><input id="sellPrice" type="number" min="100000" step="100000" value="10000000" placeholder="판매가 (원)"><button class="primary" id="sell">판매 등록</button></div></div>';document.getElementById('marketPos').value=marketPos;document.getElementById('marketGrade').value=grade;document.getElementById('marketPos').onchange=e=>{marketPos=e.target.value;content()};document.getElementById('marketGrade').onchange=e=>{grade=e.target.value;content()};document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>api({type:b.textContent==='등록 취소'?'cancel':'buy',id:b.dataset.buy}));document.getElementById('sell').onclick=()=>{{const id=document.getElementById('sellPlayer').value,price=Number(document.getElementById('sellPrice').value);gmConfirm('이 가격에 선수를 등록하시겠습니까?').then(ok=>{if(ok)api({type:'list',id,price})})}};return}
 if(tab==='league'){
 const lg=state.league||{tier:0,tierName:'루키리그',standings:[],recent:[],upcoming:[],postseason:[],rewards:[],leagueHistory:[]},day=new Date().toLocaleDateString('ko-KR',{timeZone:'Asia/Seoul',weekday:'long'});
 const fmt=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
