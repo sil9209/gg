@@ -1610,13 +1610,13 @@ if(tab==='scout'){
  const wallet=currency==='cash'?c.cash:c.cp;
  el.innerHTML='<div class="scout-topline"><div><span class="team-eyebrow">DIAMOND GM · SCOUT CENTER</span><h2 class="sectiontitle">스카우트 센터</h2><p class="muted">결제 수단을 선택하고 원하는 선수 유형을 스카우트하세요.</p></div><div class="scout-wallet"><span>보유 자금</span><b>'+money(c.cash)+'</b><small>보유 CP '+walletCP(c.cp)+' · 선수단 '+c.players.length+'/80</small></div></div>'+
  '<div class="scout-payment-picker"><div class="scout-payment-heading"><h3>스카우트 결제 방식</h3><span>확률 및 비용은 선택한 결제 방식에 따라 달라집니다.</span></div><div class="scout-currency-tabs"><button type="button" data-scout-currency="cash" class="'+(currency==='cash'?'active':'')+'"><span>💰 자금 스카우트</span><strong>1,000만원부터</strong></button><button type="button" data-scout-currency="cp" class="'+(currency==='cp'?'active':'')+'"><span>💎 CP 스카우트</span><strong>5 CP부터</strong></button></div><div class="scout-probability"><span class="scout-prob-label">등장 확률</span>'+chances.map(([level,pct])=>'<span class="scout-prob-pill scout-level-'+level+'">Lv'+level+' <strong>'+pct+'%</strong></span>').join('')+'</div></div>'+
- scoutCriteriaMarkup('page')+
+
  '<div class="scout-headrow"><h3>스카우트 유형</h3><span>일반 1배 · 연도별/타자만/투수만 2배</span></div>'+
  '<div class="scout-contract-grid scout-four-grid">'+contracts.map((x,i)=>'<div class="scout-contract tone-'+x.tone+'"><div class="scout-contract-header"><div class="scout-contract-icon">'+x.icon+'</div><div class="scout-contract-code">SCOUT 0'+(i+1)+'</div></div><div class="scout-contract-body"><small>'+x.sub+'</small><h4>'+x.label+'</h4><p>'+x.desc+'</p></div>'+(x.id==='era'?'<label class="scout-era-label">대상 연도<select id="scoutEra">'+Array.from({length:27},(_,i)=>'<option value="'+(2000+i)+'" '+(i===26?'selected':'')+'>'+(2000+i)+'년</option>').join('')+'</select></label>':'<div class="scout-contract-fill"></div>')+'<div class="scout-contract-bottom"><div><span>'+(x.multiplier===2?'2배 비용':'기본 비용')+'</span><strong>'+displayCost(x)+'</strong></div><div class="gm-scout-qty-buttons">'+[1,10,100].map(q=>'<button type="button" data-scout-kind="'+x.id+'" data-scout-count="'+q+'" '+(wallet<cost(x)*q||c.players.length>=80||pending||pendingBatch?'disabled':'')+'>'+q+'회</button>').join('')+'</div></div></div>').join('')+'</div>'+
  (pending?'<div class="scout-pending-bar"><strong>결정 대기 중인 선수: Lv'+(pending.level||'-')+' '+esc(playerLabel(pending))+'</strong><button type="button" id="scoutResume">영입 / 방출 결정</button></div>':'')+
  (pendingBatch?'<div class="scout-pending-bar"><strong>결정 대기 중인 연속 스카우트 '+pendingBatch.items.length+'명</strong><button type="button" id="scoutBatchResume">선수 선택 및 결과 확인</button></div>':'')+
  '';
- bindScoutCriteria(el);
+
  document.querySelectorAll('[data-scout-currency]').forEach(btn=>btn.onclick=()=>{scoutCurrency=btn.dataset.scoutCurrency;content()});
  document.querySelectorAll('[data-scout-kind]').forEach(btn=>btn.onclick=()=>{
   const x=contracts.find(t=>t.id===btn.dataset.scoutKind);
