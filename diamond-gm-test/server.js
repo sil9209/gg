@@ -771,7 +771,8 @@ else if(a.type==='friendly'){
   const bat=game.home.batters.find(x=>x.id===p.id),pitch=game.home.pitchers.find(x=>x.id===p.id),before=p.condition;
   const good=p.isPitcher?pitch&&pitch.er<=1:bat&&(bat.h>=3||bat.hr>0);
   const poor=p.isPitcher?pitch&&pitch.er>=4:bat&&bat.ab>=3&&bat.h===0;
-  p.condition=Math.max(1,Math.min(5,before+(good?1:poor?-1:0)));
+  // Practice games do not change the player's condition; preserve the pre-game value.
+  p.condition=before;
   p.games=(p.games||0)+1;
   if(bat){p.hr=(p.hr||0)+bat.hr;p.avg=((Number(p.avg)||0)*Math.max(0,p.games-1)+(bat.ab?bat.h/bat.ab:0))/p.games}
   if(pitch)p.era=pitch.era;
@@ -788,7 +789,7 @@ else if(a.type==='play'){
  const ours=game.home.runs,theirs=game.away.runs;
  if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;
  c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;
- const active=[...c.lineup,c.pitcher].filter(Boolean);applyTeamGameGrowth(c,1,active);
+ const active=[...c.lineup,c.pitcher].filter(Boolean);applyTeamGameGrowth(c,1,active); // Exhibition training is retained; condition stays unchanged.
  result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs,detail:game};
 }
 else throw Error('알 수 없는 동작');}
