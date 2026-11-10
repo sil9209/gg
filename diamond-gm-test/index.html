@@ -994,6 +994,45 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-special-remove{position:absolute;right:9px;bottom:9px;width:auto!important;min-height:27px!important;padding:4px 11px!important;border:1px solid #e6a5aa;border-radius:6px;background:#fff4f5;color:#a33746;font-size:12px;font-weight:800;cursor:pointer}
 .gm-special-remove:hover{background:#fee4e7}
 .gm-special-remove:focus-visible{outline:2px solid #a33746;outline-offset:2px}
+
+/* Responsive Scout Center / batch-results layout on compact phones. */
+@media (max-width:660px){
+ .scout-payment-picker,.scout-topline,.scout-contract-grid,.scout-contract,.scout-contract-bottom,.scout-contract-body,.scout-headrow{min-width:0;max-width:100%}
+ .scout-currency-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .scout-currency-tabs button{min-width:0;max-width:100%;overflow-wrap:anywhere}
+ .scout-probability{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+ .scout-prob-pill{flex:none}
+ .gm-batch-dialog{width:calc(100dvw - 16px)!important;max-width:calc(100dvw - 16px)!important;max-height:calc(100dvh - 20px)!important;min-width:0;margin:auto}
+ .gm-batch-dialog .scout-popup-header,.gm-batch-headline,.gm-batch-controls,.gm-batch-criteria-bar,.gm-batch-footer{min-width:0;box-sizing:border-box}
+ .gm-batch-headline h2{font-size:16px;overflow-wrap:anywhere}
+ .gm-batch-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .gm-batch-controls button{min-width:0;width:100%;white-space:normal;line-height:1.35;text-align:center}
+ .gm-batch-controls span{grid-column:1/-1;margin-left:0;text-align:left;white-space:normal}
+ .gm-batch-criteria-bar{min-width:0;padding:9px}
+ .gm-scout-criteria-modal{width:100%;min-width:0;box-sizing:border-box}
+ .gm-scout-criteria-modal .gm-scout-criteria-head{align-items:flex-start;flex-direction:column;gap:3px}
+ .gm-scout-criteria-modal .gm-scout-criteria-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+ .gm-scout-criteria-modal .gm-scout-rule{min-width:0;min-height:42px;gap:5px;padding:6px;flex-wrap:wrap;align-content:center}
+ .gm-scout-criteria-modal .gm-scout-rule label{min-width:0;white-space:nowrap;font-size:11px}
+ .gm-scout-criteria-modal .gm-scout-rule input[type="number"]{width:54px;min-width:0}
+ .gm-scout-criteria-modal .gm-scout-rule select{min-width:54px;max-width:68px}
+ .gm-scout-criteria-modal .gm-scout-rule.special{grid-column:1/-1;justify-content:flex-start}
+ .gm-batch-criteria-actions{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+ .gm-batch-criteria-actions button{flex:0 1 auto;white-space:normal}
+ .gm-batch-card{min-width:0;width:100%;box-sizing:border-box;gap:6px;padding:9px}
+ .gm-batch-card-body{min-width:0;overflow-wrap:anywhere}
+ .gm-batch-skills{padding-left:0;grid-template-columns:repeat(3,minmax(0,1fr))}
+ .gm-batch-skills span{min-width:0;white-space:normal}
+ .gm-batch-specials{padding-left:0}
+ .gm-batch-footer{align-items:stretch}
+ .gm-batch-footer .gm-batch-summary{flex:1 1 100%;overflow-wrap:anywhere}
+ .gm-batch-footer button{width:100%}
+}
+@media (max-width:380px){
+ .gm-scout-criteria-modal .gm-scout-criteria-row{grid-template-columns:1fr}
+ .gm-scout-criteria-modal .gm-scout-rule.special{grid-column:auto}
+ .gm-scout-criteria-modal .gm-scout-rule{flex-wrap:nowrap}
+}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
