@@ -947,6 +947,7 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 .gm-special-slots .gm-special-slot small{line-height:1.5}
 
 /* Scout filter conditions: independent criteria combined with AND. */
+.gm-scout-criteria-note{margin:10px 0 0;font-size:11px;color:#7690a5;line-height:1.5}
 .gm-scout-criteria{border:1px solid #d8e6f1;background:#f8fbff;border-radius:12px;margin:13px 0 17px;padding:13px 16px;min-width:0}
 .gm-scout-criteria-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 14px;margin-bottom:11px}
 .gm-scout-criteria-head strong{font-size:13px;color:#2b608b}
@@ -1516,7 +1517,7 @@ function scoutCriteriaMarkup(mode='page'){
    '<div class="gm-scout-rule"><label><input type="checkbox" data-scout-rule="ageEnabled" '+(r.ageEnabled?'checked':'')+'> 나이</label><input type="number" min="17" max="44" step="1" value="'+r.minAge+'" data-scout-rule="minAge" aria-label="최소 나이" '+(!r.ageEnabled?'disabled':'')+'><span>세 이상</span></div>'+
    '<div class="gm-scout-rule"><label><input type="checkbox" data-scout-rule="levelEnabled" '+(r.levelEnabled?'checked':'')+'> 레벨</label><select data-scout-rule="minLevel" aria-label="최소 레벨" '+(!r.levelEnabled?'disabled':'')+'>'+Array.from({length:10},(_,i)=>'<option value="'+(i+1)+'" '+(r.minLevel===i+1?'selected':'')+'>Lv'+(i+1)+'</option>').join('')+'</select><span>이상</span></div>'+
    '<div class="gm-scout-rule special"><label><input type="checkbox" data-scout-rule="specialEnabled" '+(r.specialEnabled?'checked':'')+'> ✦ 특수능력 보유 선수만</label></div>'+
-  '</div></section>';
+  '</div>'+(mode==='page'?'<p class="gm-scout-criteria-note">10회·100회 스카우트 결과에서 영입 후보를 자동 선택하는 조건입니다. 선수 등장 확률은 변경되지 않습니다.</p>':'')+'</section>';
 }
 function syncScoutCriteriaGroups(){
  document.querySelectorAll('[data-scout-criteria]').forEach(group=>{
