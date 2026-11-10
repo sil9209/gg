@@ -654,8 +654,20 @@ else if(a.type==='friendly'){
  const ours=game.home.runs,theirs=game.away.runs,outcome=ours>theirs?'win':ours<theirs?'loss':'draw';
  c.friendlyDaily.used++;
  let cash=0,cp=0,drinks=0;
- if(outcome==='win'){if(rewardType==='cash'){cash=Math.round((1000000+tier*1200000+enemyStrength*45000)/100000)*100000;c.cash+=cash}else{cp=Math.max(1,Math.round(2+tier*1.6+enemyStrength/25));c.cp+=cp}}
- else if(outcome==='loss'){drinks=10;c.sportsDrinks=(c.sportsDrinks||0)+10}
+ // Friendly rewards: +50% to the previous win payouts. Draws now give a 25% consolation
+ // reward of the enhanced win payout in the currency the manager chose.
+ const standardCash=Math.round((1000000+tier*1200000+enemyStrength*45000)/100000)*100000;
+ const standardCP=Math.max(1,Math.round(2+tier*1.6+enemyStrength/25));
+ const winCash=Math.round(standardCash*1.5/100000)*100000,winCP=Math.max(1,Math.round(standardCP*1.5));
+ if(outcome==='win'||outcome==='draw'){
+  if(rewardType==='cash'){
+   cash=outcome==='win'?winCash:Math.max(100000,Math.round(winCash*0.25/100000)*100000);
+   c.cash+=cash;
+  }else{
+   cp=outcome==='win'?winCP:Math.max(1,Math.round(winCP*0.25));
+   c.cp+=cp;
+  }
+ }else if(outcome==='loss'){drinks=10;c.sportsDrinks=(c.sportsDrinks||0)+10}
  const participating=[...c.lineup,c.pitcher].map(id=>c.players.find(p=>p.id===id)).filter(Boolean);
  const playerStats=[];
  for(const p of participating){
