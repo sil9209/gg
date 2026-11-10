@@ -1033,6 +1033,24 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
  .gm-scout-criteria-modal .gm-scout-rule.special{grid-column:auto}
  .gm-scout-criteria-modal .gm-scout-rule{flex-wrap:nowrap}
 }
+
+/* Confirmation dialog for scout batch recruit/release actions */
+.gm-batch-confirm-overlay{position:fixed;inset:0;z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(9,27,49,.66);backdrop-filter:blur(4px)}
+.gm-batch-confirm{width:min(100%,420px);max-height:min(90dvh,650px);overflow-y:auto;background:#fff;color:#214463;border:1px solid #d6e4f0;border-radius:20px;box-shadow:0 22px 65px #06182c55;padding:22px}
+.gm-batch-confirm-top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
+.gm-batch-confirm-top h3{font-size:20px;font-weight:900;color:#1d4b75;margin:0}
+.gm-batch-confirm-close{border:0;background:#f0f5fa;color:#55738b;border-radius:9px;padding:7px 11px;min-height:34px;cursor:pointer}
+.gm-batch-confirm-summary{display:grid;gap:12px;padding:17px;border-radius:14px;border:1px solid #dbe9f6;background:#f7faff}
+.gm-batch-confirm-item{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px;color:#617b94}
+.gm-batch-confirm-item strong{color:#163e67;font-size:19px;font-weight:900;font-variant-numeric:tabular-nums;white-space:nowrap}
+.gm-batch-confirm-item.reward{border-top:1px solid #dbe7f2;padding-top:12px}
+.gm-batch-confirm-warning{margin:14px 2px 18px;color:#b34542;font-size:13px;font-weight:750;line-height:1.55}
+.gm-batch-confirm-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.gm-batch-confirm-actions button{min-height:46px;border-radius:11px;font-size:15px;font-weight:850;padding:10px;border:1px solid #d3e1ed;cursor:pointer}
+.gm-batch-confirm-cancel{background:#fff;color:#506d88}
+.gm-batch-confirm-accept{background:#215f9d;color:#fff;border-color:#215f9d!important}
+.gm-batch-confirm-actions button:focus-visible,.gm-batch-confirm-close:focus-visible{outline:3px solid #80b8e7;outline-offset:2px}
+@media(max-width:420px){.gm-batch-confirm{border-radius:17px;padding:18px}.gm-batch-confirm-top h3{font-size:18px}.gm-batch-confirm-item strong{font-size:17px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1826,6 +1844,49 @@ function showScoutConfirm(contract,era){
  };
 }
 
+function confirmBatchScoutDecision({recruits,releases,reward}){
+ return new Promise(resolve=>{
+  document.getElementById('gmBatchConfirmOverlay')?.remove();
+  const overlay=document.createElement('div');
+  overlay.id='gmBatchConfirmOverlay';
+  overlay.className='gm-batch-confirm-overlay';
+  overlay.innerHTML='<section class="gm-batch-confirm" role="dialog" aria-modal="true" aria-labelledby="gmBatchConfirmTitle">'+
+   '<div class="gm-batch-confirm-top"><h3 id="gmBatchConfirmTitle">영입·방출 확정</h3><button type="button" class="gm-batch-confirm-close" aria-label="닫기">✕</button></div>'+
+   '<div class="gm-batch-confirm-summary">'+
+    '<div class="gm-batch-confirm-item"><span>선택 영입</span><strong>'+recruits+'명</strong></div>'+
+    '<div class="gm-batch-confirm-item"><span>자동 방출</span><strong>'+releases+'명</strong></div>'+
+    '<div class="gm-batch-confirm-item reward"><span>방출 보상</span><strong>'+money(reward)+'</strong></div>'+
+   '</div>'+
+   '<p class="gm-batch-confirm-warning">⚠️ 방출한 선수는 복구할 수 없으며, 확정 후 변경할 수 없습니다.</p>'+
+   '<div class="gm-batch-confirm-actions"><button type="button" class="gm-batch-confirm-cancel">취소</button><button type="button" class="gm-batch-confirm-accept">확정</button></div>'+
+  '</section>';
+  const previousFocus=document.activeElement;
+  let finished=false;
+  function close(confirmed){
+   if(finished)return;
+   finished=true;document.removeEventListener('keydown',onKeydown);
+   overlay.remove();
+   if(previousFocus?.isConnected)previousFocus.focus();
+   resolve(confirmed);
+  }
+  function onKeydown(e){
+   if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close(false)}
+   if(e.key==='Tab'){
+    const buttons=[...overlay.querySelectorAll('button')];const first=buttons[0],last=buttons[buttons.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+   }
+  }
+  overlay.querySelector('.gm-batch-confirm-close').onclick=()=>close(false);
+  overlay.querySelector('.gm-batch-confirm-cancel').onclick=()=>close(false);
+  overlay.querySelector('.gm-batch-confirm-accept').onclick=()=>close(true);
+  overlay.onclick=e=>{if(e.target===overlay)close(false)};
+  document.body.appendChild(overlay);
+  document.addEventListener('keydown',onKeydown,true);
+  overlay.querySelector('.gm-batch-confirm-cancel').focus();
+ });
+}
+
 function showScoutBatchResult(){
  const batch=state.club?.pendingScoutBatch;
  if(!batch?.items?.length)return;
@@ -1891,7 +1952,10 @@ function showScoutBatchResult(){
 
  confirmButton.onclick=async()=>{
   const chosen=all.filter(x=>x.checked).map(x=>x.dataset.batchPick);
-  if(!confirm(chosen.length+'명 영입, '+(offers.length-chosen.length)+'명 방출을 확정하시겠습니까? 방출한 선수는 복구할 수 없습니다.'))return;
+  if(chosen.length>maxRecruit)return toast('선수단 영입 가능 인원을 초과했습니다');
+  const released=offers.length-chosen.length;
+  const approved=await confirmBatchScoutDecision({recruits:chosen.length,releases:released,reward:released*1000000});
+  if(!approved)return;
   confirmButton.disabled=true;confirmButton.textContent='영입·방출 처리 중…';
   const result=await api({type:'scoutBatchDecision',id:batch.id,recruitIds:chosen});
   if(!result&&confirmButton.isConnected){confirmButton.disabled=false;confirmButton.textContent='영입·방출 확정'}
