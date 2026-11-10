@@ -1141,6 +1141,15 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-item-player-card .gm-item-card-check{font-size:15px;font-weight:900;color:#2276c8!important}
 .gm-lineup-item-content .gm-item-actions{width:100%;max-width:560px;align-self:flex-start}
 @media(max-width:700px){.gm-lineup-item-content{padding:12px!important}.gm-item-player-card{flex:0 0 136px!important;width:136px!important;min-width:136px!important;max-width:136px!important;height:136px!important;min-height:136px!important;max-height:136px!important;padding:9px!important}.gm-item-player-card strong{font-size:12px}}
+
+/* Rewarded CP listing: disabled until an approved, verified ad placement is configured. */
+.gm-rewarded-panel{margin:15px 0 20px;border:1px solid #dbe8f3;background:linear-gradient(125deg,#f3f8ff,#fff);border-radius:14px;padding:20px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.gm-rewarded-panel .gm-rewarded-symbol{display:inline-block;background:#e4f1ff;border:1px solid #cbdff7;border-radius:10px;padding:9px 11px;color:#346a9a;font-size:23px;margin-bottom:7px}
+.gm-rewarded-panel h3{font-size:19px;font-weight:900;margin:0 0 7px;color:#2a4f72}
+.gm-rewarded-panel p{font-size:12px;line-height:1.7;color:#738ba2;margin:0}
+.gm-rewarded-panel .gm-rewarded-status{display:block;font-size:11px;color:#8c7c61;margin-top:6px}
+.gm-rewarded-panel .gm-rewarded-btn{padding:12px 18px!important;border-radius:10px!important;background:#d7e0e9!important;color:#6c8298!important;border:1px solid #becfdb!important;min-width:180px!important;font-size:13px!important;font-weight:900!important;cursor:not-allowed!important}
+@media(max-width:650px){.gm-rewarded-panel{padding:15px;gap:14px}.gm-rewarded-panel .gm-rewarded-btn{width:100%!important}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1639,10 +1648,8 @@ function renderLineup(){
   itemTrack.addEventListener('pointercancel',()=>{pointerDown=false;dragged=false;pendingId=null;itemTrack.classList.remove('dragging')});
   itemTrack.addEventListener('click',e=>{
    if(suppressClick){e.preventDefault();e.stopPropagation();suppressClick=false;return}
-   if(e.detail===0||e.pointerType==='touch'){
-    const card=e.target.closest('[data-item-player]');
-    if(card)selectItemPlayer(card.dataset.itemPlayer);
-   }
+   const card=e.target.closest('[data-item-player]');
+   if(card)selectItemPlayer(card.dataset.itemPlayer);
   },true);
   itemTrack.addEventListener('dragstart',e=>e.preventDefault());
  }
@@ -1858,6 +1865,7 @@ function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(
  el.innerHTML='<div class="gm-shop-header"><div><span class="gm-shop-eyebrow">DIAMOND GM / TEAM STORE</span><h2>🛒 구단 상점</h2><p>게임머니와 CP로 아이템을 구매하고 라인업에서 사용하세요.</p></div><div class="gm-shop-wallet"><small>보유 게임머니</small><strong>'+money(c.cash)+'</strong><span>🥤 스포츠음료 '+(c.sportsDrinks||0)+'개 · 🚀 성장부스터 '+(c.growthBoosters||0)+'개</span></div></div>'+
  '<div class="gm-shop-tip"><span>ⓘ</span> 스포츠음료는 컨디션 +1단계, 성장부스터는 선수의 성장타입을 S로 만듭니다. 두 아이템 모두 라인업에서 사용하세요.</div>'+
  (admin?'<div class="gm-shop-admin-help"><b>⚙️ 관리자 상품 편집</b><span>각 상품의 수정 버튼을 누르거나 ‘입고중’ 칸을 클릭해 상품을 등록하세요. 설정한 상품은 모든 회원에게 적용됩니다.</span></div>':'')+
+ '<section class="gm-rewarded-panel"><div><span class="gm-rewarded-symbol">🎬</span><h3>추가지원 · 500 CP</h3><p>보상형 광고 영상을 시청하면 500 CP를 지급하는 기능입니다.</p><small class="gm-rewarded-status">광고 사업자 계정·광고 단위 연결 및 시청 완료 검증 준비 중 · 현재 지급 불가</small></div><button type="button" class="gm-rewarded-btn" disabled aria-disabled="true">광고 연결 후 이용 가능</button></section>'+
  '<div class="gm-shop-grid">'+offers.map(item=>item.active?
  '<article class="gm-shop-card"><div class="gm-shop-art">'+(admin?'<button type="button" class="gm-shop-edit" data-shop-edit="'+item.id+'">✎ 수정</button>':'')+'<span class="gm-shop-product-icon">'+esc(item.icon||'🥤')+'</span><span>'+Number(item.quantity||0)+'개</span></div><div class="gm-shop-body"><h3>'+esc(item.name||'상품')+'</h3><p>'+esc(item.desc||'')+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+shopPrice(item)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+item.id+'" '+(!canBuy(item)?'disabled':'')+'>'+(!canBuy(item)?(item.kind==='growthBooster'?'CP 부족':'게임머니 부족'):'구매하기')+'</button></div></article>':
  '<article class="gm-shop-card gm-shop-coming">'+(admin?'<button type="button" class="gm-shop-coming-trigger" data-shop-edit="'+item.id+'" aria-label="'+item.id+' 상품 등록">입고중</button>':'<span>입고중</span>')+'</article>').join('')+'</div>'+
