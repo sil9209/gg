@@ -1099,6 +1099,15 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-confirm-actions [data-confirm="cancel"]{background:#edf3fb!important;color:#45617c!important;border:1px solid #cbdcec!important}
 .gm-confirm-actions [data-confirm="ok"]{background:#233f68!important;color:#fff!important;border:1px solid #233f68!important;box-shadow:0 4px 12px #1d3e6426!important}
 @media(max-width:420px){.gm-confirm-dialog{min-height:300px;padding:24px 16px!important}}
+
+/* Special training: fixed 1:1 cards regardless of 1군 / 2군 roster count; invisible scrollbar. */
+.gm-special-work{min-width:0!important;max-width:100%!important;overflow:hidden}
+.gm-special-carousel{width:100%!important;max-width:100%!important;min-width:0!important;overflow-x:auto!important;overflow-y:hidden!important;scrollbar-width:none!important;-ms-overflow-style:none!important;touch-action:pan-x!important;user-select:none!important;-webkit-user-select:none!important;cursor:grab;padding-bottom:8px!important}
+.gm-special-carousel::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;background:transparent!important}
+.gm-special-carousel.dragging{cursor:grabbing!important;scroll-snap-type:none!important}
+.gm-special-carousel>.gm-special-card{box-sizing:border-box!important;flex:0 0 160px!important;width:160px!important;min-width:160px!important;max-width:160px!important;height:160px!important;min-height:160px!important;max-height:160px!important;aspect-ratio:1 / 1!important;overflow:hidden!important;user-select:none!important;-webkit-user-select:none!important}
+.gm-special-card-name{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(max-width:650px){.gm-special-carousel>.gm-special-card{flex:0 0 136px!important;width:136px!important;min-width:136px!important;max-width:136px!important;height:136px!important;min-height:136px!important;max-height:136px!important;padding:10px!important}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1681,7 +1690,8 @@ function bindSpecialCarousel(){
  track.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;active=true;dragged=false;pendingId=e.target.closest('[data-special-player]')?.dataset.specialPlayer||null;startX=e.clientX;startScroll=track.scrollLeft;track.setPointerCapture(e.pointerId)});
  track.addEventListener('pointermove',e=>{if(!active)return;const dx=e.clientX-startX;if(Math.abs(dx)>5)dragged=true;if(dragged){track.classList.add('dragging');track.scrollLeft=startScroll-dx}});
  track.addEventListener('pointerup',()=>{if(active&&!dragged&&pendingId){specialTrainPlayerId=pendingId;active=false;content();return}active=false;pendingId=null;setTimeout(()=>track.classList.remove('dragging'),50)});
- track.addEventListener('pointercancel',()=>{active=false;track.classList.remove('dragging')});
+ track.addEventListener('pointercancel',()=>{active=false;pendingId=null;dragged=false;track.classList.remove('dragging')});
+ track.addEventListener('dragstart',e=>e.preventDefault());
  track.addEventListener('click',e=>{if(dragged){e.preventDefault();e.stopPropagation();dragged=false;return}if(e.detail===0||e.pointerType==='touch'){const card=e.target.closest('[data-special-player]');if(card){specialTrainPlayerId=card.dataset.specialPlayer;content()}}},true);
 }
 function bindGameDockDrag(){
