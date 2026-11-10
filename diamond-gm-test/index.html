@@ -1173,6 +1173,43 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-nav-toggle{touch-action:none;transform:none!important}
 .gm-nav-toggle:hover{transform:none!important}
 .gm-nav-dock.is-dragging .gm-nav-toggle{cursor:grabbing!important}
+
+/* Quick-menu toggle must retain its full color after mouse/touch press or open/close. */
+#gmNavDock #gmNavToggle,
+#gmNavDock #gmNavToggle:hover,
+#gmNavDock #gmNavToggle:active,
+#gmNavDock #gmNavToggle:focus,
+#gmNavDock #gmNavToggle:focus-visible,
+#gmNavDock #gmNavToggle[aria-expanded="true"],
+#gmNavDock.is-open #gmNavToggle,
+#gmNavDock.is-dragging #gmNavToggle {
+  background:#204b78!important;
+  background-image:linear-gradient(125deg,#21558b,#173d66)!important;
+  border:1px solid #5c89b6!important;
+  color:#fff!important;
+  opacity:1!important;
+  filter:none!important;
+  -webkit-filter:none!important;
+  box-shadow:0 9px 30px #14355863!important;
+  transform:none!important;
+}
+#gmNavDock #gmNavToggle .gm-nav-toggle-text b,
+#gmNavDock #gmNavToggle .gm-nav-hamburger {
+  color:#fff!important;
+  opacity:1!important;
+}
+#gmNavDock #gmNavToggle .gm-nav-toggle-text small {
+  color:#bbd9f0!important;
+  opacity:1!important;
+}
+#gmNavDock #gmNavToggle .gm-nav-hamburger {
+  background:#ffffff23!important;
+  border:1px solid #ffffff42!important;
+}
+#gmNavDock #gmNavToggle:focus-visible {
+  outline:2px solid #80b8e7!important;
+  outline-offset:2px!important;
+}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
