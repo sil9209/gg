@@ -275,7 +275,7 @@ function gameTeam(c,average,name,seed,round=1){
  return {name,hitters,pitchers,defense,positions,round};
 }
 function runGame(home,away,seed){
- return simulateGame({home,away,seed,stats:(p,ctx)=>p.id?.startsWith('AI-')?p:effectivePlayerStrength(p,ctx).values});
+ return simulateGame({home,away,seed,stats:(p,ctx)=>p.id?.startsWith('AI-')?p:effectivePlayerStrength(p,ctx)});
 }
 function leagueInfo(c,now=Date.now()){
  const start=weekStart(now),{tier,pool,real}=leagueMembers(c);
@@ -655,7 +655,7 @@ else if(a.type==='friendly'){
   p.games=(p.games||0)+1;
   if(bat){p.hr=(p.hr||0)+bat.hr;p.avg=((Number(p.avg)||0)*Math.max(0,p.games-1)+(bat.ab?bat.h/bat.ab:0))/p.games}
   if(pitch)p.era=pitch.era;
-  playerStats.push({id:p.id,name:p.name,position:p.pos,summary:bat?bat.ab+'타수 '+bat.h+'안타 '+bat.hr+'홈런':pitch?pitch.ip+'이닝 '+pitch.er+'자책 '+pitch.so+'탈삼진':'미출전',before,after:p.condition,delta:p.condition-before,activatedAbilities:[]});
+  playerStats.push({id:p.id,name:p.name,position:p.pos,summary:bat?bat.ab+'타수 '+bat.h+'안타 '+bat.hr+'홈런':pitch?pitch.ip+'이닝 '+pitch.er+'자책 '+pitch.so+'탈삼진':'미출전',before,after:p.condition,delta:p.condition-before,activatedAbilities:(bat||pitch)?.activatedAbilities?.map(name=>({name}))||[]});
  }
  applyTeamGameGrowth(c,1,participating.map(p=>p.id));
  const entry={time,tier,opponent:opponent.name,enemyStrength:Number(enemyStrength.toFixed(2)),ours,theirs,outcome,cash,cp,drinks,playerStats,detail:game};
