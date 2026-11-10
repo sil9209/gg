@@ -166,6 +166,12 @@ button.primary:hover,.primary:hover{background:var(--team-alt);border-color:var(
 
 .auth-id-row input#usernameInput{display:block;position:relative;z-index:2;pointer-events:auto;user-select:text;-webkit-user-select:text;caret-color:var(--team-accent);background:#fff;color:#203853;opacity:1;min-width:120px}
 .auth-id-row{position:relative;z-index:2}
+/* Registration username should occupy the available width; the availability button stays compact. */
+.auth-id-row{gap:6px;width:100%}
+.auth-id-row input#usernameInput{flex:1 1 0;width:0;min-width:0}
+.auth-id-row button#checkId{flex:0 0 auto;width:auto;min-width:0;min-height:40px;padding:7px 9px;margin:6px 0 0;font-size:12px;line-height:1.2;white-space:nowrap}
+@media(max-width:450px){.auth-id-row{gap:5px}.auth-id-row button#checkId{padding:6px 7px;font-size:11px}}
+
 
 /* Keep navigation and page width stable while switching views. */
 html{scrollbar-gutter:stable;overflow-x:clip}
