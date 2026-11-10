@@ -945,6 +945,41 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 
 .gm-special-work>.muted{line-height:1.65}
 .gm-special-slots .gm-special-slot small{line-height:1.5}
+
+/* Scout filter conditions: independent criteria combined with AND. */
+.gm-scout-criteria{border:1px solid #d8e6f1;background:#f8fbff;border-radius:12px;margin:13px 0 17px;padding:13px 16px;min-width:0}
+.gm-scout-criteria-head{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:6px 14px;margin-bottom:11px}
+.gm-scout-criteria-head strong{font-size:13px;color:#2b608b}
+.gm-scout-criteria-head small{font-size:11px;color:#879eb1;line-height:1.45}
+.gm-scout-criteria-row{display:flex;flex-wrap:wrap;gap:9px 14px;align-items:stretch}
+.gm-scout-rule{display:flex;align-items:center;gap:7px;min-width:0;min-height:42px;background:white;border:1px solid #e0eaf3;border-radius:9px;padding:6px 11px;color:#4a708f;font-size:12px}
+.gm-scout-rule label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;font-weight:850;white-space:nowrap}
+.gm-scout-rule input[type="checkbox"]{accent-color:#2778bc;width:16px;height:16px;margin:0}
+.gm-scout-rule input[type="number"]{width:63px;min-width:0;padding:7px;border:1px solid #d2e0ec;border-radius:7px;background:#fff;color:#315d7e;text-align:center;font-size:12px}
+.gm-scout-rule select{min-width:64px;width:auto;padding:7px;border:1px solid #d2e0ec;border-radius:7px;color:#315d7e;background:#fff;font-size:12px}
+.gm-scout-rule input:disabled,.gm-scout-rule select:disabled{opacity:.47;background:#edf2f7}
+.gm-scout-rule>span{font-size:11px;color:#6a859b;white-space:nowrap}
+.gm-scout-rule.special{background:#fff9ec;border-color:#f1e2c5;color:#8e6e2f}
+.gm-batch-criteria-bar{flex:none;background:#f8fbff;border-bottom:1px solid #dfe9f2;padding:8px 17px 12px}
+.gm-scout-criteria-modal{margin:0 0 8px;padding:9px 10px;background:#fff}
+.gm-scout-criteria-modal .gm-scout-criteria-head{margin-bottom:8px}
+.gm-scout-criteria-modal .gm-scout-criteria-head strong{font-size:12px}
+.gm-scout-criteria-modal .gm-scout-criteria-head small{font-size:10px}
+.gm-scout-criteria-modal .gm-scout-criteria-row{gap:7px}
+.gm-scout-criteria-modal .gm-scout-rule{padding:4px 8px;min-height:35px;font-size:11px}
+.gm-scout-criteria-modal .gm-scout-rule label{font-size:11px}
+.gm-batch-criteria-actions{display:flex;align-items:center;justify-content:flex-start;gap:10px;flex-wrap:wrap}
+.gm-batch-criteria-actions button{border:1px solid #2e7bb7;background:#2d78b2;color:#fff;padding:8px 14px;border-radius:8px;font-weight:850;font-size:11px;cursor:pointer}
+.gm-batch-criteria-actions button:disabled{opacity:.45;cursor:not-allowed}
+.gm-batch-criteria-actions span{font-size:11px;color:#61829d;font-weight:800}
+@media(max-width:660px){
+.gm-scout-criteria{padding:10px;margin:9px 0 13px}
+.gm-scout-criteria-row{gap:7px}.gm-scout-rule{padding:6px 9px}
+.gm-batch-criteria-bar{padding:7px 9px}
+.gm-scout-criteria-modal{padding:8px;margin:0 0 7px}
+.gm-scout-criteria-modal .gm-scout-rule{padding:5px 8px}
+.gm-batch-criteria-actions{justify-content:space-between}
+}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1463,6 +1498,52 @@ function openShopEditor(item){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('gmShopEditor')){e.preventDefault();closeShopEditor()}});
 
 let scoutCurrency='cash',specialTrainPlayerId=null;
+
+/* Multi-rule scout selection. Each enabled criterion is combined with AND. */
+const scoutSelectionRules={ageEnabled:false,minAge:30,levelEnabled:false,minLevel:8,specialEnabled:false};
+const scoutSelectionHasRules=()=>scoutSelectionRules.ageEnabled||scoutSelectionRules.levelEnabled||scoutSelectionRules.specialEnabled;
+function scoutFilterMatches(p){
+ const age=Number(p?.age),level=Number(p?.level),specialCount=Array.isArray(p?.specialAbilities)?p.specialAbilities.length:0;
+ return (!scoutSelectionRules.ageEnabled||(Number.isFinite(age)&&age>=scoutSelectionRules.minAge))&&
+        (!scoutSelectionRules.levelEnabled||(Number.isFinite(level)&&level>=scoutSelectionRules.minLevel))&&
+        (!scoutSelectionRules.specialEnabled||specialCount>=1);
+}
+function scoutCriteriaMarkup(mode='page'){
+ const r=scoutSelectionRules,uid=mode==='modal'?'batch':'scout';
+ return '<section class="gm-scout-criteria '+(mode==='modal'?'gm-scout-criteria-modal':'')+'" data-scout-criteria="'+uid+'">'+
+  '<div class="gm-scout-criteria-head"><strong>🎯 조건별 선수 자동 선택</strong><small>체크한 조건을 모두 만족해야 선택됩니다 (AND)</small></div>'+
+  '<div class="gm-scout-criteria-row">'+
+   '<div class="gm-scout-rule"><label><input type="checkbox" data-scout-rule="ageEnabled" '+(r.ageEnabled?'checked':'')+'> 나이</label><input type="number" min="17" max="44" step="1" value="'+r.minAge+'" data-scout-rule="minAge" aria-label="최소 나이" '+(!r.ageEnabled?'disabled':'')+'><span>세 이상</span></div>'+
+   '<div class="gm-scout-rule"><label><input type="checkbox" data-scout-rule="levelEnabled" '+(r.levelEnabled?'checked':'')+'> 레벨</label><select data-scout-rule="minLevel" aria-label="최소 레벨" '+(!r.levelEnabled?'disabled':'')+'>'+Array.from({length:10},(_,i)=>'<option value="'+(i+1)+'" '+(r.minLevel===i+1?'selected':'')+'>Lv'+(i+1)+'</option>').join('')+'</select><span>이상</span></div>'+
+   '<div class="gm-scout-rule special"><label><input type="checkbox" data-scout-rule="specialEnabled" '+(r.specialEnabled?'checked':'')+'> ✦ 특수능력 보유 선수만</label></div>'+
+  '</div></section>';
+}
+function syncScoutCriteriaGroups(){
+ document.querySelectorAll('[data-scout-criteria]').forEach(group=>{
+  for(const key of ['ageEnabled','levelEnabled','specialEnabled']){
+   const el=group.querySelector('[data-scout-rule="'+key+'"]');if(el)el.checked=scoutSelectionRules[key];
+  }
+  for(const key of ['minAge','minLevel']){
+   const el=group.querySelector('[data-scout-rule="'+key+'"]');
+   if(el){el.value=scoutSelectionRules[key];el.disabled=!scoutSelectionRules[key==='minAge'?'ageEnabled':'levelEnabled']}
+  }
+ });
+}
+function bindScoutCriteria(scope,afterChange){
+ const group=scope.querySelector('[data-scout-criteria]');
+ if(!group)return;
+ group.addEventListener('change',()=>{
+  const read=key=>group.querySelector('[data-scout-rule="'+key+'"]');
+  scoutSelectionRules.ageEnabled=read('ageEnabled').checked;
+  scoutSelectionRules.levelEnabled=read('levelEnabled').checked;
+  scoutSelectionRules.specialEnabled=read('specialEnabled').checked;
+  scoutSelectionRules.minAge=Math.max(17,Math.min(44,Math.floor(Number(read('minAge').value)||30)));
+  scoutSelectionRules.minLevel=Math.max(1,Math.min(10,Math.floor(Number(read('minLevel').value)||8)));
+  syncScoutCriteriaGroups();
+  if(typeof afterChange==='function')afterChange();
+ });
+}
+
 function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='shop'){
  const admin=state.user?.isAdmin===true;
  const offers=Array.from({length:5},(_,i)=>state.shopItems?.find(item=>item.id==='slot'+(i+1))||{id:'slot'+(i+1),active:false});
@@ -1504,11 +1585,13 @@ if(tab==='scout'){
  const wallet=currency==='cash'?c.cash:c.cp;
  el.innerHTML='<div class="scout-topline"><div><span class="team-eyebrow">DIAMOND GM · SCOUT CENTER</span><h2 class="sectiontitle">스카우트 센터</h2><p class="muted">결제 수단을 선택하고 원하는 선수 유형을 스카우트하세요.</p></div><div class="scout-wallet"><span>보유 자금</span><b>'+money(c.cash)+'</b><small>보유 CP '+walletCP(c.cp)+' · 선수단 '+c.players.length+'/80</small></div></div>'+
  '<div class="scout-payment-picker"><div class="scout-payment-heading"><h3>스카우트 결제 방식</h3><span>확률 및 비용은 선택한 결제 방식에 따라 달라집니다.</span></div><div class="scout-currency-tabs"><button type="button" data-scout-currency="cash" class="'+(currency==='cash'?'active':'')+'"><span>💰 자금 스카우트</span><strong>1,000만원부터</strong></button><button type="button" data-scout-currency="cp" class="'+(currency==='cp'?'active':'')+'"><span>💎 CP 스카우트</span><strong>5 CP부터</strong></button></div><div class="scout-probability"><span class="scout-prob-label">등장 확률</span>'+chances.map(([level,pct])=>'<span class="scout-prob-pill scout-level-'+level+'">Lv'+level+' <strong>'+pct+'%</strong></span>').join('')+'</div></div>'+
+ scoutCriteriaMarkup('page')+
  '<div class="scout-headrow"><h3>스카우트 유형</h3><span>일반 1배 · 연도별/타자만/투수만 2배</span></div>'+
  '<div class="scout-contract-grid scout-four-grid">'+contracts.map((x,i)=>'<div class="scout-contract tone-'+x.tone+'"><div class="scout-contract-header"><div class="scout-contract-icon">'+x.icon+'</div><div class="scout-contract-code">SCOUT 0'+(i+1)+'</div></div><div class="scout-contract-body"><small>'+x.sub+'</small><h4>'+x.label+'</h4><p>'+x.desc+'</p></div>'+(x.id==='era'?'<label class="scout-era-label">대상 연도<select id="scoutEra">'+Array.from({length:27},(_,i)=>'<option value="'+(2000+i)+'" '+(i===26?'selected':'')+'>'+(2000+i)+'년</option>').join('')+'</select></label>':'<div class="scout-contract-fill"></div>')+'<div class="scout-contract-bottom"><div><span>'+(x.multiplier===2?'2배 비용':'기본 비용')+'</span><strong>'+displayCost(x)+'</strong></div><div class="gm-scout-qty-buttons">'+[1,10,100].map(q=>'<button type="button" data-scout-kind="'+x.id+'" data-scout-count="'+q+'" '+(wallet<cost(x)*q||c.players.length>=80||pending||pendingBatch?'disabled':'')+'>'+q+'회</button>').join('')+'</div></div></div>').join('')+'</div>'+
  (pending?'<div class="scout-pending-bar"><strong>결정 대기 중인 선수: Lv'+(pending.level||'-')+' '+esc(playerLabel(pending))+'</strong><button type="button" id="scoutResume">영입 / 방출 결정</button></div>':'')+
  (pendingBatch?'<div class="scout-pending-bar"><strong>결정 대기 중인 연속 스카우트 '+pendingBatch.items.length+'명</strong><button type="button" id="scoutBatchResume">선수 선택 및 결과 확인</button></div>':'')+
  '';
+ bindScoutCriteria(el);
  document.querySelectorAll('[data-scout-currency]').forEach(btn=>btn.onclick=()=>{scoutCurrency=btn.dataset.scoutCurrency;content()});
  document.querySelectorAll('[data-scout-kind]').forEach(btn=>btn.onclick=()=>{
   const x=contracts.find(t=>t.id===btn.dataset.scoutKind);
@@ -1684,6 +1767,7 @@ function showScoutBatchResult(){
  scoutPopup('<div class="scout-popup-header"><span>SCOUT BATCH RESULTS</span><button type="button" data-popup-close aria-label="닫기">✕</button></div>'+
  '<div class="gm-batch-headline"><h2 id="scoutPopupTitle">🔭 연속 '+offers.length+'회 스카우트 결과</h2><p>영입할 선수만 체크하세요. 선택하지 않은 선수는 1명당 100만원에 자동 방출됩니다.</p></div>'+
  '<div class="gm-batch-controls"><button type="button" id="gmBatchTop">종합 상위 선택</button><button type="button" id="gmBatchSpecial">특수능력 보유 선수</button><button type="button" id="gmBatchClear">전체 선택 해제</button><span>남은 영입 가능 인원 '+maxRecruit+'명</span></div>'+
+ '<div class="gm-batch-criteria-bar">'+scoutCriteriaMarkup('modal')+'<div class="gm-batch-criteria-actions"><button type="button" id="gmBatchApplyRules">조건 일치 선수 선택</button><span id="gmBatchMatchCount" aria-live="polite"></span></div></div>'+ 
  '<div class="gm-batch-list">'+offers.map(row).join('')+'</div>'+
  '<div class="gm-batch-footer"><div class="gm-batch-summary" id="gmBatchSummary"></div><button type="button" id="gmBatchComplete" class="primary">영입·방출 확정</button></div>');
  const overlay=document.getElementById('scoutPopup');
@@ -1711,6 +1795,26 @@ function showScoutBatchResult(){
  overlay.querySelector('#gmBatchTop').onclick=()=>selectItems([...offers].sort((a,b)=>Number(overall(b.player))-Number(overall(a.player))).map(item=>item.id));
  overlay.querySelector('#gmBatchSpecial').onclick=()=>selectItems(offers.filter(item=>specialAbilityData(item.player).length).sort((a,b)=>specialAbilityData(b.player).length-specialAbilityData(a.player).length||overall(b.player)-overall(a.player)).map(item=>item.id));
  overlay.querySelector('#gmBatchClear').onclick=()=>selectItems([]);
+
+ const eligiblePlayers=()=>offers.filter(item=>scoutFilterMatches(item.player))
+ .sort((a,b)=>Number(overall(b.player))-Number(overall(a.player))||Number(b.player.level)-Number(a.player.level));
+ const matchText=overlay.querySelector('#gmBatchMatchCount'),applyButton=overlay.querySelector('#gmBatchApplyRules');
+ const updateMatching=()=>{
+  const active=scoutSelectionHasRules(),matches=active?eligiblePlayers().length:offers.length;
+  matchText.textContent=active?'조건에 맞는 선수 '+matches+'명':'조건 미설정';
+  applyButton.disabled=!active||maxRecruit<1;
+ };
+ const applyMatching=()=>{
+  if(!scoutSelectionHasRules())return toast('먼저 적용할 조건을 체크하세요');
+  const qualified=eligiblePlayers();
+  selectItems(qualified.map(item=>item.id));
+  if(qualified.length>maxRecruit)toast('조건에 맞는 '+qualified.length+'명 중 종합 능력치 상위 '+maxRecruit+'명을 선택했습니다');
+ };
+ bindScoutCriteria(overlay,updateMatching);
+ applyButton.onclick=applyMatching;
+ updateMatching();
+ if(scoutSelectionHasRules())applyMatching();
+
  confirmButton.onclick=async()=>{
   const chosen=all.filter(x=>x.checked).map(x=>x.dataset.batchPick);
   if(!confirm(chosen.length+'명 영입, '+(offers.length-chosen.length)+'명 방출을 확정하시겠습니까? 방출한 선수는 복구할 수 없습니다.'))return;
