@@ -282,6 +282,7 @@ function leagueInfo(c,now=Date.now()){
  const members=TEAMS.map((t,i)=>real[i]?{id:real[i].id,name:t.name,real:true,club:real[i],teamId:t.id,ownerName:db.users.find(u=>u.id===real[i].owner)?.ownerName||db.users.find(u=>u.id===real[i].owner)?.username||'구단주'}:{id:'bot-'+pool+'-'+i,name:t.name,real:false,teamId:t.id,ownerName:'AI 감독'});
  const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,teamId:m.teamId,ownerName:m.ownerName}));
  const byId=Object.fromEntries(standings.map(t=>[t.id,t]));let order=[0,1,2,3,4,5,6,7,8,9],games=[];
+ let newLeagueResults=0;
  for(let r=0;r<144;r++){
   for(let j=0;j<5;j++){let a=order[j],b=order[9-j];if(r%2===1)[a,b]=[b,a];games.push({round:r+1,slot:Math.floor(r*120/144),home:members[a].id,away:members[b].id})}
   order=[order[0],order[9],...order.slice(1,9)];
@@ -290,11 +291,14 @@ function leagueInfo(c,now=Date.now()){
  function result(g){
   const key=[start,tier,pool,g.round,g.home,g.away].join('|');
   if(leagueGameCache.has(key))return leagueGameCache.get(key);
+  const stored=db.leagueGames&&db.leagueGames[key];if(stored){leagueGameCache.set(key,stored);return stored}
   const h=members.find(m=>m.id===g.home),a=members.find(m=>m.id===g.away);
   const strength=LEAGUE_TIERS[tier].average;
-  const box=runGame(gameTeam(h.club,strength,h.name,key+':home',g.round),gameTeam(a.club,strength,a.name,key+':away',g.round),key);
+  const simulated=runGame(gameTeam(h.club,strength,h.name,key+':home',g.round),gameTeam(a.club,strength,a.name,key+':away',g.round),key);
+  const box=(h.club||a.club)?simulated:{home:{runs:simulated.home.runs},away:{runs:simulated.away.runs}};
   leagueGameCache.set(key,box);
   if(leagueGameCache.size>12000)leagueGameCache.delete(leagueGameCache.keys().next().value);
+  if(start>=weekStart()-604800000){if(!db.leagueGames)db.leagueGames={};db.leagueGames[key]=box;newLeagueResults++}
   return box;
  }
  const completed=games.filter(g=>slotTime(g.slot)<=now);
@@ -311,6 +315,11 @@ function leagueInfo(c,now=Date.now()){
   if(now>=semi[0].time)semi[0].score='3 : '+Math.floor(seedNum(start+'semi0')*4);
   if(now>=semi[1].time)semi[1].score='4 : '+Math.floor(seedNum(start+'semi1')*4);
   if(now>=start+6*86400000+20*3600000)postseason.push({label:'챔피언 결정전',home:top[0].name,away:top[1].name,homeTeamId:top[0].teamId,awayTeamId:top[1].teamId,homeOwnerName:top[0].ownerName,awayOwnerName:top[1].ownerName,score:'5 : 3',time:start+6*86400000+20*3600000});
+ }
+ if(newLeagueResults){
+  const floor=weekStart()-604800000;
+  for(const k of Object.keys(db.leagueGames||{}))if(Number(k.split('|')[0])<floor)delete db.leagueGames[k];
+  save();
  }
  return {tier,tierName:LEAGUE_TIERS[tier].name,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
