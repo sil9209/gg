@@ -503,6 +503,17 @@ else if(a.type==='scoutBatchDecision'){
  fix(c);
  result={message:'연속 스카우트 완료 · '+recruited.length+'명 영입, '+released+'명 방출',scoutBatchDecision:true,recruited:recruited.length,released,reward:released*1000000};
 }
+else if(a.type==='removeSpecialAbility'){
+ const p=c.players.find(x=>x.id===String(a.id||''));
+ if(!p)throw Error('소속 선수를 찾을 수 없습니다');
+ ensurePlayer(p);
+ const skillId=String(a.abilityId||'');
+ const index=p.specialAbilities.indexOf(skillId);
+ if(index<0)throw Error('해당 선수가 보유하지 않은 특수능력입니다');
+ const skill=SPECIAL_BY_ID.get(skillId);
+ p.specialAbilities.splice(index,1);
+ result={message:p.name+' 선수의 '+(skill?.name||'특수능력')+' 삭제 완료',removedAbility:skillId,playerId:p.id};
+}
 else if(a.type==='drawSpecialAbility'){
  const p=c.players.find(x=>x.id===String(a.id||''));
  if(!p)throw Error('소속 선수를 찾을 수 없습니다');
