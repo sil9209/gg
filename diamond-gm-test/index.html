@@ -1505,7 +1505,7 @@ const scoutSelectionRules={ageEnabled:false,minAge:30,levelEnabled:false,minLeve
 const scoutSelectionHasRules=()=>scoutSelectionRules.ageEnabled||scoutSelectionRules.levelEnabled||scoutSelectionRules.specialEnabled;
 function scoutFilterMatches(p){
  const age=Number(p?.age),level=Number(p?.level),specialCount=Array.isArray(p?.specialAbilities)?p.specialAbilities.length:0;
- return (!scoutSelectionRules.ageEnabled||(Number.isFinite(age)&&age>=scoutSelectionRules.minAge))&&
+ return (!scoutSelectionRules.ageEnabled||(Number.isFinite(age)&&age<=scoutSelectionRules.minAge))&&
         (!scoutSelectionRules.levelEnabled||(Number.isFinite(level)&&level>=scoutSelectionRules.minLevel))&&
         (!scoutSelectionRules.specialEnabled||specialCount>=1);
 }
@@ -1514,7 +1514,7 @@ function scoutCriteriaMarkup(mode='page'){
  return '<section class="gm-scout-criteria '+(mode==='modal'?'gm-scout-criteria-modal':'')+'" data-scout-criteria="'+uid+'">'+
   '<div class="gm-scout-criteria-head"><strong>🎯 조건별 선수 자동 선택</strong><small>체크한 조건을 모두 만족해야 선택됩니다 (AND)</small></div>'+
   '<div class="gm-scout-criteria-row">'+
-   '<div class="gm-scout-rule"><label><input type="checkbox" data-scout-rule="ageEnabled" '+(r.ageEnabled?'checked':'')+'> 나이</label><input type="number" min="17" max="44" step="1" value="'+r.minAge+'" data-scout-rule="minAge" aria-label="최소 나이" '+(!r.ageEnabled?'disabled':'')+'><span>세 이상</span></div>'+
+   '<div class="gm-scout-rule"><label><input type="checkbox" data-scout-rule="ageEnabled" '+(r.ageEnabled?'checked':'')+'> 나이</label><input type="number" min="17" max="44" step="1" value="'+r.minAge+'" data-scout-rule="minAge" aria-label="최대 나이" '+(!r.ageEnabled?'disabled':'')+'><span>세 이하</span></div>'+
    '<div class="gm-scout-rule"><label><input type="checkbox" data-scout-rule="levelEnabled" '+(r.levelEnabled?'checked':'')+'> 레벨</label><select data-scout-rule="minLevel" aria-label="최소 레벨" '+(!r.levelEnabled?'disabled':'')+'>'+Array.from({length:10},(_,i)=>'<option value="'+(i+1)+'" '+(r.minLevel===i+1?'selected':'')+'>Lv'+(i+1)+'</option>').join('')+'</select><span>이상</span></div>'+
    '<div class="gm-scout-rule special"><label><input type="checkbox" data-scout-rule="specialEnabled" '+(r.specialEnabled?'checked':'')+'> ✦ 특수능력 보유 선수만</label></div>'+
   '</div>'+(mode==='page'?'<p class="gm-scout-criteria-note">10회·100회 스카우트 결과에서 영입 후보를 자동 선택하는 조건입니다. 선수 등장 확률은 변경되지 않습니다.</p>':'')+'</section>';
