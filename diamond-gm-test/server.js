@@ -345,12 +345,67 @@ function leagueMembers(c){
  const real=TEAMS.map(t=>db.clubs.filter(x=>tierNum(x)===tier&&(x.teamId||TEAMS[0].id)===t.id)[pool]||null);
  return {tier,pool,real};
 }
-/* Completed game results stay stable within the current server session. */
-const leagueGameCache=new Map();
+/* Match outcomes remain stable across page reloads. AI clubs have stable, tier-specific
+   rosters within a season, derived from existing players without changing their owners. */
+const leagueGameCache=new Map(),aiRosterCache=new Map();
+const AI_OWNER_TITLES=['야구왕','홈런장인','불꽃감독','그라운드지휘관','다이아감독','투수조련사','승리의전략가','명장','타격박사','승부사','야구연구소','끝내기장인','구단운영자','스카우트마스터','전설의감독'];
+const AI_OWNER_NAMES=['민준','도현','성준','재원','지훈','태영','현우','주원','승민','태준','지성','건우','정민','윤호','재민'];
+function aiOwnerName(seed){
+ return AI_OWNER_TITLES[Math.floor(seedNum(seed+':owner-title')*AI_OWNER_TITLES.length)]+' '+
+  AI_OWNER_NAMES[Math.floor(seedNum(seed+':owner-name')*AI_OWNER_NAMES.length)];
+}
+function aiRoster(seed,average){
+ const cacheKey=String(seed)+'|'+average;
+ if(aiRosterCache.has(cacheKey))return aiRosterCache.get(cacheKey);
+ // Reuse real player profiles and names already present in this game. Profiles are copied.
+ const source=[...(db.clubs||[]).flatMap(x=>x.players||[]),...(db.listings||[]).map(x=>x.player)].filter(p=>p&&p.name);
+ const choose=(pitcher,count)=>{
+  const candidates=source.filter(p=>!!p.isPitcher===pitcher).slice();
+  candidates.sort((a,b)=>seedNum(seed+':candidate:'+a.id)-seedNum(seed+':candidate:'+b.id));
+  const lineup=[];
+  for(let i=0;i<count;i++){
+   const existing=candidates.length?candidates[i%candidates.length]:null;
+   // In an empty game database, use the game's normal Korean/foreign player naming pool,
+   // never placeholder labels such as "AI batter 1".
+   const nonce=seed+':'+(pitcher?'pitcher':'batter')+':'+i;
+   const fallbackForeign=seedNum(nonce+':foreign')<.18;
+   const first=names1[Math.floor(seedNum(nonce+':family')*names1.length)];
+   const given=names2[Math.floor(seedNum(nonce+':given')*names2.length)];
+   const foreignName=foreignFirst[Math.floor(seedNum(nonce+':ffirst')*foreignFirst.length)]+' '+foreignLast[Math.floor(seedNum(nonce+':flast')*foreignLast.length)];
+   const center=Math.max(23,Math.min(96,Number(average)||45));
+   const variation=(seedNum(nonce+':quality')-.5)*10;
+   const p={...(existing||{}),id:'AI-'+crypto.createHash('sha256').update(nonce).digest('hex').slice(0,24),
+    name:existing?.name||(fallbackForeign?foreignName:first+given),foreign:existing?.foreign??fallbackForeign,
+    age:existing?.age||(19+Math.floor(seedNum(nonce+':age')*25)),
+    year:existing?.year||(2000+Math.floor(seedNum(nonce+':year')*27)),
+    pos:existing?.pos||(pitcher?['선발','중계','마무리'][i%3]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수','지명타자'][i%9]),
+    isPitcher:pitcher,condition:3,level:Math.max(1,Math.min(10,Math.round(center/10))),
+    specialAbilities:[],owner:null};
+   const stats=pitcher?['velocity','stuff','control','break','stamina','mental']:['contact','power','eye','speed','defense','mental'];
+   for(const stat of stats){
+    // Preserve the player's relative strengths while centering the whole AI team on this league.
+    const baseline=Number(existing?.[stat]);
+    const profile=Number.isFinite(baseline)?Math.max(-8,Math.min(8,(baseline-60)*.22)):(seedNum(nonce+':'+stat)-.5)*6;
+    p[stat]=Math.round(Math.max(20,Math.min(99.99,center+variation+profile))*100)/100;
+   }
+   lineup.push(p);
+  }
+  return lineup;
+ };
+ const roster={hitters:choose(false,9),pitchers:choose(true,3)};
+ if(aiRosterCache.size>1000)aiRosterCache.delete(aiRosterCache.keys().next().value);
+ aiRosterCache.set(cacheKey,roster);
+ return roster;
+}
 function gameTeam(c,average,name,seed,round=1){
  if(!c){
-  const make=(i,pitcher)=>{const n=seedNum(seed+':'+(pitcher?'p':'b')+i)*12-6;const base=Math.max(20,Math.min(99,average+n));return {id:'AI-'+seed+'-'+(pitcher?'P':'B')+i,name:(pitcher?'AI 투수 ':'AI 타자 ')+(i+1),isPitcher:pitcher,condition:3,contact:base,power:base,eye:base,speed:base,defense:base,stuff:base,velocity:base,control:base,break:base,stamina:base,mental:base}};
-  return {name,hitters:Array.from({length:9},(_,i)=>make(i,false)),pitchers:Array.from({length:3},(_,i)=>make(i,true)),defense:average,round};
+  const roster=aiRoster(seed,average);
+  // Rotate which of the club's pitchers takes the starter role during the season.
+  const pitching=roster.pitchers.length?[
+   roster.pitchers[(Math.max(1,round)-1)%roster.pitchers.length],
+   roster.pitchers[(Math.max(1,round))%roster.pitchers.length],
+   roster.pitchers[(Math.max(1,round)+1)%roster.pitchers.length]]:[];
+  return {name,hitters:roster.hitters,pitchers:pitching,defense:average,round};
  }
  const hitters=(c.lineup||[]).map(id=>c.players.find(p=>p.id===id&&!p.isPitcher)).filter(Boolean).slice(0,9);
  const rotation=c.pitcherRotation||{},all=c.players.filter(p=>p.isPitcher);
@@ -365,7 +420,7 @@ function runGame(home,away,seed){
 }
 function leagueInfo(c,now=Date.now()){
  const start=weekStart(now),{tier,pool,real}=leagueMembers(c);
- const members=TEAMS.map((t,i)=>real[i]?{id:real[i].id,name:t.name,real:true,club:real[i],teamId:t.id,ownerName:db.users.find(u=>u.id===real[i].owner)?.ownerName||db.users.find(u=>u.id===real[i].owner)?.username||'구단주'}:{id:'bot-'+pool+'-'+i,name:t.name,real:false,teamId:t.id,ownerName:'AI 감독'});
+ const members=TEAMS.map((t,i)=>real[i]?{id:real[i].id,name:t.name,real:true,club:real[i],teamId:t.id,ownerName:db.users.find(u=>u.id===real[i].owner)?.ownerName||db.users.find(u=>u.id===real[i].owner)?.username||'구단주'}:{id:'bot-'+pool+'-'+i,name:t.name,real:false,teamId:t.id,ownerName:aiOwnerName(start+':'+tier+':'+pool+':'+t.id)});
  const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,teamId:m.teamId,ownerName:m.ownerName}));
  const byId=Object.fromEntries(standings.map(t=>[t.id,t]));let order=[0,1,2,3,4,5,6,7,8,9],games=[];
  let newLeagueResults=0;
@@ -380,7 +435,9 @@ function leagueInfo(c,now=Date.now()){
   const stored=db.leagueGames&&db.leagueGames[key];if(stored){leagueGameCache.set(key,stored);return stored}
   const h=members.find(m=>m.id===g.home),a=members.find(m=>m.id===g.away);
   const strength=LEAGUE_TIERS[tier].average;
-  const simulated=runGame(gameTeam(h.club,strength,h.name,key+':home',g.round),gameTeam(a.club,strength,a.name,key+':away',g.round),key);
+  const simulated=runGame(
+   gameTeam(h.club,strength,h.name,h.club?key+':home':start+':'+tier+':'+pool+':'+h.teamId,g.round),
+   gameTeam(a.club,strength,a.name,a.club?key+':away':start+':'+tier+':'+pool+':'+a.teamId,g.round),key);
   const box=(h.club||a.club)?simulated:{home:{runs:simulated.home.runs},away:{runs:simulated.away.runs}};
   leagueGameCache.set(key,box);
   if(leagueGameCache.size>12000)leagueGameCache.delete(leagueGameCache.keys().next().value);
