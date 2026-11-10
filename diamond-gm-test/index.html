@@ -1167,6 +1167,12 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-market-sale-actions label{flex:1;min-width:180px;max-width:330px;display:flex;flex-direction:column;gap:6px;font-size:12px;color:#6b86a0}
 .gm-market-sale-actions input{min-width:0;padding:10px!important;font-size:14px;color:#244767;border:1px solid #ceddeb;border-radius:9px;background:#fff}
 @media(max-width:650px){.gm-market-card{flex-basis:136px!important;width:136px!important;min-width:136px!important;max-width:136px!important;height:136px!important;min-height:136px!important;max-height:136px!important;padding:10px!important}}
+/* Keep quick-menu toggle entirely inside the vertical viewport at every position. */
+.gm-nav-dock{bottom:auto!important;top:var(--gm-dock-top,auto);max-height:none!important;gap:0!important}
+.gm-nav-panel{position:absolute!important;right:0;bottom:calc(100% + 10px);top:auto;max-height:calc(100dvh - 90px);overscroll-behavior:contain}
+.gm-nav-toggle{touch-action:none;transform:none!important}
+.gm-nav-toggle:hover{transform:none!important}
+.gm-nav-dock.is-dragging .gm-nav-toggle{cursor:grabbing!important}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1431,6 +1437,7 @@ function root(){
   panel.hidden=!expand;
   dockEl.classList.toggle('is-open',expand);
   toggle.setAttribute('aria-expanded',String(expand));
+  dockEl._gmRefreshPanel?.();
  };
  document.querySelectorAll('#gmNavPanel [data-tab]').forEach(button=>button.onclick=()=>{
   const nextTab=button.dataset.tab;closeGameDock();
@@ -1840,23 +1847,76 @@ function bindSpecialCarousel(){
  track.addEventListener('dragstart',e=>e.preventDefault());
  track.addEventListener('click',e=>{if(dragged){e.preventDefault();e.stopPropagation();dragged=false;return}if(e.detail===0||e.pointerType==='touch'){const card=e.target.closest('[data-special-player]');if(card){specialTrainPlayerId=card.dataset.specialPlayer;content()}}},true);
 }
+let gmDockViewportCleanup=null;
 function bindGameDockDrag(){
  const dock=document.getElementById('gmNavDock'),handle=document.getElementById('gmNavToggle'),panel=document.getElementById('gmNavPanel');
- if(!dock||!handle)return;
- const key='diamond-gm-dock-top-v1',margin=8;
- const clamp=n=>Math.max(margin,Math.min(n,window.innerHeight-dock.offsetHeight-margin));
- let saved=Number(localStorage.getItem(key));
- if(Number.isFinite(saved)&&saved>0)dock.style.top=clamp(saved)+'px';
- else dock.style.top=clamp(window.innerHeight-dock.offsetHeight-19)+'px';
- let startY=0,startTop=0,dragging=false,active=false,blockClick=false;
- handle.addEventListener('pointerdown',e=>{if(e.button!==0)return;active=true;dragging=false;startY=e.clientY;startTop=dock.getBoundingClientRect().top;handle.setPointerCapture(e.pointerId)});
- handle.addEventListener('pointermove',e=>{if(!active)return;const dy=e.clientY-startY;if(Math.abs(dy)>5)dragging=true;if(dragging){dock.classList.add('is-dragging');dock.style.top=clamp(startTop+dy)+'px'}});
- handle.addEventListener('pointerup',()=>{if(dragging){blockClick=true;localStorage.setItem(key,String(Math.round(dock.getBoundingClientRect().top)))}active=false;dragging=false;dock.classList.remove('is-dragging')});
- handle.addEventListener('pointercancel',()=>{active=false;dragging=false;dock.classList.remove('is-dragging')});
- handle.addEventListener('click',e=>{if(blockClick){e.preventDefault();e.stopImmediatePropagation();blockClick=false}},true);
- window.addEventListener('resize',()=>{if(dock.isConnected)dock.style.top=clamp(dock.getBoundingClientRect().top)+'px'},{once:true});
+ if(!dock||!handle||!panel)return;
+ // Anchor the button itself (not the expanded panel) inside the visible viewport.
+ // The panel is absolutely positioned so opening it never changes the drag bounds.
+ if(gmDockViewportCleanup)gmDockViewportCleanup();
+ const key='diamond-gm-dock-top-v1',margin=12;
+ const viewport=()=>{
+  const vv=window.visualViewport;
+  return {top:Math.max(0,vv?.offsetTop||0),bottom:Math.min(window.innerHeight,(vv?.offsetTop||0)+(vv?.height||window.innerHeight))};
+ };
+ const safeBounds=()=>{
+  const v=viewport(),height=handle.getBoundingClientRect().height||56;
+  return {min:v.top+margin,max:Math.max(v.top+margin,v.bottom-height-margin)};
+ };
+ const clamp=y=>{const b=safeBounds();return Math.max(b.min,Math.min(Number.isFinite(y)?y:b.max,b.max))};
+ const save=y=>{try{localStorage.setItem(key,String(Math.round(y)))}catch(e){}};
+ const updatePanel=()=>{
+  if(panel.hidden)return;
+  const box=handle.getBoundingClientRect(),v=viewport(),spaceAbove=Math.max(0,box.top-v.top-margin-10),spaceBelow=Math.max(0,v.bottom-box.bottom-margin-10);
+  const ideal=Math.min(600,Math.max(160,panel.scrollHeight||400));
+  const below=spaceBelow>spaceAbove&&spaceAbove<ideal;
+  panel.style.top=below?'calc(100% + 10px)':'auto';
+  panel.style.bottom=below?'auto':'calc(100% + 10px)';
+  panel.style.maxHeight=Math.max(0,Math.floor(below?spaceBelow:spaceAbove))+'px';
+ };
+ dock._gmRefreshPanel=updatePanel;
+ let saved=NaN;
+ try{saved=Number(localStorage.getItem(key))}catch(e){}
+ const initial=Number.isFinite(saved)&&saved>0?saved:safeBounds().max;
+ dock.style.top=clamp(initial)+'px';
+ updatePanel();
+ let startY=0,startTop=0,dragging=false,active=false,suppressClick=false;
+ handle.addEventListener('pointerdown',e=>{
+  if(e.pointerType==='mouse'&&e.button!==0)return;
+  active=true;dragging=false;
+  startY=e.clientY;startTop=handle.getBoundingClientRect().top;
+  handle.setPointerCapture(e.pointerId);
+ });
+ handle.addEventListener('pointermove',e=>{
+  if(!active)return;
+  const dy=e.clientY-startY;
+  if(Math.abs(dy)>5)dragging=true;
+  if(dragging){dock.classList.add('is-dragging');dock.style.top=clamp(startTop+dy)+'px';updatePanel()}
+ });
+ const finish=()=>{
+  if(!active)return;
+  active=false;
+  if(dragging){suppressClick=true;save(clamp(handle.getBoundingClientRect().top))}
+  dragging=false;dock.classList.remove('is-dragging');updatePanel();
+ };
+ handle.addEventListener('pointerup',finish);
+ handle.addEventListener('pointercancel',finish);
+ handle.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopImmediatePropagation();suppressClick=false}},true);
+ const resize=()=>{
+  if(!dock.isConnected)return;
+  dock.style.top=clamp(handle.getBoundingClientRect().top)+'px';
+  save(clamp(handle.getBoundingClientRect().top));
+  updatePanel();
+ };
+ window.addEventListener('resize',resize);
+ window.visualViewport?.addEventListener('resize',resize);
+ window.visualViewport?.addEventListener('scroll',resize);
+ gmDockViewportCleanup=()=>{
+  window.removeEventListener('resize',resize);
+  window.visualViewport?.removeEventListener('resize',resize);
+  window.visualViewport?.removeEventListener('scroll',resize);
+ };
 }
-
 
 /* Multi-rule scout selection. Each enabled criterion is combined with AND. */
 const scoutSelectionRules={ageEnabled:false,minAge:30,levelEnabled:false,minLevel:8,specialEnabled:false};
