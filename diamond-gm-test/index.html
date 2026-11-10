@@ -937,6 +937,11 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 .gm-batch-footer .gm-batch-summary{font-size:11px;color:#597d9d;line-height:1.8}
 .gm-batch-footer button{padding:10px 16px;border-radius:9px;font-size:12px}
 @media(max-width:660px){.gm-batch-list{grid-template-columns:1fr;padding:8px}.gm-batch-controls,.gm-batch-footer,.gm-batch-headline{padding-left:12px;padding-right:12px}.gm-scout-qty-buttons button{padding:7px!important;min-width:37px}}
+
+.gm-batch-specials{width:100%;padding-left:50px}
+.gm-batch-avatar{display:inline-flex;align-items:center;flex:none}
+.gm-batch-card .gm-special-badges{width:auto;margin:0;padding:0}
+.gm-batch-card .gm-special-tag{font-size:9px;padding:3px 5px}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1660,6 +1665,59 @@ function showScoutConfirm(contract,era){
   api({type:count===1?'scout':'scoutBatch',kind:contract.id,era,currency:contract.currency,...(count!==1?{count}:{})});
  };
 }
+
+function showScoutBatchResult(){
+ const batch=state.club?.pendingScoutBatch;
+ if(!batch?.items?.length)return;
+ const maxRecruit=Math.max(0,80-(state.club?.players?.length||0));
+ const offers=batch.items;
+ const row=item=>{
+  const p=item.player,skills=specialAbilityData(p);
+  const stats=p.isPitcher?[['velocity','구속'],['stuff','구위'],['control','제구']]:[['contact','정확'],['power','파워'],['eye','선구']];
+  return '<label class="gm-batch-card"><input type="checkbox" data-batch-pick="'+esc(item.id)+'"><span class="gm-batch-avatar">'+playerPortrait(p)+'</span><div class="gm-batch-card-body"><b>'+esc(playerLabel(p))+'</b><small>Lv'+(p.level||'?')+' · '+esc(p.pos)+' · '+g(p)+' · 종합 '+statCell(overall(p))+'</small></div>'+
+  '<div class="gm-batch-skills">'+stats.map(([k,n])=>'<span>'+n+' '+attributeValue(p,k).toFixed(2)+'</span>').join('')+'</div>'+
+  (skills.length?'<div class="gm-batch-specials">'+specialAbilityBadges(p,true)+'</div>':'')+'</label>';
+ };
+ scoutPopup('<div class="scout-popup-header"><span>SCOUT BATCH RESULTS</span><button type="button" data-popup-close aria-label="닫기">✕</button></div>'+
+ '<div class="gm-batch-headline"><h2 id="scoutPopupTitle">🔭 연속 '+offers.length+'회 스카우트 결과</h2><p>영입할 선수만 체크하세요. 선택하지 않은 선수는 1명당 100만원에 자동 방출됩니다.</p></div>'+
+ '<div class="gm-batch-controls"><button type="button" id="gmBatchTop">종합 상위 선택</button><button type="button" id="gmBatchSpecial">특수능력 보유 선수</button><button type="button" id="gmBatchClear">전체 선택 해제</button><span>남은 영입 가능 인원 '+maxRecruit+'명</span></div>'+
+ '<div class="gm-batch-list">'+offers.map(row).join('')+'</div>'+
+ '<div class="gm-batch-footer"><div class="gm-batch-summary" id="gmBatchSummary"></div><button type="button" id="gmBatchComplete" class="primary">영입·방출 확정</button></div>');
+ const overlay=document.getElementById('scoutPopup');
+ const dialog=overlay.querySelector('.scout-popup-dialog');
+ dialog.classList.add('gm-batch-dialog');
+ const all=[...overlay.querySelectorAll('[data-batch-pick]')],summary=overlay.querySelector('#gmBatchSummary'),confirmButton=overlay.querySelector('#gmBatchComplete');
+ const update=()=>{
+  const picked=all.filter(x=>x.checked);
+  const released=offers.length-picked.length;
+  summary.innerHTML='<strong>선택 영입 '+picked.length+'명 / 자동 방출 '+released+'명</strong> · 방출 보상 '+money(released*1000000);
+  confirmButton.disabled=picked.length>maxRecruit;
+  confirmButton.textContent=picked.length>maxRecruit?'선수단 인원 초과':'영입·방출 확정';
+ };
+ all.forEach(box=>box.onchange=()=>{
+  if(box.checked&&all.filter(x=>x.checked).length>maxRecruit){
+   box.checked=false;toast('최대 '+maxRecruit+'명까지 영입할 수 있습니다');
+  }
+  update();
+ });
+ const selectItems=ids=>{
+  const target=new Set(ids.slice(0,maxRecruit));
+  all.forEach(box=>box.checked=target.has(box.dataset.batchPick));
+  update();
+ };
+ overlay.querySelector('#gmBatchTop').onclick=()=>selectItems([...offers].sort((a,b)=>Number(overall(b.player))-Number(overall(a.player))).map(item=>item.id));
+ overlay.querySelector('#gmBatchSpecial').onclick=()=>selectItems(offers.filter(item=>specialAbilityData(item.player).length).sort((a,b)=>specialAbilityData(b.player).length-specialAbilityData(a.player).length||overall(b.player)-overall(a.player)).map(item=>item.id));
+ overlay.querySelector('#gmBatchClear').onclick=()=>selectItems([]);
+ confirmButton.onclick=async()=>{
+  const chosen=all.filter(x=>x.checked).map(x=>x.dataset.batchPick);
+  if(!confirm(chosen.length+'명 영입, '+(offers.length-chosen.length)+'명 방출을 확정하시겠습니까? 방출한 선수는 복구할 수 없습니다.'))return;
+  confirmButton.disabled=true;confirmButton.textContent='영입·방출 처리 중…';
+  const result=await api({type:'scoutBatchDecision',id:batch.id,recruitIds:chosen});
+  if(!result&&confirmButton.isConnected){confirmButton.disabled=false;confirmButton.textContent='영입·방출 확정'}
+ };
+ update();
+}
+
 async function decideScout(decision){
  const offer=state.club?.pendingScout;
  if(!offer)return toast('결정할 스카우트 선수가 없습니다');
