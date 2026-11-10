@@ -987,6 +987,13 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 .gm-scout-criteria-modal .gm-scout-rule{padding:5px 8px}
 .gm-batch-criteria-actions{justify-content:space-between}
 }
+/* Keep pointer taps clean without changing the selected button shape. */
+button,a,[role="button"],.gm-special-slot{-webkit-tap-highlight-color:transparent}
+button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:focus:not(:focus-visible){outline:none;box-shadow:none}
+.gm-special-slot.filled{position:relative;padding-bottom:46px}
+.gm-special-remove{position:absolute;right:9px;bottom:9px;width:auto!important;min-height:27px!important;padding:4px 11px!important;border:1px solid #e6a5aa;border-radius:6px;background:#fff4f5;color:#a33746;font-size:12px;font-weight:800;cursor:pointer}
+.gm-special-remove:hover{background:#fee4e7}
+.gm-special-remove:focus-visible{outline:2px solid #a33746;outline-offset:2px}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1639,8 +1646,17 @@ if(tab==='specials'){
  '<div class="panel gm-special-work"><label>선수 선택<select id="specialPlayerSelect">'+players.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===specialTrainPlayerId?'selected':'')+'>'+esc(playerLabel(p))+' · '+esc(p.pos)+' · '+specialAbilityData(p).length+'/8</option>').join('')+'</select></label>'+
  (picked?'<div class="gm-special-player">'+playerPortrait(picked)+playerButton(picked)+'<span>'+g(picked)+'</span></div>':'')+
  '<div class="gm-special-work-action"><strong>5 CP / 1회</strong><small>현재 보유 '+walletCP(c.cp)+' CP</small><button type="button" id="specialDraw" class="primary" '+(!picked||owned.length>=8||trainingPool.length===0||c.cp<5?'disabled':'')+'>✦ 랜덤 특수능력 뽑기</button></div><p class="muted">스카우트 전용 능력은 이곳에서 획득할 수 없습니다. 예: 포수도 키스톤 콤비를 뽑을 수 있지만, 실제로 2루수·유격수로 출장할 때만 발동합니다.</p></div>'+
- '<div class="panel gm-special-slots"><h3>특수능력 슬롯 <small>'+owned.length+' / 8</small></h3><div class="gm-special-slot-grid">'+Array.from({length:8},(_,i)=>owned[i]?'<div class="gm-special-slot filled"><b>✦ '+esc(owned[i].name)+'</b><small>'+esc(owned[i].desc)+'</small></div>':'<div class="gm-special-slot"><b>'+(i+1)+'</b><small>빈 슬롯</small></div>').join('')+'</div></div>';
+ '<div class="panel gm-special-slots"><h3>특수능력 슬롯 <small>'+owned.length+' / 8</small></h3><div class="gm-special-slot-grid">'+Array.from({length:8},(_,i)=>owned[i]?'<div class="gm-special-slot filled"><b>✦ '+esc(owned[i].name)+'</b><small>'+esc(owned[i].desc)+'</small><button type="button" class="gm-special-remove" data-remove-ability="'+esc(owned[i].id)+'" aria-label="'+esc(owned[i].name)+' 삭제">삭제</button></div>':'<div class="gm-special-slot"><b>'+(i+1)+'</b><small>빈 슬롯</small></div>').join('')+'</div></div>';
  document.getElementById('specialPlayerSelect').onchange=e=>{specialTrainPlayerId=e.target.value;content()};
+ document.querySelectorAll('[data-remove-ability]').forEach(button=>button.onclick=async()=>{
+  if(!picked)return;
+  const abilityId=button.dataset.removeAbility;
+  const skill=owned.find(x=>x.id===abilityId);
+  if(!skill||!confirm(''+picked.name+' 선수의 '+skill.name+' 특수능력을 삭제하시겠습니까?\n삭제 후 복구할 수 없으며 CP는 환급되지 않습니다.'))return;
+  button.disabled=true;
+  const response=await api({type:'removeSpecialAbility',id:picked.id,abilityId});
+  if(!response&&button.isConnected)button.disabled=false;
+ });
  document.getElementById('specialDraw').onclick=async()=>{
   const button=document.getElementById('specialDraw');if(!picked||button.disabled)return;
   button.disabled=true;
