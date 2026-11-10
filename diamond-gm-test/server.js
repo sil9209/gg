@@ -2,7 +2,7 @@ const http=require('http'),fs=require('fs'),crypto=require('crypto');
 const {simulateGame}=require('./game-engine');
 const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
 // Paid rewarded ads require a verified advertiser event; browser events alone never issue currency.
-const AD_REWARD_CP=500,AD_DAILY_LIMIT=1;
+const AD_REWARD_CP=500,AD_DAILY_LIMIT=10;
 const GAM_REWARDED_UNIT=String(process.env.GM_REWARDED_AD_UNIT||'').trim();
 const AD_WEBHOOK_SECRET=String(process.env.GM_REWARDED_AD_WEBHOOK_SECRET||'');
 const AD_REWARDS_ENABLED=process.env.GM_REWARDED_AD_ENABLED==='true'&&
