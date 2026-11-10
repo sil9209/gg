@@ -1231,10 +1231,11 @@ const growthOptions=p=>'<option value="balanced" '+(!p.growthFocusSelected?'sele
 const growthText=p=>p.growthFocusSelected?(playerFieldNames(p)[p.growthFocus]||'능력치')+' 집중 ×5 · 다른 능력치 ×0.5':'균형 성장 · 6개 능력치 동일';
 const g=p=>'<span class="grade '+esc(p.grade)+'">성장타입 '+esc(p.grade)+'</span>';
 
-const gmSalaryMultipliers={E:1,D:1.1,C:1.25,B:1.5,A:1.9,S:2.3};
 function gmEstimatedSalary(p){
- const rating=Math.max(0,Math.min(99.99,Number(overall(p))||0));
- return Math.round((2000000+Math.max(0,rating-40)*150000)*(gmSalaryMultipliers[p.grade]||1)*(p.foreign?1.3:1)/100000)*100000;
+ // Salary is determined only by the integer scout level. Progress toward the next level,
+ // ability score, growth type, position and foreign nationality do not change salary.
+ const level=Math.max(1,Math.min(10,Math.trunc(Number(p.level)||1)));
+ return level*10000000;
 }
 function gmFinanceContent(c){
  const first=firstTeamIds(c);
@@ -1242,12 +1243,12 @@ function gmFinanceContent(c){
  const current=Number(c.cash)||0,total=rows.reduce((sum,r)=>sum+r.salary,0),balance=current-total;
  const firstRows=rows.filter(r=>r.squad==='1군'),secondRows=rows.filter(r=>r.squad==='2군');
  const sum=arr=>arr.reduce((n,r)=>n+r.salary,0);
- const tableRows=rows.sort((a,b)=>b.salary-a.salary||Number(overall(b.player))-Number(overall(a.player))).map(r=>'<tr><td>'+esc(playerLabel(r.player))+'</td><td>'+r.squad+'</td><td>'+esc(r.player.pos)+'</td><td>'+esc(r.player.grade)+'</td><td>'+overall(r.player)+'</td><td><b>'+money(r.salary)+'</b></td></tr>').join('');
+ const tableRows=rows.sort((a,b)=>b.salary-a.salary||Number(overall(b.player))-Number(overall(a.player))).map(r=>'<tr><td>'+esc(playerLabel(r.player))+'</td><td>'+r.squad+'</td><td>'+esc(r.player.pos)+'</td><td>Lv.'+Math.max(1,Math.min(10,Math.trunc(Number(r.player.level)||1)))+'</td><td>'+overall(r.player)+'</td><td><b>'+money(r.salary)+'</b></td></tr>').join('');
  return '<h2 class="sectiontitle">💰 자금관리</h2><p class="muted">구단 보유 자금과 예상 선수단 연봉을 확인합니다.</p><div class="panel">'+
  '<div class="gm-finance-grid"><div class="gm-finance-kpi"><small>현재 보유 자금</small><strong>'+money(current)+'</strong></div><div class="gm-finance-kpi salary"><small>선수단 연간 예상 연봉</small><strong>− '+money(total)+'</strong></div><div class="gm-finance-kpi remaining '+(balance<0?'negative':'')+'"><small>연봉 차감 후 예상 잔액</small><strong>'+money(balance)+'</strong></div></div>'+
  '<div class="gm-finance-squads"><div><span>1군 예상 연봉 · '+firstRows.length+'명</span><b>'+money(sum(firstRows))+'</b></div><div><span>2군 예상 연봉 · '+secondRows.length+'명</span><b>'+money(sum(secondRows))+'</b></div></div>'+
- '<p class="gm-finance-note">※ 현재 게임에는 확정 연봉과 급여 지급 시스템이 없어 예상치로 계산합니다. 연봉 산식은 기본 200만원 + (종합 40 초과분 × 15만원)에 성장타입별 배율(E 1.0, D 1.1, C 1.25, B 1.5, A 1.9, S 2.3), 외국인 배율(1.3)을 적용해 10만원 단위로 반올림합니다. 실제 보유 게임머니는 차감되지 않습니다.</p>'+
- '<h3>선수별 예상 연봉 <small>'+rows.length+'명</small></h3><div class="gm-finance-table"><table><thead><tr><th>선수</th><th>구분</th><th>포지션</th><th>등급</th><th>종합</th><th>연간 예상 연봉</th></tr></thead><tbody>'+tableRows+'</tbody><tfoot><tr><td colspan="5">연봉 총액</td><td>'+money(total)+'</td></tr></tfoot></table></div></div>';
+ '<p class="gm-finance-note">※ 연봉은 선수 레벨별 고정입니다. Lv.1 = 1,000만원부터 Lv.10 = 1억원까지 레벨당 1,000만원씩 증가합니다. 같은 레벨이면 성장 진행률이 0%든 99%든 연봉은 같습니다. 레벨 정보가 없는 기존 선수는 Lv.1로 계산합니다. 현재는 연간 지출 예상치이며 실제 게임머니를 자동 차감하지 않습니다.</p>'+
+ '<h3>선수별 예상 연봉 <small>'+rows.length+'명</small></h3><div class="gm-finance-table"><table><thead><tr><th>선수</th><th>구분</th><th>포지션</th><th>레벨</th><th>종합</th><th>연간 예상 연봉</th></tr></thead><tbody>'+tableRows+'</tbody><tfoot><tr><td colspan="5">연봉 총액</td><td>'+money(total)+'</td></tr></tfoot></table></div></div>';
 }
 
 
@@ -1852,8 +1853,8 @@ if(tab==='scout'){
 if(tab==='friendly'){
  const today=new Date(Date.now()+32400000).toISOString().slice(0,10),used=c.friendlyDaily?.day===today?c.friendlyDaily.used:0;
  const tiers=state.league?.tiers||[{name:'루키리그',average:45},{name:'아마추어리그',average:52},{name:'세미프로리그',average:59},{name:'프로리그',average:66},{name:'내셔널리그',average:73},{name:'엘리트리그',average:80},{name:'마스터리그',average:87},{name:'챔피언리그',average:94}];
- el.innerHTML='<div class="friendly-title"><div><h2 class="sectiontitle">⚾ 친선경기</h2><p class="muted">승리 시 게임머니 또는 CP · 패배 시 스포츠음료 10개</p></div><div class="friendly-counter">남은 경기 <strong>'+(10-used)+'/10</strong></div></div>'+
- '<div class="panel friendly-form"><h3>상대 구단 선택</h3><p class="muted">AI 평균이 높은 리그일수록 승리 보상이 커집니다.</p><label>상대 리그<select id="friendlyTier">'+tiers.map((t,i)=>'<option value="'+i+'" '+(i===(state.league?.tier||0)?'selected':'')+'>'+esc(t.name)+' · 평균 '+t.average+'</option>').join('')+'</select></label><div class="friendly-rewards"><label><input type="radio" name="friendlyReward" value="cash" checked> 💰 자금 보상</label><label><input type="radio" name="friendlyReward" value="cp"> 💎 CP 보상</label></div><button id="friendlyPlay" class="primary" '+(used>=10?'disabled':'')+'>⚾ 친선경기 시작</button><p class="muted">한국시간 자정에 10회 초기화 · 무승부는 보상 없음 · 리그 순위 영향 없음</p></div>'+
+ el.innerHTML='<div class="friendly-title"><div><h2 class="sectiontitle">⚾ 친선경기</h2><p class="muted">승리 시 게임머니 또는 CP 보상 50% 상향 · 무승부 시 일부 지급 · 패배 시 스포츠음료 10개</p></div><div class="friendly-counter">남은 경기 <strong>'+(10-used)+'/10</strong></div></div>'+
+ '<div class="panel friendly-form"><h3>상대 구단 선택</h3><p class="muted">AI 평균이 높은 리그일수록 승리 보상이 커집니다.</p><label>상대 리그<select id="friendlyTier">'+tiers.map((t,i)=>'<option value="'+i+'" '+(i===(state.league?.tier||0)?'selected':'')+'>'+esc(t.name)+' · 평균 '+t.average+'</option>').join('')+'</select></label><div class="friendly-rewards"><label><input type="radio" name="friendlyReward" value="cash" checked> 💰 자금 보상</label><label><input type="radio" name="friendlyReward" value="cp"> 💎 CP 보상</label></div><button id="friendlyPlay" class="primary" '+(used>=10?'disabled':'')+'>⚾ 친선경기 시작</button><p class="muted">한국시간 자정에 10회 초기화 · 무승부 보상은 승리 기준의 약 25% · 리그 순위 영향 없음</p></div>'+
  '<div class="gm-friendly-item-note">🥤 스포츠음료와 🚀 성장부스터는 <button type="button" id="gmFriendlyToLineup">라인업에서 사용</button>할 수 있습니다.</div>'+
  '<div class="panel"><h3>최근 친선경기</h3>'+(c.friendlyHistory?.length?c.friendlyHistory.slice(0,6).map((r,i)=>'<div class="item"><b>'+esc(r.opponent)+' '+r.ours+' : '+r.theirs+'</b><span>'+(r.cash?'+'+money(r.cash):r.cp?'+'+r.cp+' CP':r.drinks?'🥤 +'+r.drinks+'개':'—')+'</span>'+(r.detail?'<button type="button" data-friendly-box="'+i+'">상세정보</button>':'')+'</div>').join(''):'<p class="muted">기록이 없습니다.</p>')+'</div>';
  document.getElementById('friendlyPlay').onclick=()=>{{const tier=Number(document.getElementById('friendlyTier').value),reward=document.querySelector('input[name="friendlyReward"]:checked')?.value||'cash';gmConfirm('친선경기 1회를 사용하여 경기를 진행하시겠습니까?').then(ok=>{if(ok)api({type:'friendly',tier,reward})})}};
