@@ -11,7 +11,8 @@ function simulateGame({home,away,seed,stats}){
   return {name:team.name,home:homeFlag,hitters,pitchers,pointer:0,runs:0,hits:0,errors:0,walks:0,innings:[],team};
  };
  const H=build(home,true),A=build(away,false),events=[];
- const values=(p,ctx)=>{const v=stats(p,ctx)||{};const m=clamp((Number(p.condition)||3)*.05+.8,.85,1.05);const out={};for(const k of ['contact','power','eye','speed','defense','velocity','stuff','control','break','stamina','mental'])out[k]=clamp((Number(v[k]??p[k])||50)*m,10,100);return out};
+ const triggered=new Map();
+ const values=(p,ctx)=>{const info=stats(p,ctx)||{},v=info.values||info;if(info.activated?.length){let all=triggered.get(p.id);if(!all){all=new Map();triggered.set(p.id,all)}for(const skill of info.activated)all.set(skill.id,skill.name)}const m=clamp((Number(p.condition)||3)*.05+.8,.85,1.05);const out={};for(const k of ['contact','power','eye','speed','defense','velocity','stuff','control','break','stamina','mental'])out[k]=clamp((Number(v[k]??p[k])||50)*m,10,100);return out};
  let inning=1;
  function half(off,def,upper){
   let outs=0,runs=0,bases=[null,null,null],pa=0;
@@ -49,7 +50,7 @@ function simulateGame({home,away,seed,stats}){
   H.innings.push(half(H,A,false));
   if(inning>=9&&H.runs!==A.runs)break;
  }
- const box=t=>({name:t.name,runs:t.runs,hits:t.hits,errors:t.errors,walks:t.walks,innings:t.innings,batters:t.hitters.map(({p,i,...b})=>b),pitchers:t.pitchers.filter(p=>p.pitches>0).map(({p,...x})=>({...x,ip:Math.floor(x.outs/3)+'.'+x.outs%3,era:x.outs?Number((x.er*27/x.outs).toFixed(2)):0}))});
+ const box=t=>({name:t.name,runs:t.runs,hits:t.hits,errors:t.errors,walks:t.walks,innings:t.innings,batters:t.hitters.map(({p,i,...b})=>({...b,activatedAbilities:[...(triggered.get(p.id)||new Map()).values()]})),pitchers:t.pitchers.filter(p=>p.pitches>0).map(({p,...x})=>({...x,activatedAbilities:[...(triggered.get(p.id)||new Map()).values()],ip:Math.floor(x.outs/3)+'.'+x.outs%3,era:x.outs?Number((x.er*27/x.outs).toFixed(2)):0}))});
  const result={home:box(H),away:box(A),events,innings:inning,draw:H.runs===A.runs};
  const bat=[...H.hitters,...A.hitters].sort((x,y)=>(y.h*2+y.hr*3+y.rbi)-(x.h*2+x.hr*3+x.rbi))[0];result.mvp=bat?{name:bat.name,team:H.hitters.includes(bat)?H.name:A.name}:null;
  return result;
