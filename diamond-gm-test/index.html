@@ -1300,7 +1300,7 @@ function showAttendancePopup(force=false){
  if((!force&&attendanceShownKey===key)||document.getElementById('gmAttendanceOverlay'))return;
  attendanceShownKey=key;
  const overlay=document.createElement('div');overlay.id='gmAttendanceOverlay';overlay.className='gm-attendance-overlay';
- overlay.innerHTML='<section class="gm-attendance-box" role="dialog" aria-modal="true" aria-labelledby="gmAttendanceHeading"><button type="button" class="gm-attendance-x" aria-label="닫기">✕</button><small>DAILY ATTENDANCE</small><div class="gm-attendance-star">✦</div><h2 id="gmAttendanceHeading">오늘의 출석 선물</h2><p>매일 하루 한 번 선물을 받으세요.<br>게임머니 1억~10억원(1,000만원 단위) 또는<br>10~5,000 CP 중 하나가 랜덤 지급됩니다.</p><button type="button" class="primary" id="gmAttendanceClaim">출석체크 선물받기</button><p style="margin:13px 0 0">게임머니 / CP 각 50% 확률 · 한국시간 자정 초기화</p></section>';
+ overlay.innerHTML='<section class="gm-attendance-box" role="dialog" aria-modal="true" aria-labelledby="gmAttendanceHeading"><button type="button" class="gm-attendance-x" aria-label="닫기">✕</button><small>DAILY ATTENDANCE</small><div class="gm-attendance-star">✦</div><h2 id="gmAttendanceHeading">오늘의 출석 선물</h2><p>매일 하루 한 번 선물을 받으세요.<br>게임머니 1억~10억원과<br>10~5,000 CP를 각각 랜덤 지급합니다.</p><button type="button" class="primary" id="gmAttendanceClaim">출석체크 선물받기</button><p style="margin:13px 0 0">게임머니와 CP 각각 무작위 지급 · 한국시간 자정 초기화</p></section>';
  document.body.appendChild(overlay);
  const close=()=>overlay.remove();
  overlay.querySelector('.gm-attendance-x').onclick=close;
@@ -1313,8 +1313,8 @@ function showAttendancePopup(force=false){
    const data=await response.json();if(!response.ok)throw Error(data.error||'출석 선물 지급 실패');
    const reward=data.result?.attendanceReward;if(!reward)throw Error('출석 선물 정보가 없습니다');
    const teams=state.teams;state=data;if(!state.teams)state.teams=teams;render();
-   const prize=Number(reward.amount).toLocaleString('ko-KR')+(reward.currency==='cash'?'원':' CP');
-   overlay.querySelector('.gm-attendance-box').innerHTML='<small>DAILY GIFT RECEIVED</small><div class="gm-attendance-star">✦</div><h2>출석 선물 획득!</h2><h3>'+esc(prize)+'</h3><p>선물이 구단에 지급되었습니다.<br>내일 다시 출석체크를 진행하세요.</p><button type="button" class="primary" id="gmAttendanceOkay">확인</button>';
+   const cashPrize=Number(reward.cash).toLocaleString('ko-KR')+'원',cpPrize=Number(reward.cp).toLocaleString('ko-KR')+' CP';
+   overlay.querySelector('.gm-attendance-box').innerHTML='<small>DAILY GIFT RECEIVED</small><div class="gm-attendance-star">✦</div><h2>출석 선물 획득!</h2><h3>💰 '+esc(cashPrize)+'</h3><h3>💎 '+esc(cpPrize)+'</h3><p>두 가지 선물이 구단에 지급되었습니다.<br>내일 다시 출석체크를 진행하세요.</p><button type="button" class="primary" id="gmAttendanceOkay">확인</button>';
    overlay.querySelector('#gmAttendanceOkay').onclick=close;
   }catch(error){toast(error.message);claim.disabled=false;claim.textContent='출석체크 선물받기'}
  };
