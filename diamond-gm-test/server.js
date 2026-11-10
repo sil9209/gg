@@ -50,6 +50,10 @@ const statKeys=p=>p.isPitcher?PITCHER_STAT_KEYS:BATTER_STAT_KEYS;
 /* Original DIAMOND GM scout-born special abilities.
  * Only the server rolls for slots. This roll is intentionally absent from the UI/API. */
 const SPECIAL_ABILITIES=[{"id":"immortal_b","name":"불멸자","type":"batter","source":"scout","when":"age43","boost":{"contact":4,"power":4,"eye":4,"speed":4},"desc":"43세 이상 시 핵심 능력치 +4 (타자)"},{"id":"immortal_p","name":"불멸자","type":"pitcher","source":"scout","when":"age43","boost":{"velocity":4,"stuff":4,"control":4,"break":4},"desc":"43세 이상 시 핵심 능력치 +4 (투수)"},{"id":"undying_b","name":"불사신","type":"batter","source":"scout","when":"age40","boost":{"contact":3,"power":3,"eye":3,"speed":3},"desc":"40세 이상 시 핵심 능력치 +3 (타자)"},{"id":"undying_p","name":"불사신","type":"pitcher","source":"scout","when":"age40","boost":{"velocity":3,"stuff":3,"control":3,"break":3},"desc":"40세 이상 시 핵심 능력치 +3 (투수)"},{"id":"foreign_mercenary_b","name":"외인용병","type":"batter","source":"scout","when":"foreign","boost":{"contact":2,"power":2,"eye":2},"desc":"외국인 선수 핵심 능력치 상승 (타자)"},{"id":"foreign_mercenary_p","name":"외인용병","type":"pitcher","source":"scout","when":"foreign","boost":{"velocity":3,"stuff":3,"control":3,"break":3},"desc":"외국인 선수 핵심 능력치 상승 (투수)"},{"id":"home_mood_b","name":"무드남","type":"batter","source":"scout","when":"home","boost":{"contact":1,"power":1,"eye":1},"desc":"홈구장 경기 핵심 능력치 상승 (타자)"},{"id":"home_mood_p","name":"무드남","type":"pitcher","source":"scout","when":"home","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"홈구장 경기 핵심 능력치 상승 (투수)"},{"id":"clutch_hitter","name":"클러치 히터","type":"batter","source":"scout","when":"scoring","boost":{"contact":3,"power":3},"desc":"득점권에서 정확·파워 +3"},{"id":"slugger","name":"슬러거","type":"batter","source":"scout","when":"always","boost":{"power":4},"desc":"출전 시 파워 +4"},{"id":"onbase_machine","name":"출루머신","type":"batter","source":"scout","when":"leadoff","boost":{"contact":3,"eye":3},"desc":"1·2번 타순에서 정확·선구 +3"},{"id":"hitting_instinct","name":"타격본능","type":"batter","source":"scout","when":"always","boost":{"contact":4},"desc":"출전 시 정확 +4"},{"id":"rbi_maker","name":"타점 제조기","type":"batter","source":"scout","when":"scoring","boost":{"power":2,"contact":2,"eye":2},"desc":"득점권에서 파워·정확·선구 +2"},{"id":"ace","name":"에이스","type":"pitcher","source":"scout","when":"starter","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"선발 등판 시 구속·구위·제구·변화 +2"},{"id":"poker_face","name":"포커페이스","type":"pitcher","source":"scout","when":"scoring","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"득점권에서 구속·구위·제구·변화 +2"},{"id":"catcher_master","name":"안방마님","type":"batter","source":"training","when":"catcher","boost":{"defense":2,"mental":2},"desc":"포수 출장 시 수비·정신 +2"},{"id":"keystone_combo","name":"키스톤 콤비","type":"batter","source":"training","when":"middleInfield","boost":{"defense":2,"mental":2},"desc":"유격수·2루수 출장 시 수비·정신 +2"},{"id":"hot_corner","name":"핫코너","type":"batter","source":"training","when":"thirdbase","boost":{"defense":2,"mental":2},"desc":"3루수 출장 시 수비·정신 +2"},{"id":"flexible_catch","name":"유연한포구","type":"batter","source":"training","when":"firstbase","boost":{"defense":2,"mental":2},"desc":"1루수 출장 시 수비·정신 +2"},{"id":"outfield_ruler","name":"외야의지배자","type":"batter","source":"training","when":"outfield","boost":{"defense":2,"mental":2},"desc":"외야수 출장 시 수비·정신 +2"},{"id":"mental_focus","name":"정신집중","type":"batter","source":"training","when":"starterBatter","boost":{"mental":4},"desc":"선발 타자 출장 시 정신 +4"},{"id":"defense_focus","name":"디펜스","type":"batter","source":"training","when":"starterBatter","boost":{"defense":4},"desc":"선발 타자 출장 시 수비 +4"},{"id":"foreign_power_b","name":"용병파워","type":"batter","source":"training","when":"foreign","boost":{"mental":2,"defense":2},"desc":"외국인 타자 출장 시 정신·수비 +2"},{"id":"phoenix","name":"불사조","type":"batter","source":"training","when":"age40","boost":{"contact":1,"power":1,"eye":1,"speed":1},"desc":"40세 이상 시 정확·파워·선구·주력 +1"},{"id":"ironman_b","name":"아이언맨","type":"batter","source":"training","when":"age43","boost":{"contact":2,"power":2,"eye":2,"speed":2},"desc":"43세 이상 시 정확·파워·선구·주력 +2"},{"id":"late_chance_b","name":"와신상담","type":"batter","source":"training","when":"scoring","boost":{"contact":1,"power":1},"desc":"득점권에서 정확·파워 +1"},{"id":"cleanup_b","name":"클린업","type":"batter","source":"training","when":"cleanup","boost":{"power":1},"desc":"3·4·5번 타자로 출전 시 파워 +1"},{"id":"away_b","name":"타향살이","type":"batter","source":"training","when":"away","boost":{"contact":2,"power":2,"eye":2},"desc":"원정 경기에서 정확·파워·선구 +2"},{"id":"table_setter","name":"테이블세터","type":"batter","source":"training","when":"leadoff","boost":{"contact":1},"desc":"1·2번 타순에서 정확 +1"},{"id":"battle_mode_b","name":"전투모드","type":"batter","source":"training","when":"round99","boost":{"power":2},"desc":"정규시즌 99~119차전에서 파워 +2"},{"id":"iron_body_p","name":"강철체력","type":"pitcher","source":"training","when":"starter","boost":{"stamina":4},"desc":"선발 투수 등판 시 체력 +4"},{"id":"winning_starter","name":"필승선발","type":"pitcher","source":"training","when":"starter","boost":{"mental":2,"stamina":2},"desc":"선발 등판 시 정신·체력 +2"},{"id":"winning_relief","name":"필승계투","type":"pitcher","source":"training","when":"relief","boost":{"mental":2,"stamina":2},"desc":"중계 등판 시 정신·체력 +2"},{"id":"winning_closer","name":"필승마무리","type":"pitcher","source":"training","when":"closer","boost":{"mental":2,"stamina":2},"desc":"마무리 등판 시 정신·체력 +2"},{"id":"foreign_power_p","name":"용병파워","type":"pitcher","source":"training","when":"foreign","boost":{"mental":2,"stamina":2},"desc":"외국인 투수 등판 시 정신·체력 +2"},{"id":"ironman_p","name":"아이언맨","type":"pitcher","source":"training","when":"age43","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"43세 이상 시 구속·구위·제구·변화 +2"},{"id":"strong_waist","name":"강철허리","type":"pitcher","source":"training","when":"relief","boost":{"control":1,"break":1},"desc":"중계 등판 시 제구·변화 +1"},{"id":"positive_mind_p","name":"긍정적 마인드","type":"pitcher","source":"training","when":"scoring","boost":{"control":2},"desc":"득점권에서 제구 +2"},{"id":"late_chance_p","name":"와신상담","type":"pitcher","source":"training","when":"scoring","boost":{"stuff":1,"break":1,"control":1},"desc":"득점권에서 구위·변화·제구 +1"},{"id":"away_p","name":"타향살이","type":"pitcher","source":"training","when":"away","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"원정 경기에서 구속·구위·변화·제구 +2"},{"id":"battle_mode_p","name":"전투모드","type":"pitcher","source":"training","when":"round99","boost":{"control":2},"desc":"정규시즌 99~119차전에서 제구 +2"}];
+
+// Requested 145 additional skills are stored separately to keep the original catalog unchanged.
+const ADDITIONAL_SPECIALS=require('./additional-specials.json');
+SPECIAL_ABILITIES.push(...ADDITIONAL_SPECIALS);
 const SPECIAL_BY_ID=new Map(SPECIAL_ABILITIES.map(x=>[x.id,x]));
 // Resolve the position actually assigned in the saved batting/defensive lineup.
 // Skill ownership is independent of this position; only activation checks it.
@@ -98,6 +102,53 @@ function specialCondition(p,when,ctx={}){
  case 'relief':return ctx.pitcherRole==='relief';
  case 'closer':return ctx.pitcherRole==='closer';
  case 'round99':return Number.isInteger(ctx.round)&&ctx.round>=99&&ctx.round<=119;
+ case 'young':return p.age>=21&&p.age<=25;
+ case 'postseason':return ctx.postseason===true;
+ case 'lowerTeam':return ctx.teamComparison==='lower';
+ case 'upperTeam':return ctx.teamComparison==='upper';
+ case 'firstTeam':return ctx.opponentRank===1;
+ case 'losing3':return ctx.lossStreak>=3;
+ case 'winning3':return ctx.winStreak>=3;
+ case 'twoOutScoring':return ctx.scoringChance===true&&ctx.outs===2;
+ case 'emptyBases':return ctx.basesEmpty===true;
+ case 'loaded':return ctx.basesLoaded===true;
+ case 'runnerFirst':return ctx.runnerFirst===true;
+ case 'hitless3':return ctx.previousHitless>=3;
+ case 'strikeout2':return ctx.previousStrikeouts>=2;
+ case 'hits2':return ctx.previousHits>=2;
+ case 'closerScoring':return ctx.pitcherRole==='closer'&&ctx.scoringChance===true;
+ case 'pinch':return ctx.isPinchHitter===true;
+ case 'upperScoring':return ctx.teamComparison==='upper'&&ctx.scoringChance===true;
+ case 'winning9':return ctx.inning===9&&ctx.teamLeading===true;
+ case 'foreignPitcher':case 'foreignBatter':return ctx.opponentForeign===true;
+ case 'pitches60':return ctx.pitchCount<=60&&Number.isFinite(ctx.pitchCount);
+ case 'pitches80plus':return ctx.pitchCount>=80;
+ case 'inning8to9':return ctx.inning>=8&&ctx.inning<=9;
+ case 'inning6to8':return ctx.inning>=6&&ctx.inning<=8;
+ case 'inning7plus':return ctx.inning>=7;
+ case 'inning8plus':return ctx.inning>=8;
+ case 'inning9':return ctx.inning===9;
+ case 'extraInnings':return ctx.inning>=10;
+ case 'lastBatters':return ctx.opponentBattingIndex>=6&&ctx.opponentBattingIndex<=8;
+ case 'scoreless5':return ctx.scorelessInnings>=5;
+ case 'afterStrikeout':return ctx.afterStrikeout===true;
+ case 'teamHr2':return ctx.teamHomeRuns>=2;
+ case 'opponentLevel1':return ctx.opponentLevel===1;
+ case 'opponentLevel10':return ctx.opponentLevel===10;
+ case 'lowerOpponentLevel':return Number.isFinite(ctx.opponentLevel)&&ctx.opponentLevel<Math.max(1,Number(p.level)||1);
+ case 'opponentAge38':return ctx.opponentAge>=38;
+ case 'opponentPower80':return ctx.opponentPower>=80;
+ case 'opponentContact80':return ctx.opponentContact>=80;
+ case 'opponentSpeed80':return ctx.opponentSpeed>=80;
+ case 'opponentEye80':return ctx.opponentEye>=80;
+ case 'opponentVelocity80':return ctx.opponentVelocity>=80;
+ case 'opponentStuff80':return ctx.opponentStuff>=80;
+ case 'opponentControl80':return ctx.opponentControl>=80;
+ case 'opponentBreak80':return ctx.opponentBreak>=80;
+ case 'opponentVelocity85':return ctx.opponentVelocity>=85;
+ case 'opponentStuff85':return ctx.opponentStuff>=85;
+ case 'opponentControl85':return ctx.opponentControl>=85;
+ case 'opponentBreak85':return ctx.opponentBreak>=85;
  default:return false;
  }
 }
@@ -272,7 +323,7 @@ function gameTeam(c,average,name,seed,round=1){
  const pitchers=[...new Map(selected.map(x=>[x.id,x])).values()];if(!pitchers.length&&all[0])pitchers.push(all[0]);
  const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(Number(p.defense)||50)*(pos==='DH'||DEFENSE_NATIVE[p.pos]===pos?1:.84)},0)/Math.max(1,hitters.length);
  const positions=Object.fromEntries(hitters.map(p=>[p.id,matchFieldPosition(c,p)]));
- return {name,hitters,pitchers,defense,positions,round};
+ return {name,hitters,pitchers,defense,positions,round,winStreak:Math.max(0,Number(c.winStreak)||0),lossStreak:Math.max(0,Number(c.lossStreak)||0)};
 }
 function runGame(home,away,seed){
  return simulateGame({home,away,seed,stats:(p,ctx)=>p.id?.startsWith('AI-')?p:effectivePlayerStrength(p,ctx)});
@@ -523,7 +574,8 @@ else if(a.type==='drawSpecialAbility'){
  const existing=new Set(p.specialAbilities);
  // Every training skill for this batter/pitcher category can be drawn, even if
  // the player's current position or match situation cannot activate it.
- const pool=SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')&&x.source==='training'&&!existing.has(x.id));
+ const tierCount=tier=>p.specialAbilities.filter(id=>SPECIAL_BY_ID.get(id)?.tier===tier).length;
+ const pool=SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')&&x.source==='training'&&!existing.has(x.id)&&(!['legend','s'].includes(x.tier)||tierCount(x.tier)<2));
  if(!pool.length)throw Error('새로 배울 수 있는 특수능력이 없습니다');
  const picked=pool[crypto.randomInt(pool.length)];
  c.cp-=SPECIAL_DRAW_COST_CP;
@@ -653,6 +705,9 @@ else if(a.type==='friendly'){
  const time=Date.now(),game=runGame(gameTeam(c,0,c.name,'friendly-home-'+time,1),gameTeam(null,enemyStrength,opponent.name,'friendly-away-'+time,1),'friendly-'+c.id+'-'+time+'-'+c.friendlyDaily.used);
  const ours=game.home.runs,theirs=game.away.runs,outcome=ours>theirs?'win':ours<theirs?'loss':'draw';
  c.friendlyDaily.used++;
+ if(outcome==='win'){c.winStreak=(Number(c.winStreak)||0)+1;c.lossStreak=0}
+ else if(outcome==='loss'){c.lossStreak=(Number(c.lossStreak)||0)+1;c.winStreak=0}
+ else {c.winStreak=0;c.lossStreak=0}
  let cash=0,cp=0,drinks=0;
  // Friendly rewards: +50% to the previous win payouts. Draws now give a 25% consolation
  // reward of the enhanced win payout in the currency the manager chose.
