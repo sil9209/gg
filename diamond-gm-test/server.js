@@ -1,4 +1,5 @@
 const http=require('http'),fs=require('fs'),crypto=require('crypto');
+const {simulateGame}=require('./game-engine');
 const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
 const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomUUID();const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const names1=['김','박','이','최','정','강','조','윤','장','임','한','오','서','신','권','황'],names2=['도현','성준','재원','민수','지훈','태영','현우','주원','준혁','승민','태준','지성','건우','동현','진우','정민'];
@@ -109,7 +110,7 @@ function effectivePlayerStrength(p,ctx={}){
   for(const [stat,boost] of Object.entries(trait.boost))if(stat in values)values[stat]=Math.min(CAP,values[stat]+boost);
   activated.push({id:trait.id,name:trait.name});
  }
- return {strength:Object.values(values).reduce((a,b)=>a+b,0)/6,activated};
+ return {strength:Object.values(values).reduce((a,b)=>a+b,0)/6,values,activated};
 }
 
 const playerStrength=p=>statKeys(p).reduce((total,key)=>total+(Number(p[key])||0),0)/6;
@@ -258,34 +259,60 @@ function leagueMembers(c){
  const real=TEAMS.map(t=>db.clubs.filter(x=>tierNum(x)===tier&&(x.teamId||TEAMS[0].id)===t.id)[pool]||null);
  return {tier,pool,real};
 }
+/* Completed game results stay stable within the current server session. */
+const leagueGameCache=new Map();
+function gameTeam(c,average,name,seed,round=1){
+ if(!c){
+  const make=(i,pitcher)=>{const n=seedNum(seed+':'+(pitcher?'p':'b')+i)*12-6;const base=Math.max(20,Math.min(99,average+n));return {id:'AI-'+seed+'-'+(pitcher?'P':'B')+i,name:(pitcher?'AI 투수 ':'AI 타자 ')+(i+1),isPitcher:pitcher,condition:3,contact:base,power:base,eye:base,speed:base,defense:base,stuff:base,velocity:base,control:base,break:base,stamina:base,mental:base}};
+  return {name,hitters:Array.from({length:9},(_,i)=>make(i,false)),pitchers:Array.from({length:3},(_,i)=>make(i,true)),defense:average,round};
+ }
+ const hitters=(c.lineup||[]).map(id=>c.players.find(p=>p.id===id&&!p.isPitcher)).filter(Boolean).slice(0,9);
+ const rotation=c.pitcherRotation||{},all=c.players.filter(p=>p.isPitcher);
+ const selected=[rotation['starter'+(1+(round-1)%5)]||c.pitcher,rotation.relief1||c.pitcherAssignments?.relief,rotation.closer||c.pitcherAssignments?.closer].map(id=>all.find(p=>p.id===id)).filter(Boolean);
+ const pitchers=[...new Map(selected.map(x=>[x.id,x])).values()];if(!pitchers.length&&all[0])pitchers.push(all[0]);
+ const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(Number(p.defense)||50)*(pos==='DH'||DEFENSE_NATIVE[p.pos]===pos?1:.84)},0)/Math.max(1,hitters.length);
+ const positions=Object.fromEntries(hitters.map(p=>[p.id,matchFieldPosition(c,p)]));
+ return {name,hitters,pitchers,defense,positions,round};
+}
+function runGame(home,away,seed){
+ return simulateGame({home,away,seed,stats:(p,ctx)=>p.id?.startsWith('AI-')?p:effectivePlayerStrength(p,ctx).values});
+}
 function leagueInfo(c,now=Date.now()){
  const start=weekStart(now),{tier,pool,real}=leagueMembers(c);
  const members=TEAMS.map((t,i)=>real[i]?{id:real[i].id,name:t.name,real:true,club:real[i],teamId:t.id,ownerName:db.users.find(u=>u.id===real[i].owner)?.ownerName||db.users.find(u=>u.id===real[i].owner)?.username||'구단주'}:{id:'bot-'+pool+'-'+i,name:t.name,real:false,teamId:t.id,ownerName:'AI 감독'});
- const strength=m=>m.club?Math.round(teamMatchStrength(m.club,{isHome:true,scoringChance:false,late:false})):(Math.max(20,Math.min(99,LEAGUE_TIERS[tier].average+(seedNum(start+':'+tier+':'+m.teamId+':'+pool)*12-6))));
- const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,strength:strength(m),teamId:m.teamId,ownerName:m.ownerName}));
- const byId=Object.fromEntries(standings.map(t=>[t.id,t]));let order=[0,1,2,3,4,5,6,7,8,9],games=[],seasonIndex=0;
+ const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,teamId:m.teamId,ownerName:m.ownerName}));
+ const byId=Object.fromEntries(standings.map(t=>[t.id,t]));let order=[0,1,2,3,4,5,6,7,8,9],games=[];
  for(let r=0;r<144;r++){
-   for(let j=0;j<5;j++){let a=order[j],b=order[9-j];if(r%2===1)[a,b]=[b,a];
-     games.push({round:r+1,slot:Math.floor(r*120/144),home:members[a].id,away:members[b].id})}
-   order=[order[0],order[9],...order.slice(1,9)]
+  for(let j=0;j<5;j++){let a=order[j],b=order[9-j];if(r%2===1)[a,b]=[b,a];games.push({round:r+1,slot:Math.floor(r*120/144),home:members[a].id,away:members[b].id})}
+  order=[order[0],order[9],...order.slice(1,9)];
  }
- // 120 hourly slots: Sun-Thu, one to two full rounds per hour, Fri rest.
  function slotTime(slot){return start+Math.floor(slot/24)*86400000+(slot%24)*3600000}
- function score(g){const a=byId[g.home],b=byId[g.away],key=[start,pool,g.round,g.home,g.away].join('|'),base=seedNum(key),base2=seedNum(key+'x'),ctx={scoringChance:seedNum(key+':scoring')<.48,late:seedNum(key+':late')<.35,round:g.round},ah=db.clubs.find(c=>c.id===a.id),bc=db.clubs.find(c=>c.id===b.id),powerA=ah?teamMatchStrength(ah,{...ctx,isHome:true}):a.strength,powerB=bc?teamMatchStrength(bc,{...ctx,isHome:false}):b.strength,aRun=Math.max(0,Math.round(3+(powerA-powerB)*.06+base*6-2)),bRun=Math.max(0,Math.round(3+(powerB-powerA)*.06+base2*6-2));return [aRun,bRun]}
- const completed=games.filter(g=>slotTime(g.slot)<=now);for(const g of completed){let [h,a]=score(g);let t1=byId[g.home],t2=byId[g.away];t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
+ function result(g){
+  const key=[start,tier,pool,g.round,g.home,g.away].join('|');
+  if(leagueGameCache.has(key))return leagueGameCache.get(key);
+  const h=members.find(m=>m.id===g.home),a=members.find(m=>m.id===g.away);
+  const strength=LEAGUE_TIERS[tier].average;
+  const box=runGame(gameTeam(h.club,strength,h.name,key+':home',g.round),gameTeam(a.club,strength,a.name,key+':away',g.round),key);
+  leagueGameCache.set(key,box);
+  if(leagueGameCache.size>12000)leagueGameCache.delete(leagueGameCache.keys().next().value);
+  return box;
+ }
+ const completed=games.filter(g=>slotTime(g.slot)<=now);
+ for(const g of completed){const box=result(g),h=box.home.runs,a=box.away.runs,t1=byId[g.home],t2=byId[g.away];t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
  const next=games.find(g=>slotTime(g.slot)>now);
- const recent=completed.filter(g=>g.home===c.id||g.away===c.id).slice(-8).reverse().map(g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,score:score(g).join(' : '),time:slotTime(g.slot)}));
- const upcoming=games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).slice(0,6).map(g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)}));
+ const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
+ const recent=completed.filter(g=>g.home===c.id||g.away===c.id).slice(-8).reverse().map(g=>{const box=result(g);return {...decorate(g),score:box.home.runs+' : '+box.away.runs,detail:box}});
+ const upcoming=games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).slice(0,6).map(decorate);
  let postseason=[];
  if(now>=start+6*86400000){
-   let top=standings.slice(0,4),semi=[[top[0],top[3]],[top[1],top[2]]].map((x,i)=>({label:'준플레이오프 '+(i+1),home:x[0].name,away:x[1].name,homeTeamId:x[0].teamId,awayTeamId:x[1].teamId,homeOwnerName:x[0].ownerName,awayOwnerName:x[1].ownerName,score:null,time:start+6*86400000+(12+i*3)*3600000}));
-   postseason=semi;
-   if(now>=semi[0].time)semi[0].score='3 : '+(Math.floor(seedNum(start+'semi0')*4));
-   if(now>=semi[1].time)semi[1].score='4 : '+(Math.floor(seedNum(start+'semi1')*4));
-   if(now>=start+6*86400000+20*3600000)postseason.push({label:'챔피언 결정전',home:top[0].name,away:top[1].name,homeTeamId:top[0].teamId,awayTeamId:top[1].teamId,homeOwnerName:top[0].ownerName,awayOwnerName:top[1].ownerName,score:'5 : 3',time:start+6*86400000+20*3600000});
+  let top=standings.slice(0,4),semi=[[top[0],top[3]],[top[1],top[2]]].map((x,i)=>({label:'준플레이오프 '+(i+1),home:x[0].name,away:x[1].name,homeTeamId:x[0].teamId,awayTeamId:x[1].teamId,homeOwnerName:x[0].ownerName,awayOwnerName:x[1].ownerName,score:null,time:start+6*86400000+(12+i*3)*3600000}));
+  postseason=semi;
+  if(now>=semi[0].time)semi[0].score='3 : '+Math.floor(seedNum(start+'semi0')*4);
+  if(now>=semi[1].time)semi[1].score='4 : '+Math.floor(seedNum(start+'semi1')*4);
+  if(now>=start+6*86400000+20*3600000)postseason.push({label:'챔피언 결정전',home:top[0].name,away:top[1].name,homeTeamId:top[0].teamId,awayTeamId:top[1].teamId,homeOwnerName:top[0].ownerName,awayOwnerName:top[1].ownerName,score:'5 : 3',time:start+6*86400000+20*3600000});
  }
- return {tier,tierName:LEAGUE_TIERS[tier].name,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(({strength,...t})=>t),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
+ return {tier,tierName:LEAGUE_TIERS[tier].name,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
 function settleSeasons(now=Date.now()){
@@ -602,53 +629,39 @@ else if(a.type==='friendly'){
  if(c.friendlyDaily.used>=10)throw Error('오늘의 친선경기 10회를 모두 사용했습니다');
  const tier=Math.max(0,Math.min(LEAGUE_TIERS.length-1,Math.trunc(Number(a.tier)||0)));
  const rewardType=String(a.reward||'cash');if(!['cash','cp'].includes(rewardType))throw Error('보상 종류가 잘못되었습니다');
- const opposition=LEAGUE_TIERS[tier],enemyStrength=Math.max(20,Math.min(99.99,opposition.average+(Math.random()-.5)*8));
- const bats=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),starter=c.players.find(p=>p.id===c.pitcher);
- if(!bats.length||!starter)throw Error('경기에 나갈 선수단을 지정하세요');
- const participating=[...bats,starter];
- const gameConditions={isHome:true,scoringChance:Math.random()<.48,late:Math.random()<.35};
- const playerEffects=new Map(participating.map((p,index)=>{
-  const pitcherRole=p.isPitcher?(p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'):null;
-  return [p.id,effectivePlayerStrength(p,{...gameConditions,battingIndex:p.isPitcher?null:index,pitcherRole,fieldPosition:p.isPitcher?null:matchFieldPosition(c,p)})];
- }));
- const strength=p=>playerEffects.get(p.id).strength*(.8+(p.condition||3)*.05);
- const oursAvg=participating.reduce((sum,p)=>sum+strength(p),0)/participating.length;
- const ours=Math.max(0,Math.round(4+(oursAvg-enemyStrength)*.14+(Math.random()-.5)*6));
- const theirs=Math.max(0,Math.round(4+(enemyStrength-oursAvg)*.14+(Math.random()-.5)*6));
- const outcome=ours>theirs?'win':ours<theirs?'loss':'draw';
+ const opponent=LEAGUE_TIERS[tier],enemyStrength=Math.max(20,Math.min(99.99,opponent.average+(Math.random()-.5)*8));
+ const time=Date.now(),game=runGame(gameTeam(c,0,c.name,'friendly-home-'+time,1),gameTeam(null,enemyStrength,opponent.name,'friendly-away-'+time,1),'friendly-'+c.id+'-'+time+'-'+c.friendlyDaily.used);
+ const ours=game.home.runs,theirs=game.away.runs,outcome=ours>theirs?'win':ours<theirs?'loss':'draw';
  c.friendlyDaily.used++;
  let cash=0,cp=0,drinks=0;
- if(outcome==='win'){
-  if(rewardType==='cash'){cash=Math.round((1000000+tier*1200000+enemyStrength*45000)/100000)*100000;c.cash+=cash}
-  else{cp=Math.max(1,Math.round(2+tier*1.6+enemyStrength/25));c.cp+=cp}
- }else if(outcome==='loss'){drinks=10;c.sportsDrinks=(c.sportsDrinks||0)+10}
+ if(outcome==='win'){if(rewardType==='cash'){cash=Math.round((1000000+tier*1200000+enemyStrength*45000)/100000)*100000;c.cash+=cash}else{cp=Math.max(1,Math.round(2+tier*1.6+enemyStrength/25));c.cp+=cp}}
+ else if(outcome==='loss'){drinks=10;c.sportsDrinks=(c.sportsDrinks||0)+10}
+ const participating=[...c.lineup,c.pitcher].map(id=>c.players.find(p=>p.id===id)).filter(Boolean);
  const playerStats=[];
  for(const p of participating){
-  ensurePlayer(p);
-  const before=p.condition;
-  const ability=strength(p),performance=Math.random()*100+(ability-enemyStrength)*.42;
-  let summary,delta;
-  if(p.isPitcher){
-   const innings=6+rand(0,3),earned=Math.max(0,Math.round(theirs*(innings/9)+Math.random()-.5)),strikeouts=Math.max(0,Math.round(innings*(.38+Math.random())));
-   summary=innings+'이닝 '+earned+'자책 '+strikeouts+'탈삼진';
-   delta=earned<=1&&strikeouts>=4?1:earned>=4?-1:performance>=76?1:performance<35?-1:0;
-   p.era=Math.round(earned*9/innings*100)/100;
-  }else{
-   const atBats=rand(3,5),hits=Math.min(atBats,Math.max(0,Math.floor(performance/25))),hr=hits&&Math.random()<.09?1:0;
-   summary=atBats+'타수 '+hits+'안타'+(hr?' '+hr+'홈런':'');
-   delta=hits>=3||hr?1:hits===0?-1:performance>=80?1:performance<35?-1:0;
-   p.hr=(p.hr||0)+hr;p.avg=((Number(p.avg)||0)*(p.games||0)+hits/atBats)/((p.games||0)+1);
-  }
+  const bat=game.home.batters.find(x=>x.id===p.id),pitch=game.home.pitchers.find(x=>x.id===p.id),before=p.condition;
+  const good=p.isPitcher?pitch&&pitch.er<=1:bat&&(bat.h>=3||bat.hr>0);
+  const poor=p.isPitcher?pitch&&pitch.er>=4:bat&&bat.ab>=3&&bat.h===0;
+  p.condition=Math.max(1,Math.min(5,before+(good?1:poor?-1:0)));
   p.games=(p.games||0)+1;
-  p.condition=Math.max(1,Math.min(5,before+delta));
-  playerStats.push({id:p.id,name:p.name,position:p.pos,summary,before,after:p.condition,delta:p.condition-before,activatedAbilities:playerEffects.get(p.id)?.activated||[]});
+  if(bat){p.hr=(p.hr||0)+bat.hr;p.avg=((Number(p.avg)||0)*Math.max(0,p.games-1)+(bat.ab?bat.h/bat.ab:0))/p.games}
+  if(pitch)p.era=pitch.era;
+  playerStats.push({id:p.id,name:p.name,position:p.pos,summary:bat?bat.ab+'타수 '+bat.h+'안타 '+bat.hr+'홈런':pitch?pitch.ip+'이닝 '+pitch.er+'자책 '+pitch.so+'탈삼진':'미출전',before,after:p.condition,delta:p.condition-before,activatedAbilities:[]});
  }
  applyTeamGameGrowth(c,1,participating.map(p=>p.id));
- const entry={time:Date.now(),tier,opponent:opposition.name,enemyStrength:Number(enemyStrength.toFixed(2)),ours,theirs,outcome,cash,cp,drinks,playerStats};
+ const entry={time,tier,opponent:opponent.name,enemyStrength:Number(enemyStrength.toFixed(2)),ours,theirs,outcome,cash,cp,drinks,playerStats,detail:game};
  c.friendlyHistory=Array.isArray(c.friendlyHistory)?c.friendlyHistory:[];c.friendlyHistory.unshift(entry);c.friendlyHistory=c.friendlyHistory.slice(0,20);
  result={message:'친선경기 '+(outcome==='win'?'승리':outcome==='loss'?'패배':'무승부'),friendly:entry};
 }
-else if(a.type==='play'){fix(c);const bat=c.lineup.map(id=>c.players.find(p=>p.id===id)).filter(Boolean),p=c.players.find(x=>x.id===c.pitcher),context={isHome:true,scoringChance:Math.random()<.48,late:Math.random()<.35},off=bat.reduce((sum,x,index)=>sum+effectivePlayerStrength(x,{...context,battingIndex:index,fieldPosition:matchFieldPosition(c,x)}).strength,0)/Math.max(1,bat.length),def=p?effectivePlayerStrength(p,{...context,pitcherRole:p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'}).strength:40;const ours=Math.max(0,Math.round(2+off/22+Math.random()*5-2)),theirs=Math.max(0,Math.round(4.5-def/28+Math.random()*5-2));if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;for(const x of bat){x.games++;if(Math.random()<.18)x.hr++;x.avg=Math.min(.45,Math.max(.15,(x.avg*(x.games-1)+(Math.random()*.25+.18))/x.games))}if(p){p.games++;p.era=Math.round(Math.random()*650)/100}applyTeamGameGrowth(c,1,[...bat.map(x=>x.id),p?.id].filter(Boolean));result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs}}
+else if(a.type==='play'){
+ fix(c);
+ const time=Date.now(),game=runGame(gameTeam(c,0,c.name,'exhibition-home-'+time,1),gameTeam(null,55,'AI 구단','exhibition-away-'+time,1),'exhibition-'+c.id+'-'+time);
+ const ours=game.home.runs,theirs=game.away.runs;
+ if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;
+ c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;
+ const active=[...c.lineup,c.pitcher].filter(Boolean);applyTeamGameGrowth(c,1,active);
+ result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs,detail:game};
+}
 else throw Error('알 수 없는 동작');}
 topUpAdminWallet(u,c);save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
 let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
