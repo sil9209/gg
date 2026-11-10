@@ -1,6 +1,41 @@
 const http=require('http'),fs=require('fs'),crypto=require('crypto');
 const {simulateGame}=require('./game-engine');
 const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
+// Paid rewarded ads require a verified advertiser event; browser events alone never issue currency.
+const AD_REWARD_CP=500,AD_DAILY_LIMIT=1;
+const GAM_REWARDED_UNIT=String(process.env.GM_REWARDED_AD_UNIT||'').trim();
+const AD_WEBHOOK_SECRET=String(process.env.GM_REWARDED_AD_WEBHOOK_SECRET||'');
+const AD_REWARDS_ENABLED=process.env.GM_REWARDED_AD_ENABLED==='true'&&
+ GAM_REWARDED_UNIT.startsWith('/')&&GAM_REWARDED_UNIT.split('/').length>=3&&AD_WEBHOOK_SECRET.length>=32;
+const seoulRewardDay=()=>new Date(Date.now()+32400000).toISOString().slice(0,10);
+function rewardUsage(c){
+ const day=seoulRewardDay(),current=c?.rewardedAdDaily||{};
+ return {day,used:current.day===day?Math.max(0,Number(current.used)||0):0};
+}
+async function verifiedAdWebhook(req,res){
+ if(!AD_REWARDS_ENABLED)return send(res,503,{error:'보상형 광고 미연동'});
+ let raw='';for await(const chunk of req){raw+=chunk;if(raw.length>4096)return send(res,413,{error:'요청 초과'})}
+ const supplied=String(req.headers['x-gm-ad-signature']||'');
+ const expected=crypto.createHmac('sha256',AD_WEBHOOK_SECRET).update(raw).digest('hex');
+ const safe=supplied.length===64&&/^[a-f0-9]+$/i.test(supplied)&&crypto.timingSafeEqual(Buffer.from(supplied,'hex'),Buffer.from(expected,'hex'));
+ if(!safe)return send(res,403,{error:'서버 검증 실패'});
+ let data;try{data=JSON.parse(raw)}catch{return send(res,400,{error:'잘못된 요청'})}
+ const nonce=String(data.nonce||''),eventId=String(data.eventId||''),timestamp=Number(data.timestamp);
+ if(nonce.length!==36||eventId.length<8||eventId.length>160||!Number.isFinite(timestamp)||Math.abs(Date.now()-timestamp)>300000)return send(res,400,{error:'유효하지 않은 광고 확인 정보'});
+ db.rewardedAdTransactions=db.rewardedAdTransactions||[];
+ if(db.rewardedAdTransactions.includes(eventId))return send(res,200,{ok:true,duplicate:true});
+ const c=db.clubs.find(x=>x.rewardedAdPending?.nonce===nonce&&Date.now()-x.rewardedAdPending.createdAt<20*60000);
+ if(!c)return send(res,404,{error:'승인 대기 광고 기록 없음'});
+ const used=rewardUsage(c);
+ if(used.used>=AD_DAILY_LIMIT)return send(res,409,{error:'오늘 지급 한도 초과'});
+ c.cp=(Number(c.cp)||0)+AD_REWARD_CP;
+ c.rewardedAdDaily={day:used.day,used:used.used+1};
+ c.rewardedAdPending=null;
+ db.rewardedAdTransactions.push(eventId);
+ db.rewardedAdTransactions=db.rewardedAdTransactions.slice(-20000);
+ save();
+ return send(res,200,{ok:true,rewardCP:AD_REWARD_CP});
+}
 const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomUUID();const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const names1=['김','박','이','최','정','강','조','윤','장','임','한','오','서','신','권','황'],names2=['도현','성준','재원','민수','지훈','태영','현우','주원','준혁','승민','태준','지성','건우','동현','진우','정민'];
 const foreignFirst=['알렉스','데이비드','마이클','카를로스','루이스','호세','윌리엄','제이슨','로버트','타일러','마르코','에릭','다니엘','브랜든','케빈','앤서니'];
@@ -470,7 +505,7 @@ function makeScoutPlayer(owner,kind,currency,era){
  return p;
 }
 
-const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -656,6 +691,13 @@ else if(a.type==='shopSave'){
  }
  result={message:slot+'번 상품이 '+(db.shopCatalog[slot-1].active?'판매 중으로 저장':'입고중으로 저장')+'되었습니다'};
 }
+else if(a.type==='rewardAdStart'){
+ if(!AD_REWARDS_ENABLED)throw Error('광고 수익 서비스 연결 후 이용할 수 있습니다');
+ if(rewardUsage(c).used>=AD_DAILY_LIMIT)throw Error('오늘의 추가지원 광고 시청 한도를 사용했습니다');
+ if(c.rewardedAdPending&&Date.now()-c.rewardedAdPending.createdAt<60000)throw Error('이전 광고 확인이 진행 중입니다');
+ c.rewardedAdPending={nonce:uid(),createdAt:Date.now()};
+ result={message:'광고 요청 준비 완료',adNonce:c.rewardedAdPending.nonce};
+}
 else if(a.type==='shopBuy'){
  const offer=shopCatalog().find(x=>x.id===String(a.item||'')&&x.active===true);
  if(!offer||!['sportsDrink','growthBooster'].includes(offer.kind))throw Error('판매 중인 상품이 아닙니다');
@@ -751,5 +793,5 @@ else if(a.type==='play'){
 }
 else throw Error('알 수 없는 동작');}
 topUpAdminWallet(u,c);save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
-let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
+let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(url.pathname==='/api/rewarded-verify'&&req.method==='POST'){queue=queue.then(()=>verifiedAdWebhook(req,res)).catch(()=>send(res,500,{error:'광고 확인 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
 if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
