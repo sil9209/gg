@@ -1123,6 +1123,24 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-finance-table table{min-width:620px;width:100%}.gm-finance-table th,.gm-finance-table td{font-size:12px}.gm-finance-table td:last-child,.gm-finance-table th:last-child{text-align:right}
 .gm-finance-table tfoot td{background:#eef5fc;font-weight:850}.gm-finance-note{font-size:11px;color:#8092a7;line-height:1.8;margin-bottom:18px}
 @media(max-width:750px){.gm-finance-grid{grid-template-columns:1fr}.gm-finance-squads{grid-template-columns:1fr}.gm-finance-kpi{padding:14px 16px}}
+
+/* First-team player selection for sports drinks and growth boosters. */
+.gm-lineup-item-content{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:12px!important;padding:16px 18px 12px!important;min-width:0!important}
+.gm-item-select{display:flex!important;flex-direction:column!important;width:100%;min-width:0!important;overflow:hidden!important}
+.gm-item-selection-label{font-size:12px;color:#728fa7;font-weight:800}
+.gm-item-card-track{width:100%;max-width:100%;min-width:0;display:flex;gap:11px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none;scroll-snap-type:x mandatory;touch-action:pan-x;user-select:none;-webkit-user-select:none;cursor:grab;padding:5px 3px 9px}
+.gm-item-card-track::-webkit-scrollbar{display:none;height:0;width:0}
+.gm-item-card-track.dragging{cursor:grabbing;scroll-snap-type:none}
+.gm-item-player-card{box-sizing:border-box!important;flex:0 0 158px!important;width:158px!important;min-width:158px!important;max-width:158px!important;height:158px!important;min-height:158px!important;max-height:158px!important;aspect-ratio:1 / 1!important;display:flex!important;flex-direction:column!important;justify-content:space-between!important;gap:4px!important;align-items:stretch!important;text-align:left!important;padding:12px!important;border:2px solid #d5e3f2!important;border-radius:12px!important;background:#f7fbff!important;color:#234363!important;box-shadow:none!important;scroll-snap-align:start;cursor:pointer}
+.gm-item-player-card.selected{border-color:#2878c5!important;background:#e8f3ff!important;box-shadow:0 0 0 2px #b2d5f5!important}
+.gm-item-player-card strong{font-size:13px;font-weight:900;line-height:1.35;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gm-item-player-card span,.gm-item-player-card small{font-size:11px;line-height:1.4;color:#6687a3}
+.gm-item-card-head{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.gm-item-card-head b{font-size:10px;color:#50799c;background:#e9f1fa;border-radius:6px;padding:3px 5px}
+.gm-item-player-card.selected .gm-item-card-head b{background:#d0e5fb}
+.gm-item-player-card .gm-item-card-check{font-size:15px;font-weight:900;color:#2276c8!important}
+.gm-lineup-item-content .gm-item-actions{width:100%;max-width:560px;align-self:flex-start}
+@media(max-width:700px){.gm-lineup-item-content{padding:12px!important}.gm-item-player-card{flex:0 0 136px!important;width:136px!important;min-width:136px!important;max-width:136px!important;height:136px!important;min-height:136px!important;max-height:136px!important;padding:9px!important}.gm-item-player-card strong{font-size:12px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1569,7 +1587,8 @@ function renderLineup(){
  if(!lineupItemRoster.some(p=>p.id===lineupItemPlayerId))lineupItemPlayerId=lineupItemRoster[0]?.id||null;
  const chosenItemPlayer=byId(lineupItemPlayerId);
  const itemPanel='<section class="gm-panel gm-lineup-items"><header class="gm-panel-head"><div><span class="gm-panel-kicker">TEAM ITEMS</span><h3>🎒 선수 아이템 사용</h3></div><span class="gm-panel-hint">타순 편성 중 선수에게 아이템 적용</span></header>'+
- '<div class="gm-lineup-item-content"><div class="gm-item-select"><label for="gmItemTarget">아이템 적용 선수</label><select id="gmItemTarget">'+lineupItemRoster.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===lineupItemPlayerId?'selected':'')+'>'+esc(playerLabel(p))+' · '+esc(p.pos)+'</option>').join('')+'</select><div id="gmItemTargetStatus">'+(chosenItemPlayer?g(chosenItemPlayer)+' '+conditionLabel(chosenItemPlayer):'선수를 선택하세요')+'</div></div>'+
+ '<div class="gm-lineup-item-content"><div class="gm-item-select"><div class="gm-item-selection-label">1군 선수 선택 · 좌우로 드래그</div><div class="gm-item-card-track" id="gmItemPlayerTrack" aria-label="1군 선수 선택">'+
+ (lineupItemRoster.length?lineupItemRoster.map(p=>'<button type="button" class="gm-item-player-card '+(p.id===lineupItemPlayerId?'selected':'')+'" data-item-player="'+esc(p.id)+'" aria-pressed="'+(p.id===lineupItemPlayerId)+'"><div class="gm-item-card-head"><b>1군 · '+(p.isPitcher?'투수':'타자')+'</b><span class="gm-item-card-check">'+(p.id===lineupItemPlayerId?'✓':'')+'</span></div><strong>'+esc(playerLabel(p))+'</strong><span>'+esc(p.pos)+' · Lv.'+Math.max(1,Number(p.level)||1)+'</span><small>종합 '+overall(p)+' · '+esc(p.grade)+'등급</small></button>').join(''):'<p class="muted">배치된 1군 선수가 없습니다.</p>')+'</div><div id="gmItemTargetStatus">'+(chosenItemPlayer?g(chosenItemPlayer)+' '+conditionLabel(chosenItemPlayer):'선수를 선택하세요')+'</div></div>'+
  '<div class="gm-item-actions"><button type="button" id="gmItemDrink" '+(!chosenItemPlayer||(c.sportsDrinks||0)<1||chosenItemPlayer.condition>=5?'disabled':'')+'><b>🥤 스포츠음료 사용</b><small>보유 '+(c.sportsDrinks||0)+'개 · 컨디션 +1</small></button>'+
  '<button type="button" id="gmItemBoost" '+(!chosenItemPlayer||(c.growthBoosters||0)<1||chosenItemPlayer.grade==='S'?'disabled':'')+'><b>🚀 성장부스터 사용</b><small>보유 '+(c.growthBoosters||0)+'개 · 성장타입 S</small></button></div></div>'+
  '<p class="gm-item-explainer">성장타입 S는 A보다 2배 빠르게 성장합니다. 최대 능력치 99.99 및 45세 은퇴 규칙은 동일합니다.</p></section>';
@@ -1581,21 +1600,59 @@ function renderLineup(){
  document.querySelectorAll('[data-gm-bench-profile]').forEach(btn=>btn.onclick=()=>{const p=byId(btn.dataset.gmBenchProfile);if(p)openPlayerProfile(p)});
  document.querySelectorAll('[data-gm-bench-edit]').forEach(btn=>btn.onclick=showBenchPicker);
  document.getElementById('gmBenchEdit')?.addEventListener('click',showBenchPicker);
- const itemTarget=document.getElementById('gmItemTarget'),drinkButton=document.getElementById('gmItemDrink'),boostButton=document.getElementById('gmItemBoost');
- itemTarget.onchange=()=>{
-  lineupItemPlayerId=itemTarget.value;
-  const p=byId(lineupItemPlayerId);
+ const itemTrack=document.getElementById('gmItemPlayerTrack'),drinkButton=document.getElementById('gmItemDrink'),boostButton=document.getElementById('gmItemBoost');
+ const selectItemPlayer=id=>{
+  if(!lineupItemRoster.some(p=>p.id===id))return;
+  lineupItemPlayerId=id;
+  const p=byId(id);
+  itemTrack.querySelectorAll('[data-item-player]').forEach(card=>{
+   const chosen=card.dataset.itemPlayer===id;
+   card.classList.toggle('selected',chosen);
+   card.setAttribute('aria-pressed',String(chosen));
+   card.querySelector('.gm-item-card-check').textContent=chosen?'✓':'';
+  });
   document.getElementById('gmItemTargetStatus').innerHTML=p?g(p)+' '+conditionLabel(p):'선수를 선택하세요';
   drinkButton.disabled=!p||(state.club.sportsDrinks||0)<1||p.condition>=5;
   boostButton.disabled=!p||(state.club.growthBoosters||0)<1||p.grade==='S';
  };
+ {
+  let pointerDown=false,dragged=false,startX=0,startScroll=0,pendingId=null,suppressClick=false;
+  itemTrack.addEventListener('pointerdown',e=>{
+   if(e.pointerType==='touch'||e.button!==0)return;
+   pointerDown=true;dragged=false;
+   pendingId=e.target.closest('[data-item-player]')?.dataset.itemPlayer||null;
+   startX=e.clientX;startScroll=itemTrack.scrollLeft;itemTrack.setPointerCapture(e.pointerId);
+  });
+  itemTrack.addEventListener('pointermove',e=>{
+   if(!pointerDown)return;
+   const delta=e.clientX-startX;
+   if(Math.abs(delta)>5)dragged=true;
+   if(dragged){itemTrack.classList.add('dragging');itemTrack.scrollLeft=startScroll-delta}
+  });
+  itemTrack.addEventListener('pointerup',()=>{
+   if(!pointerDown)return;
+   pointerDown=false;
+   if(dragged)suppressClick=true;
+   else if(pendingId)selectItemPlayer(pendingId);
+   pendingId=null;dragged=false;itemTrack.classList.remove('dragging');
+  });
+  itemTrack.addEventListener('pointercancel',()=>{pointerDown=false;dragged=false;pendingId=null;itemTrack.classList.remove('dragging')});
+  itemTrack.addEventListener('click',e=>{
+   if(suppressClick){e.preventDefault();e.stopPropagation();suppressClick=false;return}
+   if(e.detail===0||e.pointerType==='touch'){
+    const card=e.target.closest('[data-item-player]');
+    if(card)selectItemPlayer(card.dataset.itemPlayer);
+   }
+  },true);
+  itemTrack.addEventListener('dragstart',e=>e.preventDefault());
+ }
  drinkButton.onclick=()=>{
-  const p=byId(itemTarget.value);
-  if(p&&!drinkButton.disabled)gmConfirm(p.name+' 선수에게 스포츠음료 1개를 사용하시겠습니까?').then(ok=>{if(ok)api({type:'useDrink',id:p.id})});
+  const p=byId(lineupItemPlayerId);
+  if(p&&lineupItemRoster.some(x=>x.id===p.id)&&!drinkButton.disabled)gmConfirm(p.name+' 선수에게 스포츠음료 1개를 사용하시겠습니까?').then(ok=>{if(ok)api({type:'useDrink',id:p.id})});
  };
  boostButton.onclick=()=>{
-  const p=byId(itemTarget.value);
-  if(p&&!boostButton.disabled)gmConfirm(p.name+' 선수에게 성장부스터를 사용하여 성장타입을 S로 영구 변경하시겠습니까?').then(ok=>{if(ok)api({type:'useGrowthBooster',id:p.id})});
+  const p=byId(lineupItemPlayerId);
+  if(p&&lineupItemRoster.some(x=>x.id===p.id)&&!boostButton.disabled)gmConfirm(p.name+' 선수에게 성장부스터를 사용하여 성장타입을 S로 영구 변경하시겠습니까?').then(ok=>{if(ok)api({type:'useGrowthBooster',id:p.id})});
  };
 
  document.querySelectorAll('[data-gm-up]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.gmUp),Number(btn.dataset.gmUp)-1));
