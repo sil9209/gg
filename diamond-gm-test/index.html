@@ -1864,7 +1864,7 @@ function confirmBatchScoutDecision({recruits,releases,reward}){
   let finished=false;
   function close(confirmed){
    if(finished)return;
-   finished=true;document.removeEventListener('keydown',onKeydown);
+   finished=true;document.removeEventListener('keydown',onKeydown,true);
    overlay.remove();
    if(previousFocus?.isConnected)previousFocus.focus();
    resolve(confirmed);
