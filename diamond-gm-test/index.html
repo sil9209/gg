@@ -1071,6 +1071,9 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-special-card-top{display:flex;justify-content:space-between;align-items:center}.gm-special-card-name{font-size:14px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gm-special-card-sub{font-size:11px;color:#718aa2;line-height:1.6}.gm-special-card-skills{font-size:11px;font-weight:800;color:#327bb4}.gm-special-carousel-note{font-size:11px;color:#899bad;margin:0 0 8px}
 .gm-confirm-eyebrow{font-size:10px;font-weight:900;letter-spacing:.15em;color:#4687c2;margin-bottom:7px}.gm-confirm-dialog h3{font-size:20px;line-height:1.35;margin:0 0 12px;color:#234363}.gm-confirm-message{font-size:13px;white-space:pre-line;line-height:1.8;color:#596f86;margin-bottom:20px}.gm-confirm-actions{display:flex;justify-content:flex-end;gap:9px}.gm-confirm-actions button{min-width:88px}.gm-confirm-actions .primary{color:#fff}
 .gm-nav-dock{bottom:auto!important;top:var(--gm-dock-top,auto)}.gm-nav-toggle{touch-action:none}.gm-nav-dock.is-dragging .gm-nav-toggle{cursor:grabbing!important}
+@media(min-width:741px){.gm-training-row{grid-template-columns:minmax(155px,1.2fr) minmax(140px,1fr) auto auto auto}}
+@media(min-width:741px) and (max-width:1000px){.gm-training-row{grid-template-columns:minmax(170px,1fr) minmax(140px,1fr) auto auto}.gm-training-row .gm-training-upgrade{grid-column:4}}
+@media(max-width:740px){.gm-training-row{grid-template-columns:minmax(0,1fr) auto auto!important}.gm-training-person{grid-column:1 / -1}.gm-growth-select-label{grid-column:1 / -1}.gm-training-row .gm-training-upgrade{grid-column:1 / -1}}
 @media(max-width:650px){.gm-filter-button{padding:7px 12px!important}.gm-special-card{flex-basis:136px}.gm-training-row{gap:7px}.gm-growth-rate{font-size:10px}.gm-growth-open{font-size:10px!important}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
@@ -1650,12 +1653,12 @@ function gmConfirm(message,{title='진행 확인',confirmText='확인',danger=fa
 }
 function bindSpecialCarousel(){
  const track=document.getElementById('specialPlayerCards');if(!track)return;
- let startX=0,startScroll=0,dragged=false,active=false;
- track.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;active=true;dragged=false;startX=e.clientX;startScroll=track.scrollLeft;track.setPointerCapture(e.pointerId)});
+ let startX=0,startScroll=0,dragged=false,active=false,pendingId=null;
+ track.addEventListener('pointerdown',e=>{if(e.pointerType==='touch')return;active=true;dragged=false;pendingId=e.target.closest('[data-special-player]')?.dataset.specialPlayer||null;startX=e.clientX;startScroll=track.scrollLeft;track.setPointerCapture(e.pointerId)});
  track.addEventListener('pointermove',e=>{if(!active)return;const dx=e.clientX-startX;if(Math.abs(dx)>5)dragged=true;if(dragged){track.classList.add('dragging');track.scrollLeft=startScroll-dx}});
- track.addEventListener('pointerup',()=>{active=false;setTimeout(()=>track.classList.remove('dragging'),50)});
+ track.addEventListener('pointerup',()=>{if(active&&!dragged&&pendingId){specialTrainPlayerId=pendingId;active=false;content();return}active=false;pendingId=null;setTimeout(()=>track.classList.remove('dragging'),50)});
  track.addEventListener('pointercancel',()=>{active=false;track.classList.remove('dragging')});
- track.addEventListener('click',e=>{if(dragged){e.preventDefault();e.stopPropagation();dragged=false;return}const card=e.target.closest('[data-special-player]');if(card){specialTrainPlayerId=card.dataset.specialPlayer;content()}},true);
+ track.addEventListener('click',e=>{if(dragged){e.preventDefault();e.stopPropagation();dragged=false;return}if(e.detail===0||e.pointerType==='touch'){const card=e.target.closest('[data-special-player]');if(card){specialTrainPlayerId=card.dataset.specialPlayer;content()}}},true);
 }
 function bindGameDockDrag(){
  const dock=document.getElementById('gmNavDock'),handle=document.getElementById('gmNavToggle'),panel=document.getElementById('gmNavPanel');
