@@ -942,6 +942,9 @@ select{max-width:100%;min-width:0;box-sizing:border-box;vertical-align:middle}
 .gm-batch-avatar{display:inline-flex;align-items:center;flex:none}
 .gm-batch-card .gm-special-badges{width:auto;margin:0;padding:0}
 .gm-batch-card .gm-special-tag{font-size:9px;padding:3px 5px}
+
+.gm-special-work>.muted{line-height:1.65}
+.gm-special-slots .gm-special-slot small{line-height:1.5}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1051,7 +1054,7 @@ const growthText=p=>p.growthFocusSelected?(playerFieldNames(p)[p.growthFocus]||'
 const g=p=>'<span class="grade '+esc(p.grade)+'">성장타입 '+esc(p.grade)+'</span>';
 
 const specialAbilityData=p=>(Array.isArray(p?.specialAbilities)?p.specialAbilities:[])
- .map(id=>(state.specialAbilityCatalog||[]).find(x=>x.id===id)).filter(Boolean).slice(0,3);
+ .map(id=>(state.specialAbilityCatalog||[]).find(x=>x.id===id)).filter(Boolean).slice(0,8);
 const specialAbilityBadges=(p,short=false)=>{
  const skills=specialAbilityData(p);
  if(!skills.length)return short?'<span class="gm-special-empty">없음</span>':'<p class="gm-special-absent">현재 보유한 특수능력이 없습니다.</p>';
@@ -1530,10 +1533,10 @@ if(tab==='specials'){
  const picked=players.find(p=>p.id===specialTrainPlayerId);
  const owned=picked?specialAbilityData(picked):[];
  const trainingPool=(state.specialAbilityCatalog||[]).filter(x=>picked&&x.source==='training'&&x.type===(picked.isPitcher?'pitcher':'batter')&&!owned.some(o=>o.id===x.id));
- el.innerHTML='<h2 class="sectiontitle">✦ 특수능력 훈련</h2><p class="muted">선수별 최대 8개 · 훈련용 능력 중 무작위 1개 획득 · 중복 없음</p>'+
+ el.innerHTML='<h2 class="sectiontitle">✦ 특수능력 훈련</h2><p class="muted">선수별 최대 8개 · 훈련용 능력 중 무작위 1개 획득 · 중복 없음. 현재 포지션과 맞지 않는 능력도 획득할 수 있습니다.</p>'+
  '<div class="panel gm-special-work"><label>선수 선택<select id="specialPlayerSelect">'+players.map(p=>'<option value="'+esc(p.id)+'" '+(p.id===specialTrainPlayerId?'selected':'')+'>'+esc(playerLabel(p))+' · '+esc(p.pos)+' · '+specialAbilityData(p).length+'/8</option>').join('')+'</select></label>'+
  (picked?'<div class="gm-special-player">'+playerPortrait(picked)+playerButton(picked)+'<span>'+g(picked)+'</span></div>':'')+
- '<div class="gm-special-work-action"><strong>5 CP / 1회</strong><small>현재 보유 '+walletCP(c.cp)+' CP</small><button type="button" id="specialDraw" class="primary" '+(!picked||owned.length>=8||trainingPool.length===0||c.cp<5?'disabled':'')+'>✦ 랜덤 특수능력 뽑기</button></div><p class="muted">스카우트 전용 능력은 이곳에서 획득할 수 없습니다.</p></div>'+
+ '<div class="gm-special-work-action"><strong>5 CP / 1회</strong><small>현재 보유 '+walletCP(c.cp)+' CP</small><button type="button" id="specialDraw" class="primary" '+(!picked||owned.length>=8||trainingPool.length===0||c.cp<5?'disabled':'')+'>✦ 랜덤 특수능력 뽑기</button></div><p class="muted">스카우트 전용 능력은 이곳에서 획득할 수 없습니다. 예: 포수도 키스톤 콤비를 뽑을 수 있지만, 실제로 2루수·유격수로 출장할 때만 발동합니다.</p></div>'+
  '<div class="panel gm-special-slots"><h3>특수능력 슬롯 <small>'+owned.length+' / 8</small></h3><div class="gm-special-slot-grid">'+Array.from({length:8},(_,i)=>owned[i]?'<div class="gm-special-slot filled"><b>✦ '+esc(owned[i].name)+'</b><small>'+esc(owned[i].desc)+'</small></div>':'<div class="gm-special-slot"><b>'+(i+1)+'</b><small>빈 슬롯</small></div>').join('')+'</div></div>';
  document.getElementById('specialPlayerSelect').onchange=e=>{specialTrainPlayerId=e.target.value;content()};
  document.getElementById('specialDraw').onclick=async()=>{
