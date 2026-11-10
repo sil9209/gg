@@ -570,7 +570,7 @@ else if(a.type==='scout'||a.type==='scoutBatch'){
  if(!Number.isInteger(count)||!(isBatch?[10,100]:[1]).includes(count))throw Error('연속 스카우트는 10회 또는 100회를 선택하세요');
  if(c.pendingScout?.player||c.pendingScoutBatch?.items?.length)throw Error('기존 스카우트 결과에서 영입 또는 방출을 먼저 결정하세요');
  if(c.players.length>=80)throw Error('선수단 최대 80명입니다. 선수를 정리한 뒤 스카우트를 진행하세요');
- const unit=currency==='cash'?10000000*config.multiplier:5*config.multiplier,total=unit*count;
+ const unit=currency==='cash'?1000000*config.multiplier:5*config.multiplier,total=unit*count;
  if(currency==='cash'&&c.cash<total)throw Error('스카우트 자금이 부족합니다');
  if(currency==='cp'&&c.cp<total)throw Error('스카우트 CP가 부족합니다');
  let era=null;
