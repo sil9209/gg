@@ -447,17 +447,30 @@ function leagueInfo(c,now=Date.now()){
   const simulated=runGame(
    gameTeam(h.club,strength,h.name,h.club?key+':home':start+':'+tier+':'+pool+':'+h.teamId,g.round),
    gameTeam(a.club,strength,a.name,a.club?key+':away':start+':'+tier+':'+pool+':'+a.teamId,g.round),key);
-  const box=(h.club||a.club)?simulated:{home:{runs:simulated.home.runs},away:{runs:simulated.away.runs}};
+  const box=simulated;
   leagueGameCache.set(key,box);
   if(leagueGameCache.size>12000)leagueGameCache.delete(leagueGameCache.keys().next().value);
   if(start>=weekStart()-604800000){if(!db.leagueGames)db.leagueGames={};db.leagueGames[key]=box;newLeagueResults++}
   return box;
  }
  const completed=games.filter(g=>slotTime(g.slot)<=now);
- for(const g of completed){const box=result(g),h=box.home.runs,a=box.away.runs,t1=byId[g.home],t2=byId[g.away];t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
+ const batterStats=new Map(),pitcherStats=new Map();
+ const ensureStat=(map,player,team)=>{const key=team.id+':'+String(player.id||player.name);
+  if(!map.has(key))map.set(key,{id:String(player.id||''),name:String(player.name||'선수'),teamId:team.teamId,teamName:team.name,ownerName:team.ownerName,ab:0,h:0,hr:0,rbi:0,bb:0,sb:0,so:0,outs:0,er:0,wins:0,games:0});
+  return map.get(key)};
+ for(const g of completed){const box=result(g),h=box.home.runs,a=box.away.runs,t1=byId[g.home],t2=byId[g.away];for(const [side,clubId] of [['home',g.home],['away',g.away]]){
+   const club=byId[clubId],details=box[side];
+   if(!details)continue;
+   for(const b of details.batters||[]){const row=ensureStat(batterStats,b,club);row.ab+=Number(b.ab)||0;row.h+=Number(b.h)||0;row.hr+=Number(b.hr)||0;row.rbi+=Number(b.rbi)||0;row.bb+=Number(b.bb)||0;row.sb+=Number(b.sb)||0;row.games++}
+   for(const p of details.pitchers||[]){const row=ensureStat(pitcherStats,p,club);row.outs+=Number(p.outs)||0;row.er+=Number(p.er)||0;row.h+=Number(p.h)||0;row.bb+=Number(p.bb)||0;row.so+=Number(p.so)||0;row.games++}
+  }
+  t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
+ const batterRanking=[...batterStats.values()].map(row=>({...row,avg:row.ab?Number((row.h/row.ab).toFixed(3)):0})).sort((a,b)=>b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,50);
+ const pitcherRanking=[...pitcherStats.values()].filter(p=>p.outs>0).map(row=>({...row,ip:(Math.floor(row.outs/3)+'.'+row.outs%3),era:Number((row.er*27/row.outs).toFixed(2))})).sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,50);
  const next=games.find(g=>slotTime(g.slot)>now);
  const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
+ const allSchedule=games.map(g=>({...decorate(g),played:slotTime(g.slot)<=now,score:slotTime(g.slot)<=now?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null}));
  const recent=completed.filter(g=>g.home===c.id||g.away===c.id).slice(-8).reverse().map(g=>{const box=result(g);return {...decorate(g),score:box.home.runs+' : '+box.away.runs,detail:box}});
  const upcoming=games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).slice(0,6).map(decorate);
  let postseason=[];
@@ -473,7 +486,7 @@ function leagueInfo(c,now=Date.now()){
   for(const k of Object.keys(db.leagueGames||{}))if(Number(k.split('|')[0])<floor)delete db.leagueGames[k];
   save();
  }
- return {tier,tierName:LEAGUE_TIERS[tier].name,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
+ return {tier,tierName:LEAGUE_TIERS[tier].name,allSchedule,batterRanking,pitcherRanking,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
 function settleSeasons(now=Date.now()){
