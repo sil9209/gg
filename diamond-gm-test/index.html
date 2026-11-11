@@ -749,7 +749,7 @@ main.shell.layout{padding-top:30px!important}
 .gm-roster-modal-sectiontitle h3{margin:0;font-size:15px;color:#294d70}
 .gm-roster-modal-sectiontitle span{font-size:10px;color:#91a4b5}
 .gm-roster-modal-stats{border:1px solid #e1eaf3;border-radius:11px;overflow:hidden}
-.gm-roster-modal-stat{display:grid;grid-template-columns:39px minmax(0,1fr) 65px 110px;gap:10px;align-items:center;padding:9px 11px;border-bottom:1px solid #ebf0f5}
+.gm-roster-modal-stat{display:grid;grid-template-columns:39px minmax(0,1fr) 65px;gap:10px;align-items:center;padding:9px 11px;border-bottom:1px solid #ebf0f5}
 .gm-roster-modal-stat:last-child{border:0}
 .gm-roster-modal-stat>span{font-size:12px;color:#436685;font-weight:800}
 .gm-roster-modal-bar{height:10px;border-radius:8px;background:#e5edf5;overflow:hidden}
@@ -1950,7 +1950,7 @@ function openShopEditor(item){
  overlay.className='gm-shop-editor-backdrop';overlay.id='gmShopEditor';
  const kind=['growthBooster','flyingCoach'].includes(item.kind)?item.kind:'sportsDrink';
  const name=item.name||'',desc=item.desc||'',icon=item.icon||'🥤';
- const price=Number(item.price)||1000000,quantity=Number(item.quantity)||10;
+ const price=kind==='flyingCoach'?100:Number(item.price)||1000000,quantity=Number(item.quantity)||10;
  const cpKind=kind==='growthBooster'||kind==='flyingCoach';
  overlay.innerHTML='<section class="gm-shop-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="gmShopEditorTitle"><div class="gm-shop-editor-heading"><div><small>ADMIN / SHOP EDITOR</small><h2 id="gmShopEditorTitle">'+slot+'번 상품 관리</h2><p>상품 정보를 수정하고 판매 여부를 선택하세요.</p></div><button type="button" class="gm-shop-editor-close" aria-label="닫기">✕</button></div><form id="gmShopEditorForm"><div class="gm-shop-editor-fields">'+
  '<label>판매 상태<select name="active"><option value="active" '+(item.active?'selected':'')+'>판매 중</option><option value="coming" '+(!item.active?'selected':'')+'>입고중</option></select></label>'+
@@ -1966,6 +1966,7 @@ function openShopEditor(item){
  overlay.addEventListener('click',event=>{if(event.target===overlay)closeShopEditor()});
  const form=overlay.querySelector('#gmShopEditorForm');
  const kindSelect=form.elements.namedItem('kind'),priceInput=form.elements.namedItem('price');
+ priceInput.readOnly=kind==='flyingCoach';
  kindSelect.onchange=()=>{
   const boost=kindSelect.value==='growthBooster',coach=kindSelect.value==='flyingCoach';
   const wasBoost=!boost;
