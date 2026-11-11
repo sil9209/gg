@@ -560,7 +560,7 @@ const DEFAULT_SHOP_CATALOG=[
  {id:'slot1',active:true,kind:'sportsDrink',name:'스포츠음료 10개',desc:'선수 컨디션을 한 단계 올리는 회복 아이템',icon:'🥤',quantity:10,price:1000000},
  {id:'slot2',active:true,kind:'sportsDrink',name:'스포츠음료 50개',desc:'선수단 전체 컨디션 관리를 위한 묶음 상품',icon:'📦',quantity:50,price:4000000},
  {id:'slot3',active:true,kind:'growthBooster',name:'성장부스터',desc:'선수 1명의 성장타입을 S로 승급 · A타입 대비 성장 속도 2배',icon:'🚀',quantity:1,price:20},
- {id:'slot4',active:true,kind:'flyingCoach',name:'플레잉코치권',desc:'선수 나이와 기본 능력치를 고정 · 매주 CP 계약 시 출전',icon:'📋',quantity:1,price:10000000},
+ {id:'slot4',active:true,kind:'flyingCoach',name:'플레잉코치권',desc:'선수 나이와 기본 능력치를 고정 · 매주 CP 계약 시 출전',icon:'📋',quantity:1,price:100},
  {id:'slot5',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000}
 ];
 function shopCatalog(){
@@ -590,6 +590,11 @@ function shopCatalog(){
    }
   }
   db.shopCatalogVersion=4;
+ }
+ // Item price and currency are fixed at 100 CP for all existing shop catalogs.
+ if((Number(db.shopCatalogVersion)||0)<5){
+  for(const item of db.shopCatalog)if(item.kind==='flyingCoach'){item.price=100;item.name='플레잉코치권';item.icon='📋'}
+  db.shopCatalogVersion=5;
  }
  return db.shopCatalog;
 }
@@ -743,7 +748,6 @@ if(a.type==='setGrowthFocus'){
  result={message:p.name+' 성장 전략: '+(p.growthFocusSelected?(STAT_LABELS[p.growthFocus]+' 집중'):'균형 성장')+' 설정 완료'};
 }
 else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(p.flyingCoach)throw Error('플레잉코치는 등급 성장을 할 수 없습니다');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
-else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!statKeys(p).includes(stat))throw Error('잘못된 선수/능력치');if(p.flyingCoach)throw Error('플레잉코치는 기본 능력치가 고정되어 훈련할 수 없습니다');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2,S:2.4}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
 else if(a.type==='scout'||a.type==='scoutBatch'){
  const configs={basic:{label:'일반 스카우트',multiplier:1},era:{label:'연도별 스카우트',multiplier:2},hitter:{label:'타자 전용 스카우트',multiplier:2},pitcher:{label:'투수 전용 스카우트',multiplier:2}};
  const kind=String(a.kind||'basic'),currency=String(a.currency||'cash'),config=configs[kind];
@@ -933,11 +937,11 @@ else if(a.type==='shopSave'){
   const kind=String(a.kind||current.kind||'sportsDrink');
   if(!['sportsDrink','growthBooster','flyingCoach'].includes(kind))throw Error('등록할 수 없는 상품 종류입니다');
   const name=cleanShopText(a.name,40,active),desc=cleanShopText(a.desc,160),icon=cleanShopText(a.icon,5,active);
-  const price=Number(a.price),quantity=Number(a.quantity);
+  const price=kind==='flyingCoach'?100:Number(a.price),quantity=Number(a.quantity);
   const minPrice=kind==='growthBooster'?1:1000,maxPrice=kind==='growthBooster'?100000:1000000000;
-  if(!Number.isSafeInteger(price)||price<minPrice||price>maxPrice)throw Error('가격 범위: 성장부스터 1~100,000 CP / 스포츠음료 1,000~10억원');
+  if(kind!=='flyingCoach'&&(!Number.isSafeInteger(price)||price<minPrice||price>maxPrice))throw Error('가격 범위: 성장부스터 1~100,000 CP / 스포츠음료 1,000~10억원');
   if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000)throw Error('수량은 1~10,000개 사이의 정수로 입력하세요');
-  db.shopCatalog[slot-1]={id:current.id,active,kind,name,desc,icon,quantity,price};
+  db.shopCatalog[slot-1]={id:current.id,active,kind,name:kind==='flyingCoach'?'플레잉코치권':name,desc,icon:kind==='flyingCoach'?'📋':icon,quantity,price};
  }
  result={message:slot+'번 상품이 '+(db.shopCatalog[slot-1].active?'판매 중으로 저장':'입고중으로 저장')+'되었습니다'};
 }
@@ -951,19 +955,20 @@ else if(a.type==='rewardAdStart'){
 else if(a.type==='shopBuy'){
  const offer=shopCatalog().find(x=>x.id===String(a.item||'')&&x.active===true);
  if(!offer||!['sportsDrink','growthBooster','flyingCoach'].includes(offer.kind))throw Error('판매 중인 상품이 아닙니다');
- const cpItem=offer.kind==='growthBooster';
+ const cpItem=offer.kind==='growthBooster'||offer.kind==='flyingCoach';
  if(!Number.isSafeInteger(offer.price)||offer.price<(cpItem?1:1000))throw Error('상품 가격이 올바르지 않습니다');
  if(!Number.isSafeInteger(offer.quantity)||offer.quantity<1)throw Error('상품 수량이 올바르지 않습니다');
  if(cpItem){
   if(!Number.isFinite(c.cp)||c.cp<offer.price)throw Error('보유 CP가 부족합니다');
-  if(!Number.isSafeInteger(c.growthBoosters||0)||c.growthBoosters<0)throw Error('보유 부스터 정보가 올바르지 않습니다');
-  if((c.growthBoosters||0)+offer.quantity>999999)throw Error('성장부스터 보관 한도를 초과했습니다');
+  const field=offer.kind==='flyingCoach'?'flyingCoachTickets':'growthBoosters';
+  if(!Number.isSafeInteger(c[field]||0)||c[field]<0)throw Error('보유 아이템 정보가 올바르지 않습니다');
+  if((c[field]||0)+offer.quantity>999999)throw Error('아이템 보관 한도를 초과했습니다');
   c.cp-=offer.price;
-  c.growthBoosters=(c.growthBoosters||0)+offer.quantity;
+  c[field]=(c[field]||0)+offer.quantity;
  }else{
   if(!Number.isFinite(c.cash)||c.cash<offer.price)throw Error('보유 게임머니가 부족합니다');
   if(!Number.isSafeInteger(c.sportsDrinks||0)||c.sportsDrinks<0)throw Error('보유 음료 정보가 올바르지 않습니다');
-  const field=offer.kind==='flyingCoach'?'flyingCoachTickets':'sportsDrinks';
+  const field='sportsDrinks';
   if((Number(c[field])||0)+offer.quantity>999999)throw Error('아이템 보관 한도를 초과했습니다');
   c.cash-=offer.price;
   c[field]=(Number(c[field])||0)+offer.quantity;
