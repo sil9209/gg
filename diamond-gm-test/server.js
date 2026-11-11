@@ -465,32 +465,43 @@ function leagueInfo(c,now=Date.now()){
  const completed=games.filter(g=>slotTime(g.slot)<=now);
  const batterStats=new Map(),pitcherStats=new Map();
  const ensureStat=(map,player,team)=>{const key=team.id+':'+String(player.id||player.name);
-  if(!map.has(key))map.set(key,{id:String(player.id||''),name:String(player.name||'선수'),teamId:team.teamId,teamName:team.name,ownerName:team.ownerName,ab:0,h:0,hr:0,rbi:0,bb:0,sb:0,so:0,outs:0,er:0,wins:0,games:0});
+  if(!map.has(key))map.set(key,{id:String(player.id||''),name:String(player.name||'선수'),teamId:team.teamId,teamName:team.name,ownerName:team.ownerName,ab:0,h:0,h2:0,h3:0,tb:0,r:0,hr:0,rbi:0,bb:0,sb:0,so:0,outs:0,er:0,wins:0,games:0,basesComplete:true});
   return map.get(key)};
  for(const g of completed){const box=result(g),h=box.home.runs,a=box.away.runs,t1=byId[g.home],t2=byId[g.away];for(const [side,clubId] of [['home',g.home],['away',g.away]]){
    const club=byId[clubId],details=box[side];
    if(!details)continue;
-   for(const b of details.batters||[]){const row=ensureStat(batterStats,b,club);row.ab+=Number(b.ab)||0;row.h+=Number(b.h)||0;row.hr+=Number(b.hr)||0;row.rbi+=Number(b.rbi)||0;row.bb+=Number(b.bb)||0;row.sb+=Number(b.sb)||0;row.games++}
+   for(const b of details.batters||[]){const row=ensureStat(batterStats,b,club);row.ab+=Number(b.ab)||0;row.h+=Number(b.h)||0;row.h2+=Number(b.h2)||0;row.h3+=Number(b.h3)||0;row.tb+=Number(b.tb)||0;row.r+=Number(b.r)||0;row.hr+=Number(b.hr)||0;row.rbi+=Number(b.rbi)||0;row.bb+=Number(b.bb)||0;row.sb+=Number(b.sb)||0;row.so+=Number(b.so)||0;row.basesComplete=row.basesComplete&&Number.isFinite(Number(b.tb))&&b.tb!=null;row.games++}
    for(const p of details.pitchers||[]){const row=ensureStat(pitcherStats,p,club);row.outs+=Number(p.outs)||0;row.er+=Number(p.er)||0;row.h+=Number(p.h)||0;row.bb+=Number(p.bb)||0;row.so+=Number(p.so)||0;row.games++}
   }
   t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
- const allBatterStats=[...batterStats.values()].filter(row=>row.ab+row.bb>0).map(row=>({...row,
-  avg:row.ab?Number((row.h/row.ab).toFixed(3)):0,
-  obp:(row.ab+row.bb)?Number(((row.h+row.bb)/(row.ab+row.bb)).toFixed(3)):0}));
+ const qualifiedPA=Math.floor(completed.length/5)*3.1;
+ const allBatterStats=[...batterStats.values()].filter(row=>row.ab+row.bb>0).map(row=>{
+  const pa=row.ab+row.bb;
+  const avg=row.ab?row.h/row.ab:0;
+  const obp=pa?(row.h+row.bb)/pa:0;
+  // Older saved box scores lack extra-base hit detail: do not fabricate slugging.
+  const slg=row.basesComplete&&row.ab?row.tb/row.ab:null;
+  return {...row,pa,avg:Number(avg.toFixed(3)),obp:Number(obp.toFixed(3)),
+   slg:slg===null?null:Number(slg.toFixed(3)),ops:slg===null?null:Number((obp+slg).toFixed(3)),
+   qualified:pa>=qualifiedPA};
+ });
  const allPitcherStats=[...pitcherStats.values()].filter(p=>p.outs>0).map(row=>({...row,
   ip:Math.floor(row.outs/3)+'.'+row.outs%3,
   era:Number((row.er*27/row.outs).toFixed(2)),
   whip:Number(((row.h+row.bb)*3/row.outs).toFixed(2))}));
- const byHighest=(items,key,tiebreak='h')=>[...items].sort((a,b)=>b[key]-a[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
+ const byHighest=(items,key,tiebreak='h')=>[...items].filter(p=>p[key]!==null&&Number.isFinite(Number(p[key]))).sort((a,b)=>b[key]-a[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
  const byLowest=(items,key,tiebreak='outs')=>[...items].sort((a,b)=>a[key]-b[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
- // Leaderboards show actual league game records, not player attribute ratings.
+ const qualifiedBatters=allBatterStats.filter(p=>p.qualified);
  const leagueLeaders={
-  batting:{average:byHighest(allBatterStats.filter(x=>x.ab>0),'avg'),homeRuns:byHighest(allBatterStats,'hr'),onBase:byHighest(allBatterStats,'obp'),rbi:byHighest(allBatterStats,'rbi')},
-  pitching:{era:byLowest(allPitcherStats,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(allPitcherStats,'whip')}
+  batting:{average:byHighest(qualifiedBatters,'avg'),homeRuns:byHighest(allBatterStats,'hr'),rbi:byHighest(allBatterStats,'rbi'),
+   stolenBases:byHighest(allBatterStats,'sb'),runs:byHighest(allBatterStats,'r'),hits:byHighest(allBatterStats,'h'),
+   onBase:byHighest(qualifiedBatters,'obp'),slugging:byHighest(qualifiedBatters,'slg')},
+  pitching:{era:byLowest(allPitcherStats,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),
+   innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(allPitcherStats,'whip')}
  };
- const batterRanking=[...allBatterStats].sort((a,b)=>b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,50);
- const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,50);
+ const batterRanking=[...allBatterStats].sort((a,b)=>Number(b.qualified)-Number(a.qualified)||b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,100);
+ const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,100);
  const next=games.find(g=>slotTime(g.slot)>now);
  const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
  const allSchedule=games.map(g=>({...decorate(g),played:slotTime(g.slot)<=now,score:slotTime(g.slot)<=now?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null}));
