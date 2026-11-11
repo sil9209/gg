@@ -577,7 +577,25 @@ function attendanceState(c){
  const record=c?.dailyAttendance;
  return {day,claimed:record?.day===day,record:record?.day===day?record:null};
 }
-const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueInfo(db.clubs.find(c=>c.owner===u.id)):null})};
+// League standings can inspect all clubs without accessing their private wallets.
+function leagueWithTeamRosters(c){
+ const lg=leagueInfo(c),tier=lg.tier,start=lg.start;
+ const group=leagueMembers(c),pool=group.pool;
+ const fields=['id','name','age','pos','year','grade','level','isPitcher','foreign','condition','originTeam','avatarDNA','avatarSeed','avatarVersion','growthFocus','growthFocusSelected','specialAbilities','contact','power','eye','speed','mental','defense','velocity','stuff','control','break','stamina'];
+ const safePlayer=(p,squad)=>{const out={squad};for(const key of fields)if(p[key]!==undefined)out[key]=p[key];return out};
+ const score=p=>{const keys=statKeys(p);return keys.reduce((n,key)=>n+(Number(p[key])||0),0)/keys.length};
+ lg.standings=lg.standings.map(row=>{
+  const real=db.clubs.find(x=>x.id===row.id);
+  const players=real?(real.players||[]):(()=>{const seed=start+':'+tier+':'+pool+':'+row.teamId;const roster=aiRoster(seed,LEAGUE_TIERS[tier].average);return [...roster.hitters,...roster.pitchers]})();
+  const starters=real?new Set([...(real.lineup||[]),real.pitcher,...Object.values(real.pitcherRotation||{}),...Object.values(real.pitcherAssignments||{}),...(real.benchIds||[])].filter(Boolean)):new Set(players.map(p=>p.id));
+  const batting=players.filter(p=>!p.isPitcher),pitching=players.filter(p=>p.isPitcher);
+  const avg=list=>list.length?Number((list.reduce((sum,p)=>sum+score(p),0)/list.length).toFixed(2)):0;
+  return {...row,real:!!real,teamAverage:avg(players),batterAverage:avg(batting),pitcherAverage:avg(pitching),
+   playerCount:players.length,roster:players.map(p=>safePlayer(p,starters.has(p.id)?'1군':'2군'))};
+ });
+ return lg;
+}
+const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
