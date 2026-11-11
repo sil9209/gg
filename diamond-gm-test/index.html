@@ -2128,28 +2128,31 @@ function bindScoutCriteria(scope,afterChange){
 }
 
 function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='mail'){
- const gifts={sportsDrink:{name:'스포츠음료',icon:'🥤'},growthBooster:{name:'성장부스터',icon:'🚀'},scoutCash100:{name:'일반 자금 스카우트 100회권',icon:'🎟'},scoutCP100:{name:'일반 CP 스카우트 100회권',icon:'💎'}};
+ const gifts={cp:{name:'CP',icon:'💎'},sportsDrink:{name:'스포츠음료',icon:'🥤'},growthBooster:{name:'성장부스터',icon:'🚀'},scoutCash100:{name:'일반 자금 스카우트 100회권',icon:'🎟'},scoutCP100:{name:'일반 CP 스카우트 100회권',icon:'💎'}};
  const letters=Array.isArray(state.mail)?state.mail:[];
  const unopened=letters.filter(m=>!m.claimed).length;
  const formatDate=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});
  el.innerHTML='<div class="gm-mail-header"><div><small>DIAMOND GM · MAIL CENTER</small><h2>📬 우편함</h2><p>GM이 발송한 선물을 확인하고 수령하세요.</p></div><strong>미수령 우편 '+unopened+'건</strong></div>'+
- (state.user?.isAdmin?'<section class="panel gm-mail-admin"><div class="gm-mail-subtitle"><h3>🎁 GM 전체 유저 선물 발송</h3><span>등록된 모든 일반 회원에게 동일한 선물을 발송합니다.</span></div><div class="gm-mail-form"><label>제목<input id="gmGiftTitle" maxlength="60" value="GM 특별 선물" placeholder="우편 제목"></label><label>선물 물품<select id="gmGiftItem">'+Object.entries(gifts).map(([id,g])=>'<option value="'+id+'">'+g.icon+' '+g.name+'</option>').join('')+'</select></label><label>지급 수량<input id="gmGiftQty" type="number" min="1" max="10000" step="1" value="1"></label><label class="gm-mail-message-label">우편 내용<textarea id="gmGiftMessage" maxlength="300" rows="2" placeholder="선물 메시지">DIAMOND GM 운영팀에서 보내는 선물입니다.</textarea></label></div><button type="button" class="primary" id="gmSendGiftAll">모든 유저에게 선물 발송</button><p class="gm-mail-hint">100회권 1장은 일반 스카우트 100회를 무료로 실행하는 이용권입니다. 발송 후 회수할 수 없습니다.</p></section>':'')+
+ (state.user?.isAdmin?'<section class="panel gm-mail-admin"><div class="gm-mail-subtitle"><h3>🎁 GM 전체 유저 선물 발송</h3><span>등록된 모든 일반 회원에게 동일한 선물을 발송합니다.</span></div><div class="gm-mail-form"><label>제목<input id="gmGiftTitle" maxlength="60" value="GM 특별 선물" placeholder="우편 제목"></label><label>선물 물품<select id="gmGiftItem">'+Object.entries(gifts).map(([id,g])=>'<option value="'+id+'">'+g.icon+' '+g.name+'</option>').join('')+'</select></label><label><span id="gmGiftQtyLabel">지급 수량</span><input id="gmGiftQty" type="number" min="1" max="10000" step="1" value="1"></label><label class="gm-mail-message-label">우편 내용<textarea id="gmGiftMessage" maxlength="300" rows="2" placeholder="선물 메시지">DIAMOND GM 운영팀에서 보내는 선물입니다.</textarea></label></div><button type="button" class="primary" id="gmSendGiftAll">모든 유저에게 선물 발송</button><p class="gm-mail-hint">100회권 1장은 일반 스카우트 100회를 무료로 실행하는 이용권입니다. 발송 후 회수할 수 없습니다.</p></section>':'')+
  '<section class="panel gm-mail-list"><div class="gm-mail-subtitle"><h3>받은 우편</h3><span>선물 수령은 우편당 1회만 가능합니다.</span></div>'+
- (letters.length?letters.map(m=>{const gift=gifts[m.item]||{name:'아이템',icon:'🎁'};return '<article class="gm-mail-letter '+(m.claimed?'claimed':'unclaimed')+'"><div class="gm-mail-icon">'+gift.icon+'</div><div class="gm-mail-letter-body"><strong>'+esc(m.title||'GM 선물')+'</strong><span>'+esc(m.message||'')+'</span><small>'+formatDate(m.sentAt)+' · '+gift.name+' × '+Number(m.quantity||0)+'</small></div><button type="button" data-mail-claim="'+esc(m.id)+'" '+(m.claimed?'disabled':'')+'>'+(m.claimed?'수령 완료':'선물받기')+'</button></article>'}).join(''):'<div class="gm-mail-empty">📭 아직 도착한 우편이 없습니다.</div>')+'</section>';
+ (letters.length?letters.map(m=>{const gift=gifts[m.item]||{name:'아이템',icon:'🎁'};return '<article class="gm-mail-letter '+(m.claimed?'claimed':'unclaimed')+'"><div class="gm-mail-icon">'+gift.icon+'</div><div class="gm-mail-letter-body"><strong>'+esc(m.title||'GM 선물')+'</strong><span>'+esc(m.message||'')+'</span><small>'+formatDate(m.sentAt)+' · '+(m.item==='cp'?Number(m.quantity||0).toLocaleString('ko-KR')+' CP':gift.name+' × '+Number(m.quantity||0).toLocaleString('ko-KR'))+'</small></div><button type="button" data-mail-claim="'+esc(m.id)+'" '+(m.claimed?'disabled':'')+'>'+(m.claimed?'수령 완료':'선물받기')+'</button></article>'}).join(''):'<div class="gm-mail-empty">📭 아직 도착한 우편이 없습니다.</div>')+'</section>';
  document.querySelectorAll('[data-mail-claim]').forEach(button=>button.onclick=async()=>{
   button.disabled=true;
   const answer=await api({type:'claimGmMail',id:button.dataset.mailClaim});
   if(!answer)button.disabled=false;
  });
  if(state.user?.isAdmin){
+  const giftType=document.getElementById('gmGiftItem'),giftQuantity=document.getElementById('gmGiftQty');
+  const syncGiftQuantity=()=>{const isCP=giftType.value==='cp';giftQuantity.max=isCP?'1000000':'10000';document.getElementById('gmGiftQtyLabel').textContent=isCP?'지급 CP':'지급 수량';if(Number(giftQuantity.value)>Number(giftQuantity.max))giftQuantity.value=giftQuantity.max};
+  giftType.addEventListener('change',syncGiftQuantity);syncGiftQuantity();
   const send=document.getElementById('gmSendGiftAll');
   send.onclick=async()=>{
    const title=document.getElementById('gmGiftTitle').value.trim(),item=document.getElementById('gmGiftItem').value,
     quantity=Number(document.getElementById('gmGiftQty').value),message=document.getElementById('gmGiftMessage').value.trim();
    if(!title){toast('우편 제목을 입력하세요');return}
-   if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000){toast('선물 수량은 1~10,000개까지 가능합니다');return}
+   if(!Number.isSafeInteger(quantity)||quantity<1||quantity>(item==='cp'?1000000:10000)){toast(item==='cp'?'CP는 1~1,000,000까지 지급 가능합니다':'선물 수량은 1~10,000개까지 가능합니다');return}
    const label=gifts[item]?.name||'아이템';
-   const approved=await gmConfirm('현재 등록된 모든 유저에게 '+label+' '+quantity+'개를 발송하시겠습니까? 발송 후에는 취소할 수 없습니다.',{title:'전체 유저 선물 발송',confirmText:'전체 발송'});
+   const approved=await gmConfirm('현재 등록된 모든 유저에게 '+(item==='cp'?quantity.toLocaleString('ko-KR')+' CP':label+' '+quantity.toLocaleString('ko-KR')+'개')+'를 발송하시겠습니까? 발송 후에는 취소할 수 없습니다.',{title:'전체 유저 선물 발송',confirmText:'전체 발송'});
    if(!approved)return;
    send.disabled=true;
    const result=await api({type:'gmSendGift',title,message,item,quantity});
