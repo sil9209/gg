@@ -595,7 +595,20 @@ function leagueWithTeamRosters(c){
  });
  return lg;
 }
-const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
+const GIFT_ITEMS={
+ sportsDrink:{name:'스포츠음료',field:'sportsDrinks'},
+ growthBooster:{name:'성장부스터',field:'growthBoosters'},
+ scoutCash100:{name:'일반 자금 스카우트 100회권',field:'scoutCash100Tickets'},
+ scoutCP100:{name:'일반 CP 스카우트 100회권',field:'scoutCP100Tickets'}
+};
+function userMail(u){
+ if(!u)return [];
+ return (db.gmMail||[]).filter(m=>Array.isArray(m.recipients)&&m.recipients.includes(u.id))
+  .slice(-100).reverse().map(m=>({id:m.id,item:m.item,quantity:m.quantity,
+   title:m.title,message:m.message,sentAt:m.sentAt,
+   claimed:!!u.claimedGmMail?.includes(m.id)}));
+}
+const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -633,6 +646,31 @@ if(a.type==='claimDailyAttendance'){
  c.dailyAttendance={day:today,cash,cp,claimedAt:Date.now()};
  result={message:'오늘의 출석 보상 지급 완료',attendanceReward:{cash,cp,day:today}};
 }
+else if(a.type==='gmSendGift'){
+ if(!isAdminUser(u))throw Error('GM 계정만 전체 선물을 발송할 수 있습니다');
+ const item=String(a.item||''),gift=GIFT_ITEMS[item],quantity=Number(a.quantity);
+ if(!gift)throw Error('선물 물품을 선택하세요');
+ if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000)throw Error('발송 수량은 1~10,000개입니다');
+ const title=String(a.title||'GM 특별 선물').trim().slice(0,60);
+ const message=String(a.message||'DIAMOND GM 운영팀에서 보내는 선물입니다.').trim().slice(0,300);
+ if(!title)throw Error('우편 제목을 입력하세요');
+ const recipients=db.users.filter(x=>!isAdminUser(x)).map(x=>x.id);
+ if(!recipients.length)throw Error('선물을 받을 등록 회원이 없습니다');
+ db.gmMail=Array.isArray(db.gmMail)?db.gmMail:[];
+ db.gmMail.push({id:uid(),item,quantity,title,message,sentAt:Date.now(),recipients});
+ result={message:recipients.length+'명에게 '+gift.name+' '+quantity+'개를 발송했습니다'};
+}
+else if(a.type==='claimGmMail'){
+ if(!c)throw Error('구단을 생성한 뒤 우편을 받을 수 있습니다');
+ const mail=(db.gmMail||[]).find(x=>x.id===String(a.id||'')&&x.recipients?.includes(u.id));
+ if(!mail||!GIFT_ITEMS[mail.item])throw Error('수령할 수 없는 우편입니다');
+ u.claimedGmMail=Array.isArray(u.claimedGmMail)?u.claimedGmMail:[];
+ if(u.claimedGmMail.includes(mail.id))throw Error('이미 수령한 우편입니다');
+ const gift=GIFT_ITEMS[mail.item];
+ c[gift.field]=(Number(c[gift.field])||0)+mail.quantity;
+ u.claimedGmMail.push(mail.id);
+ result={message:gift.name+' '+mail.quantity+'개 수령 완료'};
+}
 else if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);db.clubs.push(c)}
 else{if(!c)throw Error('구단을 먼저 창단하세요');
 if(a.type==='setGrowthFocus'){
@@ -655,14 +693,18 @@ else if(a.type==='scout'||a.type==='scoutBatch'){
  if(!Number.isInteger(count)||!(isBatch?[10,100]:[1]).includes(count))throw Error('연속 스카우트는 10회 또는 100회를 선택하세요');
  if(c.pendingScout?.player||c.pendingScoutBatch?.items?.length)throw Error('기존 스카우트 결과에서 영입 또는 방출을 먼저 결정하세요');
  if(c.players.length>=80)throw Error('선수단 최대 80명입니다. 선수를 정리한 뒤 스카우트를 진행하세요');
- const unit=currency==='cash'?1000000*config.multiplier:5*config.multiplier,total=unit*count;
+ const unit=currency==='cash'?1000000*config.multiplier:5*config.multiplier;
+ const ticketField=currency==='cash'?'scoutCash100Tickets':'scoutCP100Tickets';
+ const ticketAvailable=kind==='basic'&&count===100&&(Number(c[ticketField])||0)>0;
+ const total=ticketAvailable?0:unit*count;
  if(currency==='cash'&&c.cash<total)throw Error('스카우트 자금이 부족합니다');
  if(currency==='cp'&&c.cp<total)throw Error('스카우트 CP가 부족합니다');
  let era=null;
  if(kind==='era'){era=Number(a.era);if(!Number.isInteger(era)||era<2000||era>2026)throw Error('2000~2026년 중 정확한 연도를 선택하세요')}
  const players=Array.from({length:count},()=>makeScoutPlayer(u.id,kind,currency,era));
  // All draws and their respective special ability rolls are independent.
- if(currency==='cash')c.cash-=total;else c.cp-=total;
+ if(ticketAvailable)c[ticketField]--;
+ else if(currency==='cash')c.cash-=total;else c.cp-=total;
  if(isBatch){
   c.pendingScoutBatch={id:uid(),items:players.map(p=>({id:uid(),player:p})),kind,currency,count,cost:total,time:Date.now()};
   result={message:count+'회 스카우트 완료 · 영입할 선수를 선택하세요',scoutBatch:true};
