@@ -626,6 +626,7 @@ function leagueWithTeamRosters(c){
  return lg;
 }
 const GIFT_ITEMS={
+ cp:{name:'CP',field:'cp'},
  sportsDrink:{name:'스포츠음료',field:'sportsDrinks'},
  growthBooster:{name:'성장부스터',field:'growthBoosters'},
  scoutCash100:{name:'일반 자금 스카우트 100회권',field:'scoutCash100Tickets'},
@@ -680,7 +681,7 @@ else if(a.type==='gmSendGift'){
  if(!isAdminUser(u))throw Error('GM 계정만 전체 선물을 발송할 수 있습니다');
  const item=String(a.item||''),gift=GIFT_ITEMS[item],quantity=Number(a.quantity);
  if(!gift)throw Error('선물 물품을 선택하세요');
- if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000)throw Error('발송 수량은 1~10,000개입니다');
+ if(!Number.isSafeInteger(quantity)||quantity<1||quantity>(item==='cp'?1000000:10000))throw Error(item==='cp'?'CP 지급량은 1~1,000,000 CP입니다':'발송 수량은 1~10,000개입니다');
  const title=String(a.title||'GM 특별 선물').trim().slice(0,60);
  const message=String(a.message||'DIAMOND GM 운영팀에서 보내는 선물입니다.').trim().slice(0,300);
  if(!title)throw Error('우편 제목을 입력하세요');
@@ -688,7 +689,7 @@ else if(a.type==='gmSendGift'){
  if(!recipients.length)throw Error('선물을 받을 등록 회원이 없습니다');
  db.gmMail=Array.isArray(db.gmMail)?db.gmMail:[];
  db.gmMail.push({id:uid(),item,quantity,title,message,sentAt:Date.now(),recipients});
- result={message:recipients.length+'명에게 '+gift.name+' '+quantity+'개를 발송했습니다'};
+ result={message:recipients.length+'명에게 '+(item==='cp'?quantity.toLocaleString('ko-KR')+' CP':gift.name+' '+quantity+'개')+'를 발송했습니다'};
 }
 else if(a.type==='claimGmMail'){
  if(!c)throw Error('구단을 생성한 뒤 우편을 받을 수 있습니다');
@@ -697,9 +698,13 @@ else if(a.type==='claimGmMail'){
  u.claimedGmMail=Array.isArray(u.claimedGmMail)?u.claimedGmMail:[];
  if(u.claimedGmMail.includes(mail.id))throw Error('이미 수령한 우편입니다');
  const gift=GIFT_ITEMS[mail.item];
- c[gift.field]=(Number(c[gift.field])||0)+mail.quantity;
+ const quantity=Number(mail.quantity);
+ if(!Number.isSafeInteger(quantity)||quantity<1||quantity>(mail.item==='cp'?1000000:10000))throw Error('우편 지급 수량이 올바르지 않습니다');
+ const balance=Number(c[gift.field])||0;
+ if(!Number.isSafeInteger(balance)||balance<0||!Number.isSafeInteger(balance+quantity))throw Error('보유 수량 한도를 초과했습니다');
+ c[gift.field]=balance+quantity;
  u.claimedGmMail.push(mail.id);
- result={message:gift.name+' '+mail.quantity+'개 수령 완료'};
+ result={message:mail.item==='cp'?quantity.toLocaleString('ko-KR')+' CP 수령 완료':gift.name+' '+quantity+'개 수령 완료'};
 }
 else if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);db.clubs.push(c)}
 else{if(!c)throw Error('구단을 먼저 창단하세요');
