@@ -391,7 +391,7 @@ function aiRoster(seed,average){
     name:existing?.name||(fallbackForeign?foreignName:first+given),foreign:existing?.foreign??fallbackForeign,
     age:existing?.age||(19+Math.floor(seedNum(nonce+':age')*25)),
     year:existing?.year||(2000+Math.floor(seedNum(nonce+':year')*27)),
-    pos:existing?.pos||(pitcher?['선발','중계','마무리'][i%3]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수','지명타자'][i%9]),
+    pos:pitcher?(i<5?'선발':i<10?'중계':'마무리'):(existing?.pos||['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수','지명타자'][i%9]),
     isPitcher:pitcher,condition:3,level:Math.max(1,Math.min(10,Math.round(center/10))),
     specialAbilities:[],owner:null};
    const stats=pitcher?['velocity','stuff','control','break','stamina','mental']:['contact','power','eye','speed','defense','mental'];
@@ -405,7 +405,7 @@ function aiRoster(seed,average){
   }
   return lineup;
  };
- const roster={hitters:choose(false,9),pitchers:choose(true,3)};
+ const roster={hitters:choose(false,14),pitchers:choose(true,11)};
  if(aiRosterCache.size>1000)aiRosterCache.delete(aiRosterCache.keys().next().value);
  aiRosterCache.set(cacheKey,roster);
  return roster;
@@ -415,10 +415,10 @@ function gameTeam(c,average,name,seed,round=1){
   const roster=aiRoster(seed,average);
   // Rotate which of the club's pitchers takes the starter role during the season.
   const pitching=roster.pitchers.length?[
-   roster.pitchers[(Math.max(1,round)-1)%roster.pitchers.length],
-   roster.pitchers[(Math.max(1,round))%roster.pitchers.length],
-   roster.pitchers[(Math.max(1,round)+1)%roster.pitchers.length]]:[];
-  return {name,hitters:roster.hitters,pitchers:pitching,defense:average,round};
+   roster.pitchers[(Math.max(1,round)-1)%5],
+   roster.pitchers[5+(Math.max(1,round)-1)%5],
+   roster.pitchers[10]]:[];
+  return {name,hitters:roster.hitters.slice(0,9),pitchers:pitching,defense:average,round};
  }
  const eligible=p=>flyingCoachActive(p);
  const hitters=(c.lineup||[]).map(id=>c.players.find(p=>p.id===id&&!p.isPitcher&&eligible(p))).filter(Boolean).slice(0,9);
