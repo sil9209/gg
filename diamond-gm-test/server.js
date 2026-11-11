@@ -683,28 +683,36 @@ else if(a.type==='autoDrawSpecialAbility'){
  ensurePlayer(p);
  if(p.specialAbilities.length>=8)throw Error('특수능력 8칸이 모두 채워졌습니다');
  if(!Number.isSafeInteger(c.cp)||c.cp<SPECIAL_DRAW_COST_CP)throw Error('특수능력 뽑기에 필요한 CP가 부족합니다');
- const existing=new Set(p.specialAbilities);
- const tierCount=tier=>p.specialAbilities.filter(id=>SPECIAL_BY_ID.get(id)?.tier===tier).length;
- // Reuse the normal random-draw pool and rules. Misses are discarded, not equipped.
- const pool=SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')&&x.source==='training'&&!existing.has(x.id)&&(!['legend','s'].includes(x.tier)||tierCount(x.tier)<2));
- if(!pool.length)throw Error('새로 배울 수 있는 특수능력이 없습니다');
- const wanted=pool.find(x=>x.id===String(a.abilityId||''));
- if(!wanted)throw Error('선택한 특수능력은 이미 보유 중이거나 현재 획득할 수 없습니다');
- const maxAffordable=Math.floor(c.cp/SPECIAL_DRAW_COST_CP);
- // Bounded batch safeguards server processing for admin accounts with unlimited CP.
- const attemptsLimit=Math.min(maxAffordable,10000);
- let attempts=0,won=false;
- for(;attempts<attemptsLimit;attempts++){
+ const ids=a.abilityIds;
+ if(!Array.isArray(ids)||ids.length<1||ids.length>4||ids.some(id=>typeof id!=='string')||new Set(ids).size!==ids.length)throw Error('목표 특수능력은 중복 없이 최대 4개까지 선택하세요');
+ if(ids.length>8-p.specialAbilities.length)throw Error('남은 특수능력 슬롯보다 목표가 많습니다');
+ const owned=new Set(p.specialAbilities);
+ const countTier=tier=>p.specialAbilities.filter(id=>SPECIAL_BY_ID.get(id)?.tier===tier).length;
+ const eligible=()=>SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')&&x.source==='training'&&!owned.has(x.id)&&(!['legend','s'].includes(x.tier)||countTier(x.tier)<2));
+ const initial=eligible();
+ const goals=ids.map(id=>initial.find(x=>x.id===id));
+ if(goals.some(x=>!x))throw Error('선택한 특수능력 중 획득할 수 없는 능력이 있습니다');
+ for(const tier of ['legend','s'])if(goals.filter(x=>x.tier===tier).length>2-countTier(tier))throw Error(tier==='legend'?'전설 특수능력은 최대 2개까지 설정할 수 있습니다':'S 특수능력은 최대 2개까지 설정할 수 있습니다');
+ const acquired=[],remaining=new Set(ids);
+ const maxAttempts=Math.min(Math.floor(c.cp/SPECIAL_DRAW_COST_CP),10000);
+ let attempts=0;
+ while(attempts<maxAttempts&&remaining.size&&owned.size<8){
+  const pool=eligible();
+  if(!pool.length)break;
   const drawn=pool[crypto.randomInt(pool.length)];
-  if(drawn.id===wanted.id){won=true;attempts++;break}
+  attempts++;
+  if(remaining.has(drawn.id)){
+   owned.add(drawn.id);
+   p.specialAbilities.push(drawn.id);
+   remaining.delete(drawn.id);
+   acquired.push({id:drawn.id,name:drawn.name,desc:drawn.desc});
+  }
  }
  const spent=attempts*SPECIAL_DRAW_COST_CP;
  c.cp-=spent;
- if(won)p.specialAbilities.push(wanted.id);
- result={message:won?p.name+' 선수 목표 특수능력 획득 · '+wanted.name+' ('+attempts+'회, '+spent+' CP 사용)':'자동 뽑기 '+attempts+'회 종료 · 목표 특수능력 미획득 ('+spent+' CP 사용)',
-  autoSpecialDraw:{playerId:p.id,abilityId:wanted.id,abilityName:wanted.name,attempts,spent,success:won,
-   exhausted:!won&&c.cp<SPECIAL_DRAW_COST_CP,limitReached:!won&&attempts===10000},
-  ...(won?{addedAbility:{id:wanted.id,name:wanted.name,desc:wanted.desc},playerId:p.id}:{})};
+ const missing=goals.filter(x=>remaining.has(x.id)).map(x=>({id:x.id,name:x.name}));
+ result={message:'목표 특수능력 자동 뽑기 종료 · '+acquired.length+'/'+ids.length+'개 획득 · '+attempts+'회 · '+spent+' CP 사용',
+  autoSpecialDraw:{playerId:p.id,attempts,spent,completed:remaining.size===0,acquired,missing,exhausted:c.cp<SPECIAL_DRAW_COST_CP,limitReached:attempts===10000}};
 }
 else if(a.type==='drawSpecialAbility'){
  const p=c.players.find(x=>x.id===String(a.id||''));
