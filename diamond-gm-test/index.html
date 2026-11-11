@@ -730,7 +730,7 @@ main.shell.layout{padding-top:30px!important}
 .gm-roster-sort.is-sorted span{color:var(--team-accent,#2468a8)}
 .gm-roster-manage{white-space:nowrap;background:#eef6ff;border:1px solid #cbdff2;border-radius:9px;color:#2a689d;font-size:11px;font-weight:850;padding:7px 11px}
 .gm-roster-manage:hover{background:#dfeeff}
-.gm-roster-table th{white-space:nowrap}
+.gm-roster-table{table-layout:fixed;width:100%;min-width:1170px}.gm-roster-table th,.gm-roster-table td{white-space:nowrap;text-align:left;vertical-align:middle;overflow:hidden;text-overflow:ellipsis}.gm-roster-table th{white-space:nowrap}.gm-roster-table th:nth-child(1),.gm-roster-table td:nth-child(1){width:190px}.gm-roster-table th:nth-child(2),.gm-roster-table td:nth-child(2){width:65px}.gm-roster-table th:nth-child(3),.gm-roster-table td:nth-child(3){width:85px}.gm-roster-table th:nth-child(4),.gm-roster-table td:nth-child(4){width:105px}.gm-roster-table th:nth-child(5),.gm-roster-table td:nth-child(5){width:70px}.gm-roster-table th:nth-child(n+6):nth-child(-n+11),.gm-roster-table td:nth-child(n+6):nth-child(-n+11){width:68px}.gm-roster-table th:nth-child(12),.gm-roster-table td:nth-child(12){width:155px}.gm-roster-table th:nth-child(13),.gm-roster-table td:nth-child(13){width:78px}
 .gm-roster-modal-overlay{position:fixed;inset:0;background:#0a1f38bf;backdrop-filter:blur(3px);z-index:800;display:flex;align-items:center;justify-content:center;padding:16px}
 .gm-roster-modal-dialog{background:white;width:min(100%,700px);max-height:min(90dvh,900px);overflow-y:auto;border-radius:18px;border:1px solid #d6e5f2;box-shadow:0 22px 70px #09203858;animation:scoutPopupIn .18s ease-out}
 .gm-roster-modal-head{display:flex;justify-content:space-between;align-items:center;padding:15px 22px;border-bottom:1px solid #e1ebf4;font-size:10px;color:#668aa9;letter-spacing:.15em;font-weight:900}
@@ -781,8 +781,8 @@ main.shell.layout{padding-top:30px!important}
 @media(prefers-reduced-motion:reduce){.gm-roster-modal-dialog{animation:none}}
 
 /* Position-specific roster: six accurate stats for hitters, six pitching stats for pitchers. */
-.gm-roster-position-tabs{display:flex;gap:8px;margin:0 0 16px;padding:4px;border:1px solid #d6e5f1;border-radius:12px;background:#e9f1f9;width:max-content;max-width:100%}
-.gm-roster-position-tabs button{display:flex;align-items:center;gap:10px;border:0;border-radius:9px;padding:10px 19px;color:#62809a;background:transparent;font-weight:900;font-size:13px;min-width:114px;justify-content:center;transition:background .15s}
+.gm-roster-position-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:0 0 16px;padding:4px;border:1px solid #d6e5f1;border-radius:12px;background:#e9f1f9;width:min(100%,340px);max-width:100%}
+.gm-roster-position-tabs button{display:flex;align-items:center;gap:10px;border:0;border-radius:9px;padding:10px 12px;color:#62809a;background:transparent;font-weight:900;font-size:13px;min-width:0;width:100%;justify-content:center;white-space:nowrap;transition:background .15s}
 .gm-roster-position-tabs button span{font-size:11px;color:#91a6b7;font-weight:700}
 .gm-roster-position-tabs button.active{background:white;color:#256ba8;box-shadow:0 2px 8px #174b7520}
 .gm-roster-position-tabs button.active span{color:#5487b2}
