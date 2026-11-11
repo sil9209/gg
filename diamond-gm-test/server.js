@@ -591,7 +591,13 @@ function leagueWithTeamRosters(c){
   const batting=players.filter(p=>!p.isPitcher),pitching=players.filter(p=>p.isPitcher);
   const avg=list=>list.length?Number((list.reduce((sum,p)=>sum+score(p),0)/list.length).toFixed(2)):0;
   return {...row,real:!!real,teamAverage:avg(players),batterAverage:avg(batting),pitcherAverage:avg(pitching),
-   playerCount:players.length,roster:players.map(p=>safePlayer(p,starters.has(p.id)?'1군':'2군'))};
+   playerCount:players.length,
+   battingOrder:real?(real.lineup||[]).filter(id=>batting.some(p=>p.id===id)).slice(0,9):batting.slice(0,9).map(p=>p.id),
+   pitcherOrder:real?[...new Set([...(Object.keys(real.pitcherRotation||{}).sort((a,b)=>{
+    const rank=x=>x.startsWith('starter')?Number(x.slice(7)):x.startsWith('relief')?10+Number(x.slice(6)):x==='setup'?19:x==='closer'?20:30;
+    return rank(a)-rank(b)}).map(role=>real.pitcherRotation[role])),
+    real.pitcher,real.pitcherAssignments?.starter,real.pitcherAssignments?.relief,real.pitcherAssignments?.closer].filter(id=>pitching.some(p=>p.id===id)))]:pitching.map(p=>p.id),
+   roster:players.map(p=>safePlayer(p,starters.has(p.id)?'1군':'2군'))};
  });
  return lg;
 }
