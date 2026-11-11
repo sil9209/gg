@@ -1335,6 +1335,7 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-flying-coach button{background:#285e95!important;color:#fff!important;padding:10px 13px!important;font-size:12px}
 .gm-flying-coach button:disabled{background:#c9d8e4!important}
 .gm-flying-coach p{width:100%;margin:2px 0 0;font-size:11px;line-height:1.7;color:#718ba1}
+.gm-confirm-message{white-space:pre-line!important}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -2420,7 +2421,7 @@ function openRosterManage(p){
  };
  overlay.querySelector('#gmRosterFocus').onchange=e=>act({type:'setGrowthFocus',id:p.id,focus:e.target.value});
  overlay.querySelector('#gmRosterFlightApply')?.addEventListener('click',async()=>{
-  if(!await gmConfirm('플라잉코치 적용 안내\\n\\n① 현재 나이('+p.age+'세)와 기본 능력치 영구 고정\\n② 경기 성장·능력치 훈련·승급 불가\\n③ 이적시장 판매·선수 거래 불가(계약 만료 후에도 동일)\\n④ 7일 단위 CP 계약 중에만 경기 출전 가능\\n\\n이 조건에 동의하고 적용하시겠습니까?'))return;
+  if(!await gmConfirm('플라잉코치 적용 안내\n\n① 현재 나이('+p.age+'세)와 기본 능력치 영구 고정\n② 경기 성장·능력치 훈련·승급 불가\n③ 이적시장 판매·선수 거래 불가(계약 만료 후에도 동일)\n④ 7일 단위 CP 계약 중에만 경기 출전 가능\n\n이 조건에 동의하고 적용하시겠습니까?'))return;
   act({type:'useFlyingCoach',id:p.id});
  });
  overlay.querySelector('#gmRosterFlightRenew')?.addEventListener('click',async()=>{
