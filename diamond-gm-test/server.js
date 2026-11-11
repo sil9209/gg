@@ -1025,7 +1025,9 @@ else if(a.type==='friendly'){
  if(c.friendlyDaily.used>=10)throw Error('오늘의 친선경기 10회를 모두 사용했습니다');
  const tier=Math.max(0,Math.min(LEAGUE_TIERS.length-1,Math.trunc(Number(a.tier)||0)));
  const rewardType=String(a.reward||'cash');if(!['cash','cp'].includes(rewardType))throw Error('보상 종류가 잘못되었습니다');
- const opponent=LEAGUE_TIERS[tier],enemyStrength=Math.max(20,Math.min(99.99,opponent.average+(Math.random()-.5)*8));
+ // Friendly difficulty rises deliberately from tier 1 to 8; the competitive league tiers are unchanged.
+ const friendlyStrength=[42,50,58,66,74,82,90,98];
+ const opponent=LEAGUE_TIERS[tier],enemyStrength=Math.max(20,Math.min(99.99,friendlyStrength[tier]+(Math.random()-.5)*3));
  const time=Date.now(),game=runGame(gameTeam(c,0,c.name,'friendly-home-'+time,1),gameTeam(null,enemyStrength,opponent.name,'friendly-away-'+time,1),'friendly-'+c.id+'-'+time+'-'+c.friendlyDaily.used);
  const ours=game.home.runs,theirs=game.away.runs,outcome=ours>theirs?'win':ours<theirs?'loss':'draw';
  c.friendlyDaily.used++;
