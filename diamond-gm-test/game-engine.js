@@ -16,13 +16,26 @@ function simulateGame({home,away,seed,stats}){
  let inning=1;
  function half(off,def,upper){
   let outs=0,runs=0,bases=[null,null,null],pa=0;
-  const pitcherIndex=inning>=9?Math.min(2,def.pitchers.length-1):inning>=7?Math.min(1,def.pitchers.length-1):0;
-  const pitcher=def.pitchers[pitcherIndex],pitcherRole=pitcherIndex===0?'starter':pitcherIndex===1?'relief':'closer',startingRuns=pitcher.r;
+  // Starter normally works five complete innings. Four runs allowed triggers an early hook.
+  // Use the reliever from inning six and the closer from inning nine when available.
+  const starter=def.pitchers[0];
+  let pitcherIndex=inning>=9?Math.min(2,def.pitchers.length-1):inning>=6||starter.r>=4?Math.min(1,def.pitchers.length-1):0;
+  let pitcher=def.pitchers[pitcherIndex],pitcherRole=pitcherIndex===0?'starter':pitcherIndex===1?'relief':'closer',startingRuns=pitcher.r;
   if(pitcher.pitches===0)pitcher.enteredLeading=def.runs>off.runs;
   const scoreRun=(runner,batter,isError=false)=>{runs++;off.runs++;if(runner)runner.r++;if(batter&&!isError)batter.rbi++;pitcher.r++;if(!isError)pitcher.er++};
   while(outs<3 && pa++<80){
    // Walk-off: end the bottom of the ninth or any extra inning as soon as home leads.
    if(!upper&&inning>=9&&H.runs>A.runs)break;
+   // Reassess after each plate appearance: four runs allowed means an immediate
+   // pitching change, including before the fifth inning is complete.
+   if(pitcherIndex===0&&pitcher.r>=4&&def.pitchers.length>1){
+    pitcherIndex=1;
+    pitcher=def.pitchers[1];
+    pitcherRole='relief';
+    startingRuns=pitcher.r;
+    if(pitcher.pitches===0)pitcher.enteredLeading=def.runs>off.runs;
+    events.push({inning,half:upper?'초':'말',team:def.name,text:'중계투수 '+pitcher.name+' 조기 등판',type:'pitchingChange'});
+   }
    const batter=off.hitters[off.pointer++%9];
    const scoringChance=Boolean(bases[1]||bases[2]),basesEmpty=!bases.some(Boolean),basesLoaded=bases.every(Boolean);
    const common={inning,outs,scoringChance,basesEmpty,basesLoaded,runnerFirst:!!bases[0],pitcherRole,late:inning>=7,
