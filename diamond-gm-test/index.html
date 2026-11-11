@@ -1332,7 +1332,7 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-league-schedule-match time{font-size:11px;color:#69849e;text-align:right}
 .gm-league-schedule-match b{font-size:12px;text-align:center;border-radius:6px;padding:6px;background:#e6f1fb;color:#286d9e}
 .gm-league-schedule-match b.upcoming{color:#8ca0ae;background:#f1f4f7}
-.gm-league-rank-table td,.gm-league-rank-table th{white-space:nowrap;text-align:center}
+.gm-league-rank-table td,.gm-league-rank-table th{white-space:nowrap;text-align:center}.gm-ranking-column-sort{display:inline-flex;gap:3px;align-items:center;justify-content:center;padding:3px 5px!important;background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;color:inherit!important;white-space:nowrap;cursor:pointer;font-size:inherit!important;font-weight:inherit!important}.gm-ranking-column-sort.is-sorting{color:#276ab5!important;font-weight:950!important}
 .gm-league-record-note{font-size:11px;margin-top:14px}
 @media(max-width:700px){.gm-league-switch{gap:5px}.gm-league-switch button{font-size:11px!important;padding:10px 4px!important}.gm-league-schedule-match{grid-template-columns:34px minmax(140px,1fr) 68px;gap:5px;font-size:11px}.gm-league-schedule-match time{display:none}.gm-league-schedule-match .league-team-identity{font-size:11px}}
 
@@ -2007,7 +2007,7 @@ function openShopEditor(item){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('gmShopEditor')){e.preventDefault();closeShopEditor()}});
 
-let leagueSection='standings',leagueScheduleDate='today',leagueBatSort='avg',leaguePitchSort='era';let scoutCurrency='cash',specialTrainPlayerId=null,marketSellPlayerId=null;const gmGrowthHue=p=>{let h=2166136261;for(const ch of String(p.id||p.name||'player'))h=Math.imul(h^ch.charCodeAt(0),16777619);return (h>>>0)%360};
+let leagueSection='standings',leagueScheduleDate='today',leagueBatSort='avg',leaguePitchSort='era',leagueBatDesc=true,leaguePitchDesc=false;let scoutCurrency='cash',specialTrainPlayerId=null,marketSellPlayerId=null;const gmGrowthHue=p=>{let h=2166136261;for(const ch of String(p.id||p.name||'player'))h=Math.imul(h^ch.charCodeAt(0),16777619);return (h>>>0)%360};
 
 let growthFilterKind='batter',growthFilterSquad='first',specialFilterKind='batter',specialFilterSquad='first';
 function firstTeamIds(c){
@@ -2416,7 +2416,7 @@ if(leagueSection==='schedule'){
 if(leagueSection==='batters'||leagueSection==='pitchers'){
  const isBat=leagueSection==='batters',sourceRows=isBat?(lg.batterRanking||[]):(lg.pitcherRanking||[]);
  const activeSort=isBat?leagueBatSort:leaguePitchSort;
- const sortAscending=['era','whip'].includes(activeSort);
+ const sortAscending=!(isBat?leagueBatDesc:leaguePitchDesc);
  const rows=[...sourceRows].sort((a,b)=>{
   const av=a[activeSort],bv=b[activeSort],aBad=av===null||av===undefined||!Number.isFinite(Number(av)),bBad=bv===null||bv===undefined||!Number.isFinite(Number(bv));
   if(aBad!==bBad)return aBad?1:-1;
@@ -2427,20 +2427,30 @@ if(leagueSection==='batters'||leagueSection==='pitchers'){
  const ownRank=p=>p.teamId===state.club?.teamId&&ownPlayers.has(String(p.id));
  const leaderSource=isBat?lg.leagueLeaders?.batting:lg.leagueLeaders?.pitching;
  const categories=isBat?[['average','타율','avg',3],['homeRuns','홈런','hr',0],['rbi','타점','rbi',0],['stolenBases','도루','sb',0],['runs','득점','r',0],['hits','안타','h',0],['onBase','출루율','obp',3],['slugging','장타율','slg',3]]:
-  [['era','평균자책','era',2],['strikeouts','탈삼진','so',0],['innings','투구이닝','ip',-1],['whip','WHIP','whip',2],['games','등판','games',0],['hitsAllowed','피안타','h',0],['walksAllowed','볼넷허용','bb',0],['earnedRuns','자책점','er',0]];
+  [['wins','승','wins',0],['losses','패','losses',0],['saves','세이브','saves',0],['holds','홀드','holds',0],['innings','이닝','outs',-1],['strikeouts','탈삼진','so',0]];
  const leaderMarkup='<div class="gm-league-leaders">'+categories.map(([id,title,key,digits])=>{
   const p=leaderSource?.[id],mine=p&&ownRank(p);
-  const value=p?(digits<0?esc(p[key]):digits>0?Number(p[key]||0).toFixed(digits):Number(p[key]||0).toLocaleString('ko-KR')):'—';
+  const value=p?(digits<0?esc(p.ip):digits>0?Number(p[key]||0).toFixed(digits):Number(p[key]||0).toLocaleString('ko-KR')):'—';
   return '<div class="gm-league-leader '+(mine?'is-mine':'')+(activeSort===key?' is-sorting':'')+'" data-rank-sort="'+key+'" role="button" tabindex="0" aria-pressed="'+(activeSort===key)+'" title="'+title+' 기준 순위 정렬"><span>'+title+(activeSort===key?' ▾':'')+'</span><strong>'+value+'</strong><button type="button" '+(p?'data-ranking-player="'+esc(p.id)+'" data-ranking-team="'+esc(p.teamId)+'"':'disabled')+'>'+esc(p?.name||'기록 없음')+'</button><small>'+esc(p?.teamName||'')+'</small></div>';
  }).join('')+'</div>';
- const th=isBat?'<th>순위</th><th>선수</th><th>구단</th><th>경기</th><th>타석</th><th>타수</th><th>타율</th><th>안타</th><th>2루타</th><th>3루타</th><th>홈런</th><th>타점</th><th>득점</th><th>도루</th><th>볼넷</th><th>삼진</th><th>출루율</th><th>장타율</th><th>OPS</th>':'<th>순위</th><th>선수</th><th>구단</th><th>평균자책</th><th>이닝</th><th>삼진</th><th>자책</th><th>피안타</th><th>볼넷</th>';
+ const header=(label,key)=>'<th><button type="button" class="gm-ranking-column-sort '+(activeSort===key?'is-sorting':'')+'" data-ranking-column="'+key+'" aria-label="'+label+' 기준 정렬">'+label+(activeSort===key?(sortAscending?' ▲':' ▼'):' ↕')+'</button></th>';
+ const header=(label,key)=>'<th><button type="button" class="gm-ranking-column-sort '+(activeSort===key?'is-sorting':'')+'" data-ranking-column="'+key+'" aria-label="'+label+' 기준 정렬">'+label+(activeSort===key?(sortAscending?' ▲':' ▼'):' ↕')+'</button></th>';
+ const th='<th>순위</th><th>선수</th><th>구단</th>'+(isBat?[
+ ['경기','games'],['타석','pa'],['타수','ab'],['타율','avg'],['안타','h'],['2루타','h2'],['3루타','h3'],['홈런','hr'],['타점','rbi'],['득점','r'],['도루','sb'],['볼넷','bb'],['삼진','so'],['출루율','obp'],['장타율','slg'],['OPS','ops']
+ ]:[['경기','games'],['승','wins'],['패','losses'],['세이브','saves'],['홀드','holds'],['평균자책','era'],['이닝','outs'],['탈삼진','so'],['자책','er'],['피안타','h'],['볼넷','bb'],['WHIP','whip']]).map(([label,key])=>header(label,key)).join('');
  el.innerHTML=leagueNav+'<section class="panel gm-league-stat-page"><div class="gm-league-stat-header"><div><h2>'+(isBat?'🏏 타자순위':'⚾ 투수순위')+'</h2><p>'+(isBat?'규정타석(팀 경기 × 3.1) 충족 선수 우선 · 타율순':'평균자책점 순위 · 동률 시 이닝·탈삼진 순')+' · 기록이 있는 경기만 집계</p></div><small>시즌 누적 기록</small></div>'+leaderMarkup+'<div class="scoreboard"><table class="gm-league-rank-table"><thead><tr>'+th+'</tr></thead><tbody>'+
- (rows.length?rows.map((p,i)=>'<tr class="'+(ownRank(p)?'gm-ranking-own-player':'')+'"><td><b>'+(i+1)+'</b></td><td><button type="button" class="gm-ranking-player-link" data-ranking-player="'+esc(p.id)+'" data-ranking-team="'+esc(p.teamId)+'">'+esc(p.name)+'</button></td><td>'+esc(p.teamName)+'</td>'+(isBat?'<td>'+p.games+'</td><td>'+p.pa+'</td><td>'+p.ab+'</td><td><b>'+Number(p.avg||0).toFixed(3)+'</b>'+(p.qualified?'':' <small title="규정타석 미달">*</small>')+'</td><td>'+p.h+'</td><td>'+(p.basesComplete?p.h2:'—')+'</td><td>'+(p.basesComplete?p.h3:'—')+'</td><td>'+p.hr+'</td><td>'+p.rbi+'</td><td>'+p.r+'</td><td>'+p.sb+'</td><td>'+p.bb+'</td><td>'+p.so+'</td><td>'+Number(p.obp||0).toFixed(3)+'</td><td>'+(p.slg===null?'—':Number(p.slg).toFixed(3))+'</td><td>'+(p.ops===null?'—':Number(p.ops).toFixed(3))+'</td>':'<td><b>'+Number(p.era||0).toFixed(2)+'</b></td><td>'+esc(p.ip)+'</td><td>'+p.so+'</td><td>'+p.er+'</td><td>'+p.h+'</td><td>'+p.bb+'</td>')+'</tr>').join(''):'<tr><td colspan="'+(isBat?19:9)+'">아직 집계된 선수 기록이 없습니다.</td></tr>')+'</tbody></table></div><p class="muted gm-league-record-note">KBO 표기 기준으로 타율=안타/타수, 출루율=(안타+볼넷)/(타수+볼넷), 장타율=루타/타수, OPS=출루율+장타율입니다. 현재 엔진은 사구·희생플라이를 생성하지 않으며, 과거 박스스코어에 2·3루타 기록이 없으면 장타율·OPS는 —로 표시합니다. *는 규정타석 미달입니다.</p></section>';
+ (rows.length?rows.map((p,i)=>'<tr class="'+(ownRank(p)?'gm-ranking-own-player':'')+'"><td><b>'+(i+1)+'</b></td><td><button type="button" class="gm-ranking-player-link" data-ranking-player="'+esc(p.id)+'" data-ranking-team="'+esc(p.teamId)+'">'+esc(p.name)+'</button></td><td>'+esc(p.teamName)+'</td>'+(isBat?'<td>'+p.games+'</td><td>'+p.pa+'</td><td>'+p.ab+'</td><td><b>'+Number(p.avg||0).toFixed(3)+'</b>'+(p.qualified?'':' <small title="규정타석 미달">*</small>')+'</td><td>'+p.h+'</td><td>'+(p.basesComplete?p.h2:'—')+'</td><td>'+(p.basesComplete?p.h3:'—')+'</td><td>'+p.hr+'</td><td>'+p.rbi+'</td><td>'+p.r+'</td><td>'+p.sb+'</td><td>'+p.bb+'</td><td>'+p.so+'</td><td>'+Number(p.obp||0).toFixed(3)+'</td><td>'+(p.slg===null?'—':Number(p.slg).toFixed(3))+'</td><td>'+(p.ops===null?'—':Number(p.ops).toFixed(3))+'</td>':'<td>'+p.games+'</td><td>'+(p.decisionsAvailable?p.wins:'—')+'</td><td>'+(p.decisionsAvailable?p.losses:'—')+'</td><td>'+(p.decisionsAvailable?p.saves:'—')+'</td><td>'+(p.decisionsAvailable?p.holds:'—')+'</td><td><b>'+Number(p.era||0).toFixed(2)+'</b></td><td>'+esc(p.ip)+'</td><td>'+p.so+'</td><td>'+p.er+'</td><td>'+p.h+'</td><td>'+p.bb+'</td><td>'+Number(p.whip||0).toFixed(2)+'</td>')+'</tr>').join(''):'<tr><td colspan="'+(isBat?19:15)+'">아직 집계된 선수 기록이 없습니다.</td></tr>')+'</tbody></table></div><p class="muted gm-league-record-note">KBO 표기 기준으로 타율=안타/타수, 출루율=(안타+볼넷)/(타수+볼넷), 장타율=루타/타수, OPS=출루율+장타율입니다. 현재 엔진은 사구·희생플라이를 생성하지 않으며, 과거 박스스코어에 2·3루타 기록이 없으면 장타율·OPS는 —로 표시합니다. *는 규정타석 미달입니다.</p></section>';
  bindLeagueNav();
  document.querySelectorAll('[data-rank-sort]').forEach(card=>{
-  const choose=()=>{if(isBat)leagueBatSort=card.dataset.rankSort;else leaguePitchSort=card.dataset.rankSort;content()};
+  const choose=()=>{if(isBat){leagueBatSort=card.dataset.rankSort;leagueBatDesc=true}else{leaguePitchSort=card.dataset.rankSort;leaguePitchDesc=!['era','whip'].includes(leaguePitchSort)}content()};
   card.addEventListener('click',e=>{if(e.target.closest('[data-ranking-player]'))return;choose()});
   card.addEventListener('keydown',e=>{if(e.target===card&&(e.key==='Enter'||e.key===' ')){e.preventDefault();choose()}});
+ });
+ document.querySelectorAll('[data-ranking-column]').forEach(button=>button.onclick=()=>{
+  const key=button.dataset.rankingColumn;
+  if(isBat){if(leagueBatSort===key)leagueBatDesc=!leagueBatDesc;else{leagueBatSort=key;leagueBatDesc=true}}
+  else{if(leaguePitchSort===key)leaguePitchDesc=!leaguePitchDesc;else{leaguePitchSort=key;leaguePitchDesc=!['era','whip'].includes(key)}}
+  content();
  });
  document.querySelectorAll('[data-ranking-player]').forEach(btn=>btn.onclick=()=>{
   const team=lg.standings?.find(x=>x.teamId===btn.dataset.rankingTeam);
