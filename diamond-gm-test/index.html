@@ -1951,10 +1951,10 @@ function openShopEditor(item){
  const kind=['growthBooster','flyingCoach'].includes(item.kind)?item.kind:'sportsDrink';
  const name=item.name||'',desc=item.desc||'',icon=item.icon||'🥤';
  const price=Number(item.price)||1000000,quantity=Number(item.quantity)||10;
- const cpKind=kind==='growthBooster';
+ const cpKind=kind==='growthBooster'||kind==='flyingCoach';
  overlay.innerHTML='<section class="gm-shop-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="gmShopEditorTitle"><div class="gm-shop-editor-heading"><div><small>ADMIN / SHOP EDITOR</small><h2 id="gmShopEditorTitle">'+slot+'번 상품 관리</h2><p>상품 정보를 수정하고 판매 여부를 선택하세요.</p></div><button type="button" class="gm-shop-editor-close" aria-label="닫기">✕</button></div><form id="gmShopEditorForm"><div class="gm-shop-editor-fields">'+
  '<label>판매 상태<select name="active"><option value="active" '+(item.active?'selected':'')+'>판매 중</option><option value="coming" '+(!item.active?'selected':'')+'>입고중</option></select></label>'+
- '<label>아이템 종류<select name="kind" id="gmShopItemKind"><option value="sportsDrink" '+(kind==='sportsDrink'?'selected':'')+'>🥤 스포츠음료 (게임머니)</option><option value="growthBooster" '+(cpKind?'selected':'')+'>🚀 성장부스터 (CP)</option><option value="flyingCoach" '+(kind==='flyingCoach'?'selected':'')+'>📋 플레잉코치권 (게임머니)</option></select></label>'+
+ '<label>아이템 종류<select name="kind" id="gmShopItemKind"><option value="sportsDrink" '+(kind==='sportsDrink'?'selected':'')+'>🥤 스포츠음료 (게임머니)</option><option value="growthBooster" '+(cpKind?'selected':'')+'>🚀 성장부스터 (CP)</option><option value="flyingCoach" '+(kind==='flyingCoach'?'selected':'')+'>📋 플레잉코치권 (100 CP)</option></select></label>'+
  '<label>상품명<input name="productName" maxlength="40" required value="'+esc(name)+'" placeholder="예: 스포츠음료 20개"></label>'+
  '<label>상품 설명<textarea name="description" maxlength="160" rows="2" placeholder="상품 안내">'+esc(desc)+'</textarea></label>'+
  '<div class="gm-shop-editor-dual"><label>상품 아이콘<input name="icon" maxlength="10" required value="'+esc(icon)+'" placeholder="🥤"></label><label>지급 수량 (개)<input name="quantity" type="number" min="1" max="10000" step="1" value="'+quantity+'" required></label></div>'+
@@ -1967,12 +1967,13 @@ function openShopEditor(item){
  const form=overlay.querySelector('#gmShopEditorForm');
  const kindSelect=form.elements.namedItem('kind'),priceInput=form.elements.namedItem('price');
  kindSelect.onchange=()=>{
-  const boost=kindSelect.value==='growthBooster';
+  const boost=kindSelect.value==='growthBooster',coach=kindSelect.value==='flyingCoach';
   const wasBoost=!boost;
-  priceInput.min=boost?'1':'1000';
-  priceInput.max=boost?'100000':'1000000000';
-  priceInput.value=boost?'20':kindSelect.value==='flyingCoach'?'10000000':'1000000';
-  form.querySelector('#gmShopPriceLabel').textContent='판매 가격 ('+(boost?'CP':'게임머니')+')';
+  priceInput.min=boost?'1':coach?'100':'1000';
+  priceInput.max=boost?'100000':coach?'100':'1000000000';
+  priceInput.readOnly=coach;
+  priceInput.value=boost?'20':kindSelect.value==='flyingCoach'?'100':'1000000';
+  form.querySelector('#gmShopPriceLabel').textContent='판매 가격 ('+(boost||coach?'CP':'게임머니')+')';
   if(!form.elements.namedItem('productName').value.trim())form.elements.namedItem('productName').value=boost?'성장부스터':kindSelect.value==='flyingCoach'?'플레잉코치권':'스포츠음료';
   if(['🥤','🚀','📋'].includes(form.elements.namedItem('icon').value))form.elements.namedItem('icon').value=boost?'🚀':kindSelect.value==='flyingCoach'?'📋':'🥤';
  };
@@ -2207,8 +2208,8 @@ function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(
 if(tab==='shop'){
  const admin=state.user?.isAdmin===true;
  const offers=Array.from({length:5},(_,i)=>state.shopItems?.find(item=>item.id==='slot'+(i+1))||{id:'slot'+(i+1),active:false});
- const shopPrice=item=>item.kind==='growthBooster'?Number(item.price||0).toLocaleString('ko-KR')+' CP':money(item.price);
- const canBuy=item=>(item.kind==='growthBooster'?c.cp:c.cash)>=Number(item.price||0);
+ const shopPrice=item=>['growthBooster','flyingCoach'].includes(item.kind)?Number(item.price||0).toLocaleString('ko-KR')+' CP':money(item.price);
+ const canBuy=item=>(['growthBooster','flyingCoach'].includes(item.kind)?c.cp:c.cash)>=Number(item.price||0);
  el.innerHTML='<div class="gm-shop-header"><div><span class="gm-shop-eyebrow">DIAMOND GM / TEAM STORE</span><h2>🛒 구단 상점</h2><p>게임머니와 CP로 아이템을 구매하고 라인업에서 사용하세요.</p></div><div class="gm-shop-wallet"><small>보유 게임머니</small><strong>'+money(c.cash)+'</strong><span>🥤 스포츠음료 '+(c.sportsDrinks||0)+'개 · 🚀 성장부스터 '+(c.growthBoosters||0)+'개 · 📋 코치권 '+(c.flyingCoachTickets||0)+'개</span></div></div>'+
  '<div class="gm-shop-tip"><span>ⓘ</span> 스포츠음료·성장부스터·📋 플레잉코치권은 라인업의 ‘선수 아이템 사용’에서 적용합니다. 코치권 적용 시 나이·능력치 고정, 성장·거래 불가 및 7일 단위 CP 계약이 적용됩니다.</div>'+
  (admin?'<div class="gm-shop-admin-help"><b>⚙️ 관리자 상품 편집</b><span>각 상품의 수정 버튼을 누르거나 ‘입고중’ 칸을 클릭해 상품을 등록하세요. 설정한 상품은 모든 회원에게 적용됩니다.</span></div>':'')+
@@ -2464,9 +2465,9 @@ function openRosterManage(p){
  '<p>1회 10 CP · 2회 50 CP · 3회부터 100 CP · 계약 만료 후 재계약 가능 · 나이·기본 능력치 고정 · 성장 불가 · 이적시장 거래 불가</p></section>';
  const stats=Object.entries(playerFieldNames(p)).map(([key,label])=>{
   const val=attributeValue(p,key);
-  return '<div class="gm-roster-modal-stat"><span>'+esc(label)+'</span><div class="gm-roster-modal-bar stat-bg-'+statColor(val)+'"><div style="width:'+Math.min(100,val)+'%"></div></div><strong>'+statCell(val)+'</strong><button type="button" data-manage-train="'+key+'" '+''+'>훈련 · 100만원</button></div>';
+  return '<div class="gm-roster-modal-stat"><span>'+esc(label)+'</span><div class="gm-roster-modal-bar stat-bg-'+statColor(val)+'"><div style="width:'+Math.min(100,val)+'%"></div></div><strong>'+statCell(val)+'</strong></div>';
  }).join('');
- overlay.innerHTML='<section class="gm-roster-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="gmRosterManageTitle"><header class="gm-roster-modal-head"><span>PLAYER MANAGEMENT</span><button type="button" class="gm-roster-dialog-close" aria-label="닫기">✕</button></header><div class="gm-roster-modal-summary">'+playerPortrait(p,'large')+'<div class="gm-roster-modal-info"><span class="gm-roster-eyebrow">'+esc(playerTeamName(p))+' · '+esc(p.pos)+' · '+Number(p.age)+'세</span><h2 id="gmRosterManageTitle">'+esc(playerLabel(p))+'</h2><div class="gm-roster-modal-tags">'+g(p)+conditionLabel(p)+'<span>종합 '+overall(p)+'</span></div><div class="gm-roster-modal-grow"><label for="gmRosterFocus">성장 방향</label><select id="gmRosterFocus">'+growthOptions(p)+'</select></div></div></div><div class="gm-roster-modal-content"><div class="gm-roster-modal-sectiontitle"><h3>능력치 관리</h3><span>능력치 개별 훈련 1회당 게임머니 100만원</span></div><div class="gm-roster-modal-stats">'+stats+'</div>'+flightContent+specialAbilityDetails(p)+'<div class="gm-roster-modal-upgrade"><div><strong>성장타입 승급</strong><small>E → D → C → B → A · 실패해도 하락하지 않음</small></div><button type="button" id="gmRosterUpgrade" '+''+'>승급 도전 · 1 CP</button></div></div><footer class="gm-roster-modal-footer"><span>최고 능력치 99.99%</span><button type="button" class="gm-roster-dialog-close">닫기</button></footer></section>';
+ overlay.innerHTML='<section class="gm-roster-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="gmRosterManageTitle"><header class="gm-roster-modal-head"><span>PLAYER MANAGEMENT</span><button type="button" class="gm-roster-dialog-close" aria-label="닫기">✕</button></header><div class="gm-roster-modal-summary">'+playerPortrait(p,'large')+'<div class="gm-roster-modal-info"><span class="gm-roster-eyebrow">'+esc(playerTeamName(p))+' · '+esc(p.pos)+' · '+Number(p.age)+'세</span><h2 id="gmRosterManageTitle">'+esc(playerLabel(p))+'</h2><div class="gm-roster-modal-tags">'+g(p)+conditionLabel(p)+'<span>종합 '+overall(p)+'</span></div><div class="gm-roster-modal-grow"><label for="gmRosterFocus">성장 방향</label><select id="gmRosterFocus">'+growthOptions(p)+'</select></div></div></div><div class="gm-roster-modal-content"><div class="gm-roster-modal-sectiontitle"><h3>선수 능력치</h3><span>경기 수 · 성장등급 · 나이에 따른 자동 성장만 적용</span></div><div class="gm-roster-modal-stats">'+stats+'</div>'+flightContent+specialAbilityDetails(p)+'<div class="gm-roster-modal-upgrade"><div><strong>성장타입 승급</strong><small>E → D → C → B → A · 실패해도 하락하지 않음</small></div><button type="button" id="gmRosterUpgrade" '+''+'>승급 도전 · 1 CP</button></div></div><footer class="gm-roster-modal-footer"><span>최고 능력치 99.99%</span><button type="button" class="gm-roster-dialog-close">닫기</button></footer></section>';
  document.body.appendChild(overlay);
  overlay.addEventListener('click',event=>{if(event.target===overlay)closeRosterManage()});
  overlay.querySelectorAll('.gm-roster-dialog-close').forEach(btn=>btn.onclick=closeRosterManage);
@@ -2497,7 +2498,7 @@ function openRosterManage(p){
   act({type:'renewFlyingCoach',id:p.id});
  });
  overlay.querySelector('#gmRosterUpgrade').onclick=()=>{if(p.flyingCoach){toast('플레잉코치 적용 선수는 등급이 고정됩니다');return}if(['A','S'].includes(p.grade)){toast('최고 성장등급이어서 더 승급할 수 없습니다');return}if((state.club?.cp||0)<1){toast('승급 도전에 CP 1개가 필요합니다');return}act({type:'upgrade',id:p.id})};
- overlay.querySelectorAll('[data-manage-train]').forEach(btn=>btn.onclick=()=>{if(p.flyingCoach){toast('플레잉코치 선수는 능력치 훈련이 불가능합니다');return}if((state.club?.cash||0)<1000000){toast('훈련에는 게임머니 100만원이 필요합니다');return}if(attributeValue(p,btn.dataset.manageTrain)>=99.99){toast('이미 최대 능력치 99.99입니다');return}act({type:'train',id:p.id,key:btn.dataset.manageTrain})});
+
  overlay.querySelector('.gm-roster-dialog-close')?.focus({preventScroll:true});
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&document.getElementById('gmRosterManageOverlay')){e.preventDefault();closeRosterManage()}});
