@@ -222,9 +222,13 @@ function ensurePlayer(p,now=Date.now()){
  if(!Number.isFinite(p.gameGrowthCount))p.gameGrowthCount=0;
  return p;
 }
+const FLYING_COACH_WEEK=7*86400000;
+const flyingCoachActive=(p,now=Date.now())=>!p.flyingCoach||Number(p.flyingCoach.until)>now;
+const flyingCoachPrice=p=>(Number(p.flyingCoach?.contracts)||0)===0?10:p.flyingCoach.contracts===1?50:100;
 function weeklyGrowth(p,now=Date.now()){
  ensurePlayer(p,now);
  const target=weekStart(now),weeks=Math.min(520,Math.max(0,Math.floor((target-p.lastGrowthWeek)/604800000)));
+ if(p.flyingCoach){if(!weeks)return false;p.lastGrowthWeek=target;return true}
  if(!weeks)return false;
  p.age=Math.min(45,p.age+weeks);
  p.lastGrowthWeek+=weeks*604800000;
@@ -237,7 +241,7 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
  const active=new Set(activeIds);
  for(const p of c.players){
   ensurePlayer(p);
-  if(p.age>=45)continue;
+  if(p.flyingCoach||p.age>=45)continue;
   const isSuper=p.grade==='S';
   // Players aged 36+ decline regardless of grade, including A and S.
   // Each match uses the same age-based decline for everyone in that age bracket,
@@ -416,8 +420,10 @@ function gameTeam(c,average,name,seed,round=1){
    roster.pitchers[(Math.max(1,round)+1)%roster.pitchers.length]]:[];
   return {name,hitters:roster.hitters,pitchers:pitching,defense:average,round};
  }
- const hitters=(c.lineup||[]).map(id=>c.players.find(p=>p.id===id&&!p.isPitcher)).filter(Boolean).slice(0,9);
- const rotation=c.pitcherRotation||{},all=c.players.filter(p=>p.isPitcher);
+ const eligible=p=>flyingCoachActive(p);
+ const hitters=(c.lineup||[]).map(id=>c.players.find(p=>p.id===id&&!p.isPitcher&&eligible(p))).filter(Boolean).slice(0,9);
+ for(const p of c.players.filter(p=>!p.isPitcher&&eligible(p)))if(hitters.length<9&&!hitters.some(x=>x.id===p.id))hitters.push(p);
+ const rotation=c.pitcherRotation||{},all=c.players.filter(p=>p.isPitcher&&eligible(p));
  const selected=[rotation['starter'+(1+(round-1)%5)]||c.pitcher,rotation.relief1||c.pitcherAssignments?.relief,rotation.closer||c.pitcherAssignments?.closer].map(id=>all.find(p=>p.id===id)).filter(Boolean);
  const pitchers=[...new Map(selected.map(x=>[x.id,x])).values()];if(!pitchers.length&&all[0])pitchers.push(all[0]);
  const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(Number(p.defense)||50)*(pos==='DH'||DEFENSE_NATIVE[p.pos]===pos?1:.84)},0)/Math.max(1,hitters.length);
@@ -540,7 +546,7 @@ const DEFAULT_SHOP_CATALOG=[
  {id:'slot1',active:true,kind:'sportsDrink',name:'스포츠음료 10개',desc:'선수 컨디션을 한 단계 올리는 회복 아이템',icon:'🥤',quantity:10,price:1000000},
  {id:'slot2',active:true,kind:'sportsDrink',name:'스포츠음료 50개',desc:'선수단 전체 컨디션 관리를 위한 묶음 상품',icon:'📦',quantity:50,price:4000000},
  {id:'slot3',active:true,kind:'growthBooster',name:'성장부스터',desc:'선수 1명의 성장타입을 S로 승급 · A타입 대비 성장 속도 2배',icon:'🚀',quantity:1,price:20},
- {id:'slot4',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000},
+ {id:'slot4',active:true,kind:'flyingCoach',name:'플라잉코치권',desc:'선수 나이와 기본 능력치를 고정 · 매주 CP 계약 시 출전',icon:'🪽',quantity:1,price:10000000},
  {id:'slot5',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000}
 ];
 function shopCatalog(){
@@ -554,6 +560,11 @@ function shopCatalog(){
    if(empty>=0)db.shopCatalog[empty]={...DEFAULT_SHOP_CATALOG[2],id:'slot'+(empty+1)};
   }
   db.shopCatalogVersion=2;
+ }
+ if((Number(db.shopCatalogVersion)||0)<3){
+  const slot=db.shopCatalog[3];
+  if(slot&&!slot.active&&!String(slot.name||'').trim())db.shopCatalog[3]={...DEFAULT_SHOP_CATALOG[3]};
+  db.shopCatalogVersion=3;
  }
  return db.shopCatalog;
 }
@@ -701,8 +712,8 @@ if(a.type==='setGrowthFocus'){
  p.growthFocus=p.growthFocusSelected?focus:null;
  result={message:p.name+' 성장 전략: '+(p.growthFocusSelected?(STAT_LABELS[p.growthFocus]+' 집중'):'균형 성장')+' 설정 완료'};
 }
-else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
-else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!statKeys(p).includes(stat))throw Error('잘못된 선수/능력치');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2,S:2.4}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
+else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(p.flyingCoach)throw Error('플라잉코치는 등급 성장을 할 수 없습니다');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
+else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!statKeys(p).includes(stat))throw Error('잘못된 선수/능력치');if(p.flyingCoach)throw Error('플라잉코치는 기본 능력치가 고정되어 훈련할 수 없습니다');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2,S:2.4}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
 else if(a.type==='scout'||a.type==='scoutBatch'){
  const configs={basic:{label:'일반 스카우트',multiplier:1},era:{label:'연도별 스카우트',multiplier:2},hitter:{label:'타자 전용 스카우트',multiplier:2},pitcher:{label:'투수 전용 스카우트',multiplier:2}};
  const kind=String(a.kind||'basic'),currency=String(a.currency||'cash'),config=configs[kind];
@@ -854,7 +865,7 @@ else if(a.type==='saveLineup'){
  const pitcherRoles=['starter1','starter2','starter3','starter4','starter5','relief1','relief2','relief3','relief4','setup','closer'];
  const rotation=a.rotation&&typeof a.rotation==='object'?a.rotation:null;
  const bench=Array.isArray(a.bench)?a.bench:null;
- const batIds=new Set(c.players.filter(p=>!p.isPitcher).map(p=>p.id)),pitchIds=new Set(c.players.filter(p=>p.isPitcher).map(p=>p.id));
+ const batIds=new Set(c.players.filter(p=>!p.isPitcher&&flyingCoachActive(p)).map(p=>p.id)),pitchIds=new Set(c.players.filter(p=>p.isPitcher&&flyingCoachActive(p)).map(p=>p.id));
  if(batting.length!==9||new Set(batting).size!==9||batting.some(id=>!batIds.has(id)))throw Error('타선은 서로 다른 타자 9명을 지정해야 합니다');
  const selected=DEFENSE_POS.map(pos=>defense[pos]);
  if(selected.some(id=>!batIds.has(id))||new Set(selected).size!==9||selected.some(id=>!batting.includes(id)))throw Error('수비 포지션은 타선의 9명을 중복 없이 지정해야 합니다');
@@ -890,7 +901,7 @@ else if(a.type==='shopSave'){
   db.shopCatalog[slot-1]={id:current.id,active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000};
  }else{
   const kind=String(a.kind||current.kind||'sportsDrink');
-  if(!['sportsDrink','growthBooster'].includes(kind))throw Error('등록할 수 없는 상품 종류입니다');
+  if(!['sportsDrink','growthBooster','flyingCoach'].includes(kind))throw Error('등록할 수 없는 상품 종류입니다');
   const name=cleanShopText(a.name,40,active),desc=cleanShopText(a.desc,160),icon=cleanShopText(a.icon,5,active);
   const price=Number(a.price),quantity=Number(a.quantity);
   const minPrice=kind==='growthBooster'?1:1000,maxPrice=kind==='growthBooster'?100000:1000000000;
@@ -909,7 +920,7 @@ else if(a.type==='rewardAdStart'){
 }
 else if(a.type==='shopBuy'){
  const offer=shopCatalog().find(x=>x.id===String(a.item||'')&&x.active===true);
- if(!offer||!['sportsDrink','growthBooster'].includes(offer.kind))throw Error('판매 중인 상품이 아닙니다');
+ if(!offer||!['sportsDrink','growthBooster','flyingCoach'].includes(offer.kind))throw Error('판매 중인 상품이 아닙니다');
  const cpItem=offer.kind==='growthBooster';
  if(!Number.isSafeInteger(offer.price)||offer.price<(cpItem?1:1000))throw Error('상품 가격이 올바르지 않습니다');
  if(!Number.isSafeInteger(offer.quantity)||offer.quantity<1)throw Error('상품 수량이 올바르지 않습니다');
@@ -922,16 +933,40 @@ else if(a.type==='shopBuy'){
  }else{
   if(!Number.isFinite(c.cash)||c.cash<offer.price)throw Error('보유 게임머니가 부족합니다');
   if(!Number.isSafeInteger(c.sportsDrinks||0)||c.sportsDrinks<0)throw Error('보유 음료 정보가 올바르지 않습니다');
-  if((c.sportsDrinks||0)+offer.quantity>999999)throw Error('스포츠음료 보관 한도를 초과했습니다');
+  const field=offer.kind==='flyingCoach'?'flyingCoachTickets':'sportsDrinks';
+  if((Number(c[field])||0)+offer.quantity>999999)throw Error('아이템 보관 한도를 초과했습니다');
   c.cash-=offer.price;
-  c.sportsDrinks=(c.sportsDrinks||0)+offer.quantity;
+  c[field]=(Number(c[field])||0)+offer.quantity;
  }
  result={message:offer.name+' 구매 완료',purchasedItem:offer.id,quantity:offer.quantity};
+}
+else if(a.type==='useFlyingCoach'){
+ const p=c.players.find(x=>x.id===String(a.id||''));
+ if(!p)throw Error('소속 선수만 코치권을 사용할 수 있습니다');
+ ensurePlayer(p);
+ if(p.flyingCoach)throw Error('이미 플라잉코치가 적용된 선수입니다');
+ if((Number(c.flyingCoachTickets)||0)<1)throw Error('플라잉코치권을 보유하고 있지 않습니다');
+ c.flyingCoachTickets--;
+ p.flyingCoach={lockedAge:p.age,contracts:0,until:0,activatedAt:Date.now()};
+ result={message:p.name+' 선수 플라잉코치 적용 완료 · 나이 '+p.age+'세와 능력치 고정 · 10 CP로 첫 주 계약하세요'};
+}
+else if(a.type==='renewFlyingCoach'){
+ const p=c.players.find(x=>x.id===String(a.id||''));
+ if(!p||!p.flyingCoach)throw Error('플라잉코치가 적용된 선수가 아닙니다');
+ const cost=flyingCoachPrice(p);
+ if((Number(c.cp)||0)<cost)throw Error('계약에 필요한 CP '+cost+'개가 부족합니다');
+ if((Number(p.flyingCoach.contracts)||0)>=1000000)throw Error('계약 횟수 한도 초과');
+ c.cp-=cost;
+ const now=Date.now();
+ p.flyingCoach.contracts=(Number(p.flyingCoach.contracts)||0)+1;
+ p.flyingCoach.until=Math.max(now,Number(p.flyingCoach.until)||0)+FLYING_COACH_WEEK;
+ result={message:p.name+' 선수 계약 연장 완료 · '+cost+' CP 사용 · 7일 연장'};
 }
 else if(a.type==='useGrowthBooster'){
  const p=c.players.find(x=>x.id===String(a.id||''));
  if(!p)throw Error('구단에 소속된 선수가 아닙니다');
  ensurePlayer(p);
+ if(p.flyingCoach)throw Error('플라잉코치의 성장등급은 고정되어 있습니다');
  if(p.grade==='S')throw Error('이미 성장타입 S인 선수입니다');
  if(!Number.isSafeInteger(c.growthBoosters||0)||(c.growthBoosters||0)<1)throw Error('성장부스터가 부족합니다');
  c.growthBoosters--;
