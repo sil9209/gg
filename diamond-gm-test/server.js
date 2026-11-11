@@ -560,7 +560,7 @@ const DEFAULT_SHOP_CATALOG=[
  {id:'slot1',active:true,kind:'sportsDrink',name:'스포츠음료 10개',desc:'선수 컨디션을 한 단계 올리는 회복 아이템',icon:'🥤',quantity:10,price:1000000},
  {id:'slot2',active:true,kind:'sportsDrink',name:'스포츠음료 50개',desc:'선수단 전체 컨디션 관리를 위한 묶음 상품',icon:'📦',quantity:50,price:4000000},
  {id:'slot3',active:true,kind:'growthBooster',name:'성장부스터',desc:'선수 1명의 성장타입을 S로 승급 · A타입 대비 성장 속도 2배',icon:'🚀',quantity:1,price:20},
- {id:'slot4',active:true,kind:'flyingCoach',name:'플라잉코치권',desc:'선수 나이와 기본 능력치를 고정 · 매주 CP 계약 시 출전',icon:'🪽',quantity:1,price:10000000},
+ {id:'slot4',active:true,kind:'flyingCoach',name:'플레잉코치권',desc:'선수 나이와 기본 능력치를 고정 · 매주 CP 계약 시 출전',icon:'📋',quantity:1,price:10000000},
  {id:'slot5',active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000}
 ];
 function shopCatalog(){
@@ -579,6 +579,17 @@ function shopCatalog(){
   const slot=db.shopCatalog[3];
   if(slot&&!slot.active&&!String(slot.name||'').trim())db.shopCatalog[3]={...DEFAULT_SHOP_CATALOG[3]};
   db.shopCatalogVersion=3;
+ }
+ // Rename existing persisted Flying Coach shop products without modifying inventory or price.
+ if((Number(db.shopCatalogVersion)||0)<4){
+  for(const item of db.shopCatalog){
+   if(item.kind==='flyingCoach'){
+    item.name=String(item.name||'').replace(/플라잉코치/g,'플레잉코치')||'플레잉코치권';
+    item.desc=String(item.desc||'').replace(/플라잉코치/g,'플레잉코치');
+    item.icon='📋';
+   }
+  }
+  db.shopCatalogVersion=4;
  }
  return db.shopCatalog;
 }
@@ -731,8 +742,8 @@ if(a.type==='setGrowthFocus'){
  p.growthFocus=p.growthFocusSelected?focus:null;
  result={message:p.name+' 성장 전략: '+(p.growthFocusSelected?(STAT_LABELS[p.growthFocus]+' 집중'):'균형 성장')+' 설정 완료'};
 }
-else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(p.flyingCoach)throw Error('플라잉코치는 등급 성장을 할 수 없습니다');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
-else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!statKeys(p).includes(stat))throw Error('잘못된 선수/능력치');if(p.flyingCoach)throw Error('플라잉코치는 기본 능력치가 고정되어 훈련할 수 없습니다');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2,S:2.4}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
+else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(p.flyingCoach)throw Error('플레잉코치는 등급 성장을 할 수 없습니다');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');if(c.cp<1)throw Error('CP 부족');c.cp--;let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
+else if(a.type==='train'){const p=c.players.find(x=>x.id===a.id),stat=String(a.key);if(!p||!statKeys(p).includes(stat))throw Error('잘못된 선수/능력치');if(p.flyingCoach)throw Error('플레잉코치는 기본 능력치가 고정되어 훈련할 수 없습니다');if(c.cash<1000000)throw Error('게임머니 부족');if(p[stat]>=CAP)throw Error('최대 능력치');c.cash-=1000000;const ageEffect=p.age<=24?1.25:p.age<=29?1:p.age<=34?.75:.55;const rankEffect={E:.5,D:.7,C:.85,B:1,A:1.2,S:2.4}[p.grade]||.5;p[stat]=statValue(p[stat]+(0.30+Math.random()*1.3)*ageEffect*rankEffect);result={message:'훈련 성공! 능력치 '+p[stat].toFixed(2)}}
 else if(a.type==='scout'||a.type==='scoutBatch'){
  const configs={basic:{label:'일반 스카우트',multiplier:1},era:{label:'연도별 스카우트',multiplier:2},hitter:{label:'타자 전용 스카우트',multiplier:2},pitcher:{label:'투수 전용 스카우트',multiplier:2}};
  const kind=String(a.kind||'basic'),currency=String(a.currency||'cash'),config=configs[kind];
@@ -868,7 +879,7 @@ else if(a.type==='scoutDecision'){
  if(history)history.status=decision==='recruit'?'recruited':'released';
  c.pendingScout=null;
 }
-else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.price);if(!p)throw Error('선수 없음');if(p.flyingCoach)throw Error('플라잉코치 적용 선수는 계약 상태와 관계없이 이적시장에 등록할 수 없습니다');
+else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.price);if(!p)throw Error('선수 없음');if(p.flyingCoach)throw Error('플레잉코치 적용 선수는 계약 상태와 관계없이 이적시장에 등록할 수 없습니다');
  const firstTeam=new Set([...(c.lineup||[]),...(c.benchIds||[]),...Object.values(c.defensePositions||{}),...Object.values(c.pitcherRotation||{}),...Object.values(c.pitcherAssignments||{})]);
  if(c.pitcher)firstTeam.add(c.pitcher);
  for(const isPitcher of [false,true]){
@@ -877,7 +888,7 @@ else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.p
  }
  if(firstTeam.has(p.id))throw Error('1군 선수는 판매 등록할 수 없습니다. 2군 선수만 판매 가능합니다');if(!Number.isSafeInteger(price)||price<100000||price>100000000000)throw Error('가격은 10만원 이상');if(c.players.length<=15)throw Error('선수단 최소 15명 유지');c.players=c.players.filter(x=>x.id!==p.id);db.listings.push({id:uid(),seller:u.id,player:p,price,date:Date.now()});fix(c);result={message:'판매 등록 완료'}}
 else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.seller===u.id);if(i<0)throw Error('판매글 없음');if(c.players.length>=80)throw Error('선수단이 가득 참');c.players.push(db.listings.splice(i,1)[0].player);fix(c)}
-else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.player?.flyingCoach)throw Error('플라잉코치 적용 선수는 거래할 수 없습니다');if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
+else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.player?.flyingCoach)throw Error('플레잉코치 적용 선수는 거래할 수 없습니다');if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
 else if(a.type==='saveLineup'){
  fix(c);
  const batting=Array.isArray(a.batting)?a.batting:[],defense=a.defense&&typeof a.defense==='object'?a.defense:{};
@@ -963,15 +974,15 @@ else if(a.type==='useFlyingCoach'){
  const p=c.players.find(x=>x.id===String(a.id||''));
  if(!p)throw Error('소속 선수만 코치권을 사용할 수 있습니다');
  ensurePlayer(p);
- if(p.flyingCoach)throw Error('이미 플라잉코치가 적용된 선수입니다');
- if((Number(c.flyingCoachTickets)||0)<1)throw Error('플라잉코치권을 보유하고 있지 않습니다');
+ if(p.flyingCoach)throw Error('이미 플레잉코치가 적용된 선수입니다');
+ if((Number(c.flyingCoachTickets)||0)<1)throw Error('플레잉코치권을 보유하고 있지 않습니다');
  c.flyingCoachTickets--;
  p.flyingCoach={lockedAge:p.age,contracts:0,until:0,activatedAt:Date.now()};
- result={message:p.name+' 선수 플라잉코치 적용 완료 · 나이·능력치 고정 / 성장 불가 / 거래 불가 · 첫 주 계약 10 CP'};
+ result={message:p.name+' 선수 플레잉코치 적용 완료 · 나이·능력치 고정 / 성장 불가 / 거래 불가 · 첫 주 계약 10 CP'};
 }
 else if(a.type==='renewFlyingCoach'){
  const p=c.players.find(x=>x.id===String(a.id||''));
- if(!p||!p.flyingCoach)throw Error('플라잉코치가 적용된 선수가 아닙니다');
+ if(!p||!p.flyingCoach)throw Error('플레잉코치가 적용된 선수가 아닙니다');
  const cost=flyingCoachPrice(p);
  if((Number(c.cp)||0)<cost)throw Error('계약에 필요한 CP '+cost+'개가 부족합니다');
  if((Number(p.flyingCoach.contracts)||0)>=1000000)throw Error('계약 횟수 한도 초과');
@@ -985,7 +996,7 @@ else if(a.type==='useGrowthBooster'){
  const p=c.players.find(x=>x.id===String(a.id||''));
  if(!p)throw Error('구단에 소속된 선수가 아닙니다');
  ensurePlayer(p);
- if(p.flyingCoach)throw Error('플라잉코치의 성장등급은 고정되어 있습니다');
+ if(p.flyingCoach)throw Error('플레잉코치의 성장등급은 고정되어 있습니다');
  if(p.grade==='S')throw Error('이미 성장타입 S인 선수입니다');
  if(!Number.isSafeInteger(c.growthBoosters||0)||(c.growthBoosters||0)<1)throw Error('성장부스터가 부족합니다');
  c.growthBoosters--;
