@@ -230,52 +230,38 @@ function weeklyGrowth(p,now=Date.now()){
  p.lastGrowthWeek+=weeks*604800000;
  return true;
 }
-// Every rostered player receives the basic per-game training, while appearance-based
-// growth is earned only from actual plate appearances or defensive outs recorded on the box score.
-// Five batter plate appearances and five pitcher innings are each normalized to 1 growth unit.
-function gameGrowthWorkload(box){
- const work=new Map();
- for(const bat of box?.batters||[]){
-  const id=String(bat.id||''),pa=Math.max(0,Number(bat.ab)||0)+Math.max(0,Number(bat.bb)||0);
-  if(id&&pa>0)work.set(id,{type:'batter',count:pa,units:pa/5});
- }
- for(const pitcher of box?.pitchers||[]){
-  const id=String(pitcher.id||''),outs=Math.max(0,Number(pitcher.outs)||0);
-  if(id&&outs>0)work.set(id,{type:'pitcher',count:outs,units:outs/15});
- }
- return work;
-}
-function applyTeamGameGrowth(c,count=1,scoreBoxes=[]){
+// Every owned player receives identical, grade-independent basic development
+// per team game, including players outside both starting and bench lists.
+function applyTeamGameGrowth(c,count=1,activeIds=[]){
  if(!Number.isInteger(count)||count<1)return;
- const boxes=Array.isArray(scoreBoxes)?scoreBoxes:[scoreBoxes].filter(Boolean);
- const workloads=new Map(),lastGame=boxes.length?gameGrowthWorkload(boxes[boxes.length-1]):new Map();
- for(const box of boxes){
-  for(const [id,work] of gameGrowthWorkload(box)){
-   workloads.set(id,(workloads.get(id)||0)+work.units);
-  }
- }
+ const active=new Set(activeIds);
  for(const p of c.players){
   ensurePlayer(p);
   if(p.age>=45)continue;
-  const fieldUnits=workloads.get(String(p.id))||0;
   const isSuper=p.grade==='S';
-  const canField=fieldUnits>0&&!(['A','S'].includes(p.grade)&&p.age>=36);
+  // Players aged 36+ decline regardless of grade, including A and S.
+  // Each match uses the same age-based decline for everyone in that age bracket,
+  // regardless of plate appearances or innings.
+  if(p.age>=36){
+   const annualizedStep=p.age<=39?0.02:p.age<=42?0.03:0.04;
+   for(const key of statKeys(p))p[key]=statValue(Math.max(0,p[key]-annualizedStep*count));
+   p.gameGrowthCount+=count;
+   continue;
+  }
+  const canField=active.has(p.id);
   const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
   const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12,S:0.24}[p.grade]||0.03;
   for(const key of statKeys(p)){
    const focusMultiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
+   // Quantize the normal-grade component first; S doubles exactly that same component.
+   // A-tier and S-tier of equal age/focus therefore advance at a strict 1:2 ratio
+   // except when an attribute has hit its 99.99 cap.
    const baseline=statValue(0.02*focusMultiplier*count);
-   const activeBonus=canField?statValue((isSuper?gradeRate/2:gradeRate)*ageRate/6*focusMultiplier*fieldUnits):0;
+   const activeBonus=canField?statValue((isSuper?gradeRate/2:gradeRate)*ageRate/6*focusMultiplier*count):0;
    const multiplier=isSuper?2:1;
    p[key]=statValue(p[key]+multiplier*(baseline+activeBonus));
   }
   p.gameGrowthCount+=count;
-  if(boxes.length){
-   const last=lastGame.get(String(p.id));
-   p.lastGameGrowth={type:p.isPitcher?'pitcher':'batter',
-    appearances:last?.count||0,unit:Number((last?.units||0).toFixed(2)),
-    totalUnits:Number(fieldUnits.toFixed(2)),games:count};
-  }
  }
 }
 function creditLeagueGames(now=Date.now()){
@@ -283,12 +269,11 @@ function creditLeagueGames(now=Date.now()){
  let changed=false;
  for(const c of db.clubs||[]){
   if(c.growthLeagueWeek!==week){c.growthLeagueWeek=week;c.growthLeagueCredited=0;changed=true}
-  const league=leagueInfo(c,now,true);
-  const played=Math.max(0,Math.min(144,Math.floor(league.completedRounds||0)));
+  const played=Math.max(0,Math.min(144,Math.floor(leagueInfo(c,now).completedRounds||0)));
   const difference=played-(Number(c.growthLeagueCredited)||0);
   if(difference>0){
-   const boxes=(league.growthBoxes||[]).filter(game=>game.round>c.growthLeagueCredited&&game.round<=played).sort((a,b)=>a.round-b.round).map(game=>game.box);
-   applyTeamGameGrowth(c,difference,boxes);
+   const participants=[...(c.lineup||[]),c.pitcher].filter(Boolean);
+   applyTeamGameGrowth(c,difference,participants);
    c.growthLeagueCredited=played;
    changed=true;
   }
@@ -442,7 +427,7 @@ function gameTeam(c,average,name,seed,round=1){
 function runGame(home,away,seed){
  return simulateGame({home,away,seed,stats:(p,ctx)=>p.id?.startsWith('AI-')?p:effectivePlayerStrength(p,ctx)});
 }
-function leagueInfo(c,now=Date.now(),includeGrowth=false){
+function leagueInfo(c,now=Date.now()){
  const start=weekStart(now),{tier,pool,real}=leagueMembers(c);
  const members=TEAMS.map((t,i)=>real[i]?{id:real[i].id,name:t.name,real:true,club:real[i],teamId:t.id,ownerName:db.users.find(u=>u.id===real[i].owner)?.ownerName||db.users.find(u=>u.id===real[i].owner)?.username||'구단주'}:{id:'bot-'+pool+'-'+i,name:t.name,real:false,teamId:t.id,ownerName:aiOwnerName(start+':'+tier+':'+pool+':'+t.id)});
  const standings=members.map(m=>({id:m.id,name:m.name,played:0,wins:0,losses:0,draws:0,scored:0,allowed:0,teamId:m.teamId,ownerName:m.ownerName}));
@@ -469,8 +454,7 @@ function leagueInfo(c,now=Date.now(),includeGrowth=false){
   return box;
  }
  const completed=games.filter(g=>slotTime(g.slot)<=now);
- const growthBoxes=[];
- for(const g of completed){const box=result(g),h=box.home.runs,a=box.away.runs,t1=byId[g.home],t2=byId[g.away];if(includeGrowth&&(g.home===c.id||g.away===c.id))growthBoxes.push({round:g.round,box:g.home===c.id?box.home:box.away});t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
+ for(const g of completed){const box=result(g),h=box.home.runs,a=box.away.runs,t1=byId[g.home],t2=byId[g.away];t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
  const next=games.find(g=>slotTime(g.slot)>now);
  const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
@@ -489,7 +473,7 @@ function leagueInfo(c,now=Date.now(),includeGrowth=false){
   for(const k of Object.keys(db.leagueGames||{}))if(Number(k.split('|')[0])<floor)delete db.leagueGames[k];
   save();
  }
- return {tier,tierName:LEAGUE_TIERS[tier].name,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length,...(includeGrowth?{growthBoxes}:{})};
+ return {tier,tierName:LEAGUE_TIERS[tier].name,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
 function settleSeasons(now=Date.now()){
@@ -924,7 +908,7 @@ else if(a.type==='friendly'){
   if(pitch)p.era=pitch.era;
   playerStats.push({id:p.id,name:p.name,position:p.pos,summary:bat?bat.ab+'타수 '+bat.h+'안타 '+bat.hr+'홈런':pitch?pitch.ip+'이닝 '+pitch.er+'자책 '+pitch.so+'탈삼진':'미출전',before,after:p.condition,delta:p.condition-before,activatedAbilities:(bat||pitch)?.activatedAbilities?.map(name=>({name}))||[]});
  }
- applyTeamGameGrowth(c,1,[game.home]);
+ applyTeamGameGrowth(c,1,participating.map(p=>p.id));
  const entry={time,tier,opponent:opponent.name,enemyStrength:Number(enemyStrength.toFixed(2)),ours,theirs,outcome,cash,cp,drinks,playerStats,detail:game};
  c.friendlyHistory=Array.isArray(c.friendlyHistory)?c.friendlyHistory:[];c.friendlyHistory.unshift(entry);c.friendlyHistory=c.friendlyHistory.slice(0,20);
  result={message:'친선경기 '+(outcome==='win'?'승리':outcome==='loss'?'패배':'무승부'),friendly:entry};
@@ -935,7 +919,7 @@ else if(a.type==='play'){
  const ours=game.home.runs,theirs=game.away.runs;
  if(ours>theirs)c.wins++;else if(ours<theirs)c.losses++;else c.draws++;
  c.cash+=ours>theirs?3500000:ours===theirs?1800000:1000000;c.cp+=ours>theirs?3:1;
- applyTeamGameGrowth(c,1,[game.home]); // Practice training depends on plate appearances/innings; condition stays unchanged.
+ const active=[...c.lineup,c.pitcher].filter(Boolean);applyTeamGameGrowth(c,1,active); // Exhibition training is retained; condition stays unchanged.
  result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs,detail:game};
 }
 else throw Error('알 수 없는 동작');}
