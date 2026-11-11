@@ -500,10 +500,10 @@ function leagueInfo(c,now=Date.now()){
    onBase:byHighest(qualifiedBatters,'obp'),slugging:byHighest(qualifiedBatters,'slg')},
   pitching:{era:byLowest(allPitcherStats,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),
    innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(allPitcherStats,'whip'),
-   wins:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable),'wins','outs'),
-   losses:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable),'losses','outs'),
-   saves:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable),'saves','outs'),
-   holds:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable),'holds','outs')}
+   wins:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.wins>0),'wins','outs'),
+   losses:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.losses>0),'losses','outs'),
+   saves:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.saves>0),'saves','outs'),
+   holds:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.holds>0),'holds','outs')}
  };
  const batterRanking=[...allBatterStats].sort((a,b)=>Number(b.qualified)-Number(a.qualified)||b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,100);
  const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,100);
