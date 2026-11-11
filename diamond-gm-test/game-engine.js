@@ -4,9 +4,9 @@ function simulateGame({home,away,seed,stats}){
  const rnd=()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return (state>>>0)/4294967296};
  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
  const build=(team,homeFlag)=>{
-  const hitters=(team.hitters||[]).slice(0,9).map((p,i)=>({p,i,id:p.id||'bot-b-'+i,name:p.name||'AI 타자 '+(i+1),ab:0,h:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,history:[]}));
+  const hitters=(team.hitters||[]).slice(0,9).map((p,i)=>({p,i,id:p.id||'bot-b-'+i,name:p.name||'AI 타자 '+(i+1),ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,history:[]}));
   const pitchers=(team.pitchers||[]).slice(0,3).map((p,i)=>({p,id:p.id||'bot-p-'+i,name:p.name||'AI 투수 '+(i+1),outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0}));
-  while(hitters.length<9){let i=hitters.length,p={id:'replacement-'+i,name:'대체 타자',contact:40,power:40,eye:40,speed:40,defense:40,condition:3};hitters.push({p,i,id:p.id,name:p.name,ab:0,h:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,history:[]})}
+  while(hitters.length<9){let i=hitters.length,p={id:'replacement-'+i,name:'대체 타자',contact:40,power:40,eye:40,speed:40,defense:40,condition:3};hitters.push({p,i,id:p.id,name:p.name,ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,history:[]})}
   if(!pitchers.length)pitchers.push({p:{name:'대체 투수',velocity:40,stuff:40,control:40,break:40,stamina:40,condition:3},name:'대체 투수',outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0});
   return {name:team.name,home:homeFlag,hitters,pitchers,pointer:0,runs:0,hits:0,errors:0,walks:0,innings:[],team};
  };
@@ -52,9 +52,11 @@ function simulateGame({home,away,seed,stats}){
    if(roll<walk){batter.bb++;pitcher.bb++;off.walks++;batter.history.push('walk');pitcher.lastStrikeout=false;if(bases.every(Boolean))scoreRun(bases[2],batter);for(let j=2;j>=1;j--)if(bases[j-1]&&(!bases[j]||j===2))bases[j]=bases[j-1];bases[0]=batter;continue}
    batter.ab++;
    if(roll<walk+strikeout){batter.so++;pitcher.so++;pitcher.outs++;outs++;batter.history.push('strikeout');pitcher.lastStrikeout=true;continue}
-   if(roll<walk+strikeout+hr){batter.h++;batter.hr++;off.hits++;batter.history.push('hit');pitcher.lastStrikeout=false;pitcher.h++;pitcher.hr++;for(let j=2;j>=0;j--)if(bases[j])scoreRun(bases[j],batter);scoreRun(batter,batter);bases=[null,null,null];events.push({inning,half:upper?'초':'말',team:off.name,text:batter.name+' 홈런',type:'homeRun'});continue}
+   if(roll<walk+strikeout+hr){batter.h++;batter.hr++;batter.tb+=4;off.hits++;batter.history.push('hit');pitcher.lastStrikeout=false;pitcher.h++;pitcher.hr++;for(let j=2;j>=0;j--)if(bases[j])scoreRun(bases[j],batter);scoreRun(batter,batter);bases=[null,null,null];events.push({inning,half:upper?'초':'말',team:off.name,text:batter.name+' 홈런',type:'homeRun'});continue}
    const hitRoll=rnd();
-   if(hitRoll<hit){batter.h++;off.hits++;pitcher.h++;batter.history.push('hit');pitcher.lastStrikeout=false;const basesTaken=rnd()<clamp(.14+(power-55)*.0015,.06,.25)?2:rnd()<.012?3:1;const next=[null,null,null];for(let j=2;j>=0;j--)if(bases[j]){const advance=basesTaken+(rnd()<clamp(.25+(Number(bases[j].p.speed)||55)*.002,0,.5)?1:0);if(j+advance>=3)scoreRun(bases[j],batter);else next[j+advance]=bases[j]}if(basesTaken===3)next[2]=batter;else next[basesTaken-1]=batter;bases=next;continue}
+   if(hitRoll<hit){batter.h++;off.hits++;pitcher.h++;batter.history.push('hit');pitcher.lastStrikeout=false;const basesTaken=rnd()<clamp(.14+(power-55)*.0015,.06,.25)?2:rnd()<.012?3:1;if(basesTaken===2)batter.h2++;else if(basesTaken===3)batter.h3++;
+   batter.tb+=basesTaken;
+   const next=[null,null,null];for(let j=2;j>=0;j--)if(bases[j]){const advance=basesTaken+(rnd()<clamp(.25+(Number(bases[j].p.speed)||55)*.002,0,.5)?1:0);if(j+advance>=3)scoreRun(bases[j],batter);else next[j+advance]=bases[j]}if(basesTaken===3)next[2]=batter;else next[basesTaken-1]=batter;bases=next;continue}
    if(roll<walk+strikeout+hr+hit+err){def.errors++;batter.history.push('out');pitcher.lastStrikeout=false;if(bases[2]){scoreRun(bases[2],null,true);bases[2]=null}for(let j=1;j>=0;j--)if(bases[j]&&!bases[j+1]){bases[j+1]=bases[j];bases[j]=null}bases[0]=batter;continue}
    batter.history.push('out');pitcher.lastStrikeout=false;if(bases[0]&&outs<2&&rnd()<clamp(.08+(55-speed)*.0005,.03,.13)){outs+=2;pitcher.outs+=2;bases[0]=null}else{outs++;pitcher.outs++}
   }
