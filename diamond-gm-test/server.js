@@ -1101,5 +1101,18 @@ else if(a.type==='play'){
 }
 else throw Error('알 수 없는 동작');}
 topUpAdminWallet(u,c);save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
+// Run the weekly settlement at the actual Korean Sunday 00:00 boundary, even without page visits.
+// The persisted salaryPaidSeasonStart marker prevents duplicate deductions after restarts.
+function scheduleNextSeasonSettlement(){
+ const now=Date.now(),next=weekStart(now)+604800000;
+ const delay=Math.max(1000,next-now);
+ const timer=setTimeout(()=>{
+  try{settleSeasons(Date.now());creditLeagueGames(Date.now())}
+  catch(e){console.error('Season settlement failed:',e)}
+  finally{scheduleNextSeasonSettlement()}
+ },delay);
+ if(typeof timer.unref==='function')timer.unref();
+}
+scheduleNextSeasonSettlement();
 let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(url.pathname==='/api/rewarded-verify'&&req.method==='POST'){queue=queue.then(()=>verifiedAdWebhook(req,res)).catch(()=>send(res,500,{error:'광고 확인 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
 if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
