@@ -1361,7 +1361,7 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-lineup-items #gmItemFlying{background:#ecf8f1!important;border-color:#b9d9c8!important;color:#28734c!important}
 .gm-lineup-items #gmItemFlying:hover:not(:disabled){background:#d9f2e5!important}
 @media(max-width:680px){.gm-lineup-items .gm-item-actions{grid-template-columns:1fr!important}}
-button:focus,button:focus-visible,[role="button"]:focus,[role="button"]:focus-visible,.team-choice:focus-visible{outline:none!important;outline-offset:0!important;box-shadow:none!important;-webkit-tap-highlight-color:transparent!important}button::before,button::after{pointer-events:none}</style></head><body><div id="app"></div><script>
+.gm-main-content{min-width:0;width:100%}button:focus,button:focus-visible,[role="button"]:focus,[role="button"]:focus-visible,.team-choice:focus-visible{outline:none!important;outline-offset:0!important;box-shadow:none!important;-webkit-tap-highlight-color:transparent!important}button::before,button::after{pointer-events:none}</style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
 const statNum=n=>Math.min(99.99,Math.max(0,Number(n)||0)).toFixed(2);
@@ -1612,9 +1612,9 @@ function root(){
   (state.user?.isAdmin?'<span class="admin-mode-tag">🔐 관리자</span>':'')+
   '<span class="pill">💰 '+money(c.cash)+'</span><span class="pill">💎 '+walletCP(c.cp)+' CP</span>'+
   '<button onclick="api({type:\'logout\'})">로그아웃</button></div></div></header>'+
-  '<main class="shell layout">'+
+  '<main class="shell layout"><div class="gm-main-content">'+
   (inManage?'<div class="manage-breadcrumb"><button type="button" id="manageBack">← 구단관리</button><span> / '+(tab==='roster'?'선수단 관리':tab==='specials'?'특수능력':tab==='finance'?'자금관리':'선수 육성')+'</span></div>':'')+
-  '<section id="content"></section></main>'+dock;
+  '<section id="content"></section></div></main>'+dock;
  if(inManage)document.getElementById('manageBack').onclick=()=>{tab='manage';root()};
  document.querySelector('[data-home-logo]')?.addEventListener('click',()=>{tab='home';root();window.scrollTo(0,0)});
  document.getElementById('gmOpenShop')?.addEventListener('click',()=>{if(tab!=='shop'){tab='shop';root()}});
