@@ -677,6 +677,35 @@ else if(a.type==='removeSpecialAbility'){
  p.specialAbilities.splice(index,1);
  result={message:p.name+' 선수의 '+(skill?.name||'특수능력')+' 삭제 완료',removedAbility:skillId,playerId:p.id};
 }
+else if(a.type==='autoDrawSpecialAbility'){
+ const p=c.players.find(x=>x.id===String(a.id||''));
+ if(!p)throw Error('소속 선수를 찾을 수 없습니다');
+ ensurePlayer(p);
+ if(p.specialAbilities.length>=8)throw Error('특수능력 8칸이 모두 채워졌습니다');
+ if(!Number.isSafeInteger(c.cp)||c.cp<SPECIAL_DRAW_COST_CP)throw Error('특수능력 뽑기에 필요한 CP가 부족합니다');
+ const existing=new Set(p.specialAbilities);
+ const tierCount=tier=>p.specialAbilities.filter(id=>SPECIAL_BY_ID.get(id)?.tier===tier).length;
+ // Reuse the normal random-draw pool and rules. Misses are discarded, not equipped.
+ const pool=SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')&&x.source==='training'&&!existing.has(x.id)&&(!['legend','s'].includes(x.tier)||tierCount(x.tier)<2));
+ if(!pool.length)throw Error('새로 배울 수 있는 특수능력이 없습니다');
+ const wanted=pool.find(x=>x.id===String(a.abilityId||''));
+ if(!wanted)throw Error('선택한 특수능력은 이미 보유 중이거나 현재 획득할 수 없습니다');
+ const maxAffordable=Math.floor(c.cp/SPECIAL_DRAW_COST_CP);
+ // Bounded batch safeguards server processing for admin accounts with unlimited CP.
+ const attemptsLimit=Math.min(maxAffordable,10000);
+ let attempts=0,won=false;
+ for(;attempts<attemptsLimit;attempts++){
+  const drawn=pool[crypto.randomInt(pool.length)];
+  if(drawn.id===wanted.id){won=true;attempts++;break}
+ }
+ const spent=attempts*SPECIAL_DRAW_COST_CP;
+ c.cp-=spent;
+ if(won)p.specialAbilities.push(wanted.id);
+ result={message:won?p.name+' 선수 목표 특수능력 획득 · '+wanted.name+' ('+attempts+'회, '+spent+' CP 사용)':'자동 뽑기 '+attempts+'회 종료 · 목표 특수능력 미획득 ('+spent+' CP 사용)',
+  autoSpecialDraw:{playerId:p.id,abilityId:wanted.id,abilityName:wanted.name,attempts,spent,success:won,
+   exhausted:!won&&c.cp<SPECIAL_DRAW_COST_CP,limitReached:!won&&attempts===10000},
+  ...(won?{addedAbility:{id:wanted.id,name:wanted.name,desc:wanted.desc},playerId:p.id}:{})};
+}
 else if(a.type==='drawSpecialAbility'){
  const p=c.players.find(x=>x.id===String(a.id||''));
  if(!p)throw Error('소속 선수를 찾을 수 없습니다');
