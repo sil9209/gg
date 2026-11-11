@@ -1487,7 +1487,7 @@ function login(){
 }
 function create(){const t=chosenTeam();theme();app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button onclick="api({type:\'logout\'})">로그아웃</button></div></header>'+
 '<main class="shell"><div class="panel auth"><div style="text-align:center">'+(t?teamBadge(t):'')+'<h1>'+esc(t?.name||'새 구단')+' 창단</h1></div><p>가입하신 구단의 시즌을 시작합니다.</p><div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="metric"><b>5억원</b><div>초기 자금</div></div><div class="metric"><b>300 CP</b><div>성장 포인트</div></div><div class="metric"><b>25명</b><div>창단 선수</div></div></div><button id="createClubNow" class="primary" style="width:100%;margin-top:20px">구단 창단하고 시작하기</button></div></main>';document.getElementById('createClubNow').onclick=()=>api({type:'createClub'});}
-const tabs=[['home','🏠 홈'],['league','🏆 리그진행'],['lineup','🧢 라인업'],['scout','🔭 스카우트'],['friendly','⚾ 친선경기'],['market','🔄 이적시장'],['shop','🛒 상점'],['manage','⚙️ 구단관리']];
+const tabs=[['home','🏠 홈'],['league','🏆 리그진행'],['lineup','🧢 라인업'],['scout','🔭 스카우트'],['friendly','⚾ 친선경기'],['market','🔄 이적시장'],['shop','🛒 상점'],['mail','📬 우편함'],['manage','⚙️ 구단관리']];
 const logo='<button type="button" class="brand-logo brand-home" data-home-logo title="홈으로 이동" aria-label="DIAMOND GM 홈으로 이동"><span class="logo-mark"><span class="logo-baseball">⚾</span><span class="logo-spark">★</span></span><span class="logo-words"><span class="logo-name">DIAMOND <em>GM</em></span><small>BASEBALL MANAGER</small></span></button>';
 
 let lastRenderedTab=null;
@@ -1515,7 +1515,7 @@ function root(){
   '<button type="button" class="gm-nav-toggle" id="gmNavToggle" aria-expanded="false" aria-controls="gmNavPanel"><span class="gm-nav-hamburger">☰</span><span class="gm-nav-toggle-text"><b>빠른 메뉴</b><small>'+esc(tabs.find(t=>t[0]===activeTab)?.[1]||'🏠 홈')+'</small></span></button></aside>';
  app.innerHTML='<header class="top"><div class="shell head">'+logo+'<div class="stats">'+
   (t?'<span class="header-team">'+teamBadge(t,true)+'<b>'+esc(t.name)+'</b></span>':'')+
-  '<button type="button" class="gm-header-shop" id="gmOpenShop" title="상점으로 이동">🛒 <span>상점</span></button>'+
+  '<button type="button" class="gm-header-shop" id="gmOpenShop" title="상점으로 이동">🛒 <span>상점</span></button><button type="button" class="gm-header-mail" id="gmOpenMail" title="우편함">📬 우편함 '+(state.mailUnread?'<b class="gm-mail-badge">'+state.mailUnread+'</b>':'')+'</button>'+
   (state.user?.isAdmin?'<span class="admin-mode-tag">🔐 관리자</span>':'')+
   '<span class="pill">💰 '+money(c.cash)+'</span><span class="pill">💎 '+walletCP(c.cp)+' CP</span>'+
   '<button onclick="api({type:\'logout\'})">로그아웃</button></div></div></header>'+
@@ -2096,14 +2096,17 @@ if(tab==='scout'){
  if(pendingBatch&&!document.getElementById('scoutPopup'))queueMicrotask(()=>{if(tab==='scout'&&state.club?.pendingScoutBatch?.id===pendingBatch.id&&!document.getElementById('scoutPopup'))showScoutBatchResult()});
  if(pending&&!document.getElementById('scoutPopup'))queueMicrotask(()=>{if(tab==='scout'&&state.club?.pendingScout?.id===c.pendingScout.id&&!document.getElementById('scoutPopup'))showScoutResult(c.pendingScout.player)});
  const chances=currency==='cash'?[[5,50],[6,30],[7,15],[8,5]]:[[7,50],[8,30],[9,15],[10,5]];
+ const ticketCount=currency==='cash'?Number(c.scoutCash100Tickets)||0:Number(c.scoutCP100Tickets)||0;
+ const freeTicket=x=>x.id==='basic'&&ticketCount>0;
  const cost=x=>currency==='cash'?1000000*x.multiplier:5*x.multiplier;
  const displayCost=x=>currency==='cash'?money(cost(x)):cost(x)+' CP';
  const wallet=currency==='cash'?c.cash:c.cp;
  el.innerHTML='<div class="scout-topline"><div><span class="team-eyebrow">DIAMOND GM · SCOUT CENTER</span><h2 class="sectiontitle">스카우트 센터</h2><p class="muted">결제 수단을 선택하고 원하는 선수 유형을 스카우트하세요.</p></div><div class="scout-wallet"><span>보유 자금</span><b>'+money(c.cash)+'</b><small>보유 CP '+walletCP(c.cp)+' · 선수단 '+c.players.length+'/80</small></div></div>'+
  '<div class="scout-payment-picker"><div class="scout-payment-heading"><h3>스카우트 결제 방식</h3><span>확률 및 비용은 선택한 결제 방식에 따라 달라집니다.</span></div><div class="scout-currency-tabs"><button type="button" data-scout-currency="cash" class="'+(currency==='cash'?'active':'')+'"><span>💰 자금 스카우트</span><strong>100만원부터</strong></button><button type="button" data-scout-currency="cp" class="'+(currency==='cp'?'active':'')+'"><span>💎 CP 스카우트</span><strong>5 CP부터</strong></button></div><div class="scout-probability"><span class="scout-prob-label">등장 확률</span>'+chances.map(([level,pct])=>'<span class="scout-prob-pill scout-level-'+level+'">Lv'+level+' <strong>'+pct+'%</strong></span>').join('')+'</div></div>'+
 
+ '<div class="gm-scout-coupon-status">🎟 일반 100회 무료 이용권 · 자금 <strong>'+(Number(c.scoutCash100Tickets)||0)+'장</strong> / CP <strong>'+(Number(c.scoutCP100Tickets)||0)+'장</strong> · 일반 100회 진행 시 자동 사용</div>'+
  '<div class="scout-headrow"><h3>스카우트 유형</h3><span>일반 1배 · 연도별/타자만/투수만 2배</span></div>'+
- '<div class="scout-contract-grid scout-four-grid">'+contracts.map((x,i)=>'<div class="scout-contract tone-'+x.tone+'"><div class="scout-contract-header"><div class="scout-contract-icon">'+x.icon+'</div><div class="scout-contract-code">SCOUT 0'+(i+1)+'</div></div><div class="scout-contract-body"><small>'+x.sub+'</small><h4>'+x.label+'</h4><p>'+x.desc+'</p></div>'+(x.id==='era'?'<label class="scout-era-label">대상 연도<select id="scoutEra">'+Array.from({length:27},(_,i)=>'<option value="'+(2000+i)+'" '+(i===26?'selected':'')+'>'+(2000+i)+'년</option>').join('')+'</select></label>':'<div class="scout-contract-fill"></div>')+'<div class="scout-contract-bottom"><div><span>'+(x.multiplier===2?'2배 비용':'기본 비용')+'</span><strong>'+displayCost(x)+'</strong></div><div class="gm-scout-qty-buttons">'+[1,10,100].map(q=>'<button type="button" data-scout-kind="'+x.id+'" data-scout-count="'+q+'" '+(wallet<cost(x)*q||c.players.length>=80||pending||pendingBatch?'disabled':'')+'>'+q+'회</button>').join('')+'</div></div></div>').join('')+'</div>'+
+ '<div class="scout-contract-grid scout-four-grid">'+contracts.map((x,i)=>'<div class="scout-contract tone-'+x.tone+'"><div class="scout-contract-header"><div class="scout-contract-icon">'+x.icon+'</div><div class="scout-contract-code">SCOUT 0'+(i+1)+'</div></div><div class="scout-contract-body"><small>'+x.sub+'</small><h4>'+x.label+'</h4><p>'+x.desc+'</p></div>'+(x.id==='era'?'<label class="scout-era-label">대상 연도<select id="scoutEra">'+Array.from({length:27},(_,i)=>'<option value="'+(2000+i)+'" '+(i===26?'selected':'')+'>'+(2000+i)+'년</option>').join('')+'</select></label>':'<div class="scout-contract-fill"></div>')+'<div class="scout-contract-bottom"><div><span>'+(x.multiplier===2?'2배 비용':'기본 비용')+'</span><strong>'+displayCost(x)+'</strong></div><div class="gm-scout-qty-buttons">'+[1,10,100].map(q=>'<button type="button" data-scout-kind="'+x.id+'" data-scout-count="'+q+'" '+(wallet<((q===100&&freeTicket(x))?0:cost(x)*q)||c.players.length>=80||pending||pendingBatch?'disabled':'')+' >'+(q===100&&freeTicket(x)?'🎟 100회 무료':q+'회')+'</button>').join('')+'</div></div></div>').join('')+'</div>'+
  (pending?'<div class="scout-pending-bar"><strong>결정 대기 중인 선수: Lv'+(pending.level||'-')+' '+esc(playerLabel(pending))+'</strong><button type="button" id="scoutResume">영입 / 방출 결정</button></div>':'')+
  (pendingBatch?'<div class="scout-pending-bar"><strong>결정 대기 중인 연속 스카우트 '+pendingBatch.items.length+'명</strong><button type="button" id="scoutBatchResume">선수 선택 및 결과 확인</button></div>':'')+
  '';
@@ -2111,7 +2114,7 @@ if(tab==='scout'){
  document.querySelectorAll('[data-scout-currency]').forEach(btn=>btn.onclick=()=>{scoutCurrency=btn.dataset.scoutCurrency;content()});
  document.querySelectorAll('[data-scout-kind]').forEach(btn=>btn.onclick=()=>{
   const x=contracts.find(t=>t.id===btn.dataset.scoutKind);
-  if(x)showScoutConfirm({...x,currency:scoutCurrency,cost:cost(x),count:Number(btn.dataset.scoutCount)||1},document.getElementById('scoutEra')?.value);
+  if(x)showScoutConfirm({...x,currency:scoutCurrency,cost:cost(x),count:Number(btn.dataset.scoutCount)||1,ticketFree:x.id==='basic'&&Number(btn.dataset.scoutCount)===100&&((scoutCurrency==='cash'?state.club.scoutCash100Tickets:state.club.scoutCP100Tickets)||0)>0},document.getElementById('scoutEra')?.value);
  });
  const resume=document.getElementById('scoutResume');if(resume)resume.onclick=()=>showScoutResult(c.pendingScout.player);
  const batchResume=document.getElementById('scoutBatchResume');if(batchResume)batchResume.onclick=()=>showScoutBatchResult();
@@ -2317,9 +2320,9 @@ function scoutPopup(content){
  overlay.querySelector('[data-popup-close]')?.focus();
 }
 function showScoutConfirm(contract,era){
- const count=contract.count||1,type=contract.currency==='cp'?'CP':'자금',total=contract.cost*count;
- const price=contract.currency==='cp'?total+' CP':money(total);
- scoutPopup('<div class="scout-popup-header"><span>SCOUT REQUEST</span><button type="button" data-popup-close aria-label="닫기">✕</button></div><div class="scout-popup-body"><div class="scout-popup-emblem">⚾</div><h2 id="scoutPopupTitle">'+count+'회 스카우트 의뢰</h2><p class="scout-popup-caption">'+esc(contract.label)+' · '+type+' 결제</p>'+(contract.id==='era'?'<p class="scout-popup-caption">선택 연도: '+esc(era)+'년</p>':'')+'<div class="scout-popup-fee"><span>의뢰 비용 ('+count+'회)</span><strong>'+price+'</strong></div><p class="scout-popup-warning">스카우트 비용은 환불되지 않습니다. 연속 스카우트는 결과에서 영입할 선수만 선택하고 나머지는 자동 방출(+100만원/명)합니다.</p><div class="scout-popup-actions"><button type="button" data-popup-close>취소</button><button type="button" id="scoutPopupConfirm" class="primary">의뢰 시작</button></div></div>');
+ const count=contract.count||1,type=contract.currency==='cp'?'CP':'자금',total=contract.ticketFree?0:contract.cost*count;
+ const price=contract.ticketFree?'🎟 무료 100회권 1장':contract.currency==='cp'?total+' CP':money(total);
+ scoutPopup('<div class="scout-popup-header"><span>SCOUT REQUEST</span><button type="button" data-popup-close aria-label="닫기">✕</button></div><div class="scout-popup-body"><div class="scout-popup-emblem">⚾</div><h2 id="scoutPopupTitle">'+count+'회 스카우트 의뢰</h2><p class="scout-popup-caption">'+esc(contract.label)+' · '+type+' 결제</p>'+(contract.id==='era'?'<p class="scout-popup-caption">선택 연도: '+esc(era)+'년</p>':'')+'<div class="scout-popup-fee"><span>의뢰 비용 ('+count+'회)</span><strong>'+price+'</strong></div><p class="scout-popup-warning">스카우트 비용 또는 무료 이용권은 실행 시 차감됩니다. 연속 스카우트는 영입할 선수만 선택하고 나머지는 자동 방출(+100만원/명)합니다.</p><div class="scout-popup-actions"><button type="button" data-popup-close>취소</button><button type="button" id="scoutPopupConfirm" class="primary">의뢰 시작</button></div></div>');
  document.getElementById('scoutPopupConfirm').onclick=()=>{
   const btn=document.getElementById('scoutPopupConfirm');btn.disabled=true;btn.textContent='선수 탐색 중…';
   closeScoutPopup();
