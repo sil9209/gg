@@ -304,7 +304,7 @@ initializeAvatarRegistry();
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
-function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueTier:0,lastSettledWeek:weekStart()-604800000,leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
+function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueTier:0,lastSettledWeek:weekStart()-604800000,salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 const DEFENSE_POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'];
 const DEFENSE_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 function fix(c){
@@ -512,9 +512,32 @@ function leagueInfo(c,now=Date.now()){
  return {tier,tierName:LEAGUE_TIERS[tier].name,allSchedule,batterRanking,pitcherRanking,leagueLeaders,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
+// Salary is collected once at the start of each new Korean-time Sunday season.
+// Existing clubs without a marker start paying from the next season after migration.
+function settleSeasonSalaries(activeStart){
+ let changed=false;
+ for(const c of db.clubs||[]){
+  if(!Number.isFinite(c.salaryPaidSeasonStart)){
+   c.salaryPaidSeasonStart=activeStart;
+   changed=true;
+   continue;
+  }
+  if(c.salaryPaidSeasonStart>=activeStart)continue;
+  const amount=(c.players||[]).reduce((sum,p)=>sum+Math.max(1,Math.min(10,Math.trunc(Number(p.level)||1)))*10000000,0);
+  c.cash=(Number(c.cash)||0)-amount;
+  c.salaryPaidSeasonStart=activeStart;
+  c.lastSalaryPayment={seasonStart:activeStart,amount,players:(c.players||[]).length};
+  c.transactions=Array.isArray(c.transactions)?c.transactions:[];
+  c.transactions.unshift({type:'연봉',name:'새 시즌 선수단 연봉',price:-amount,time:activeStart});
+  c.transactions=c.transactions.slice(0,100);
+  changed=true;
+ }
+ if(changed)save();
+}
 function settleSeasons(now=Date.now()){
  const activeStart=weekStart(now),previous=activeStart-604800000;
  if(!db.clubs?.length)return;
+ settleSeasonSalaries(activeStart);
  for(const c of db.clubs){
   if(!Number.isFinite(c.lastSettledWeek))c.lastSettledWeek=activeStart-604800000;
   if(!Array.isArray(c.leagueHistory))c.leagueHistory=[];
