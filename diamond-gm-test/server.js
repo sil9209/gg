@@ -472,8 +472,22 @@ function leagueInfo(c,now=Date.now()){
   }
   t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
- const batterRanking=[...batterStats.values()].map(row=>({...row,avg:row.ab?Number((row.h/row.ab).toFixed(3)):0})).sort((a,b)=>b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,50);
- const pitcherRanking=[...pitcherStats.values()].filter(p=>p.outs>0).map(row=>({...row,ip:(Math.floor(row.outs/3)+'.'+row.outs%3),era:Number((row.er*27/row.outs).toFixed(2))})).sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,50);
+ const allBatterStats=[...batterStats.values()].filter(row=>row.ab+row.bb>0).map(row=>({...row,
+  avg:row.ab?Number((row.h/row.ab).toFixed(3)):0,
+  obp:(row.ab+row.bb)?Number(((row.h+row.bb)/(row.ab+row.bb)).toFixed(3)):0}));
+ const allPitcherStats=[...pitcherStats.values()].filter(p=>p.outs>0).map(row=>({...row,
+  ip:Math.floor(row.outs/3)+'.'+row.outs%3,
+  era:Number((row.er*27/row.outs).toFixed(2)),
+  whip:Number(((row.h+row.bb)*3/row.outs).toFixed(2))}));
+ const byHighest=(items,key,tiebreak='h')=>[...items].sort((a,b)=>b[key]-a[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
+ const byLowest=(items,key,tiebreak='outs')=>[...items].sort((a,b)=>a[key]-b[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
+ // Leaderboards show actual league game records, not player attribute ratings.
+ const leagueLeaders={
+  batting:{average:byHighest(allBatterStats.filter(x=>x.ab>0),'avg'),homeRuns:byHighest(allBatterStats,'hr'),onBase:byHighest(allBatterStats,'obp'),rbi:byHighest(allBatterStats,'rbi')},
+  pitching:{era:byLowest(allPitcherStats,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(allPitcherStats,'whip')}
+ };
+ const batterRanking=[...allBatterStats].sort((a,b)=>b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,50);
+ const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,50);
  const next=games.find(g=>slotTime(g.slot)>now);
  const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
  const allSchedule=games.map(g=>({...decorate(g),played:slotTime(g.slot)<=now,score:slotTime(g.slot)<=now?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null}));
@@ -492,7 +506,7 @@ function leagueInfo(c,now=Date.now()){
   for(const k of Object.keys(db.leagueGames||{}))if(Number(k.split('|')[0])<floor)delete db.leagueGames[k];
   save();
  }
- return {tier,tierName:LEAGUE_TIERS[tier].name,allSchedule,batterRanking,pitcherRanking,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
+ return {tier,tierName:LEAGUE_TIERS[tier].name,allSchedule,batterRanking,pitcherRanking,leagueLeaders,rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~목 144경기/구단 · 매시간 경기 결과 · 금요일 휴식 · 토요일 가을야구',maxGames:144,completedRounds:completed.length/5,remainingRounds:144-completed.length/5,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
 function settleSeasons(now=Date.now()){
