@@ -465,13 +465,14 @@ function leagueInfo(c,now=Date.now()){
  const completed=games.filter(g=>slotTime(g.slot)<=now);
  const batterStats=new Map(),pitcherStats=new Map();
  const ensureStat=(map,player,team)=>{const key=team.id+':'+String(player.id||player.name);
-  if(!map.has(key))map.set(key,{id:String(player.id||''),name:String(player.name||'선수'),teamId:team.teamId,teamName:team.name,ownerName:team.ownerName,ab:0,h:0,h2:0,h3:0,tb:0,r:0,hr:0,rbi:0,bb:0,sb:0,so:0,outs:0,er:0,wins:0,games:0,basesComplete:true});
+  if(!map.has(key))map.set(key,{id:String(player.id||''),name:String(player.name||'선수'),teamId:team.teamId,teamName:team.name,ownerName:team.ownerName,ab:0,h:0,h2:0,h3:0,tb:0,r:0,hr:0,rbi:0,bb:0,sb:0,so:0,outs:0,er:0,wins:0,losses:0,saves:0,holds:0,decisionsAvailable:false,games:0,basesComplete:true});
   return map.get(key)};
  for(const g of completed){const box=result(g),h=box.home.runs,a=box.away.runs,t1=byId[g.home],t2=byId[g.away];for(const [side,clubId] of [['home',g.home],['away',g.away]]){
    const club=byId[clubId],details=box[side];
    if(!details)continue;
    for(const b of details.batters||[]){const row=ensureStat(batterStats,b,club);row.ab+=Number(b.ab)||0;row.h+=Number(b.h)||0;row.h2+=Number(b.h2)||0;row.h3+=Number(b.h3)||0;row.tb+=Number(b.tb)||0;row.r+=Number(b.r)||0;row.hr+=Number(b.hr)||0;row.rbi+=Number(b.rbi)||0;row.bb+=Number(b.bb)||0;row.sb+=Number(b.sb)||0;row.so+=Number(b.so)||0;row.basesComplete=row.basesComplete&&Number.isFinite(Number(b.tb))&&b.tb!=null;row.games++}
-   for(const p of details.pitchers||[]){const row=ensureStat(pitcherStats,p,club);row.outs+=Number(p.outs)||0;row.er+=Number(p.er)||0;row.h+=Number(p.h)||0;row.bb+=Number(p.bb)||0;row.so+=Number(p.so)||0;row.games++}
+   for(const p of details.pitchers||[]){const row=ensureStat(pitcherStats,p,club);row.outs+=Number(p.outs)||0;row.er+=Number(p.er)||0;row.h+=Number(p.h)||0;row.bb+=Number(p.bb)||0;row.so+=Number(p.so)||0;
+    if(Number.isFinite(Number(p.w))&&p.w!==undefined){row.decisionsAvailable=true;row.wins+=Number(p.w)||0;row.losses+=Number(p.l)||0;row.saves+=Number(p.sv)||0;row.holds+=Number(p.hld)||0}row.games++}
   }
   t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
@@ -498,7 +499,11 @@ function leagueInfo(c,now=Date.now()){
    stolenBases:byHighest(allBatterStats,'sb'),runs:byHighest(allBatterStats,'r'),hits:byHighest(allBatterStats,'h'),
    onBase:byHighest(qualifiedBatters,'obp'),slugging:byHighest(qualifiedBatters,'slg')},
   pitching:{era:byLowest(allPitcherStats,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),
-   innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(allPitcherStats,'whip')}
+   innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(allPitcherStats,'whip'),
+   wins:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable),'wins','outs'),
+   losses:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable),'losses','outs'),
+   saves:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable),'saves','outs'),
+   holds:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable),'holds','outs')}
  };
  const batterRanking=[...allBatterStats].sort((a,b)=>Number(b.qualified)-Number(a.qualified)||b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,100);
  const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,100);
