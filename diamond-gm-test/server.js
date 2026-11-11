@@ -849,7 +849,7 @@ else if(a.type==='scoutDecision'){
  if(history)history.status=decision==='recruit'?'recruited':'released';
  c.pendingScout=null;
 }
-else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.price);if(!p)throw Error('선수 없음');
+else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.price);if(!p)throw Error('선수 없음');if(p.flyingCoach)throw Error('플라잉코치 적용 선수는 계약 상태와 관계없이 이적시장에 등록할 수 없습니다');
  const firstTeam=new Set([...(c.lineup||[]),...(c.benchIds||[]),...Object.values(c.defensePositions||{}),...Object.values(c.pitcherRotation||{}),...Object.values(c.pitcherAssignments||{})]);
  if(c.pitcher)firstTeam.add(c.pitcher);
  for(const isPitcher of [false,true]){
@@ -858,7 +858,7 @@ else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.p
  }
  if(firstTeam.has(p.id))throw Error('1군 선수는 판매 등록할 수 없습니다. 2군 선수만 판매 가능합니다');if(!Number.isSafeInteger(price)||price<100000||price>100000000000)throw Error('가격은 10만원 이상');if(c.players.length<=15)throw Error('선수단 최소 15명 유지');c.players=c.players.filter(x=>x.id!==p.id);db.listings.push({id:uid(),seller:u.id,player:p,price,date:Date.now()});fix(c);result={message:'판매 등록 완료'}}
 else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.seller===u.id);if(i<0)throw Error('판매글 없음');if(c.players.length>=80)throw Error('선수단이 가득 참');c.players.push(db.listings.splice(i,1)[0].player);fix(c)}
-else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
+else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.player?.flyingCoach)throw Error('플라잉코치 적용 선수는 거래할 수 없습니다');if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
 else if(a.type==='saveLineup'){
  fix(c);
  const batting=Array.isArray(a.batting)?a.batting:[],defense=a.defense&&typeof a.defense==='object'?a.defense:{};
@@ -948,7 +948,7 @@ else if(a.type==='useFlyingCoach'){
  if((Number(c.flyingCoachTickets)||0)<1)throw Error('플라잉코치권을 보유하고 있지 않습니다');
  c.flyingCoachTickets--;
  p.flyingCoach={lockedAge:p.age,contracts:0,until:0,activatedAt:Date.now()};
- result={message:p.name+' 선수 플라잉코치 적용 완료 · 나이 '+p.age+'세와 능력치 고정 · 10 CP로 첫 주 계약하세요'};
+ result={message:p.name+' 선수 플라잉코치 적용 완료 · 나이·능력치 고정 / 성장 불가 / 거래 불가 · 첫 주 계약 10 CP'};
 }
 else if(a.type==='renewFlyingCoach'){
  const p=c.players.find(x=>x.id===String(a.id||''));
