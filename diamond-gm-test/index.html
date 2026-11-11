@@ -1298,6 +1298,16 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-mail-empty{padding:45px 15px;text-align:center;color:#8197aa;font-size:13px}
 .gm-scout-coupon-status{padding:12px 15px;margin:12px 0 17px;background:#fff8e7;border:1px solid #efddba;border-radius:11px;color:#805d2d;font-weight:750;font-size:12px}
 @media(max-width:700px){.gm-mail-form{grid-template-columns:1fr}.gm-mail-letter{gap:8px;padding:12px 5px}.gm-mail-icon{min-width:31px;width:31px;font-size:21px}.gm-mail-letter button{min-width:75px;font-size:11px!important;padding:9px 6px!important}.gm-header-mail{padding:7px!important;font-size:11px!important}}
+.gm-league-line{margin:0 0 15px;min-width:0}
+.gm-league-line-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:8px}
+.gm-league-line-heading strong{font-size:13px;color:#315d82}
+.gm-league-line-heading small{font-size:10px;color:#8ba0b3}
+.gm-league-horizontal-track{width:100%;max-width:100%;min-width:0;display:flex;gap:11px;overflow-x:auto;overflow-y:hidden;padding:4px 3px 12px;scrollbar-width:none;touch-action:pan-x;cursor:grab;user-select:none;-webkit-user-select:none;scroll-snap-type:x mandatory}
+.gm-league-horizontal-track::-webkit-scrollbar{display:none}
+.gm-league-horizontal-track.dragging{cursor:grabbing;scroll-snap-type:none}
+.gm-league-horizontal-track .gm-league-player-card{flex:0 0 155px!important;width:155px!important;min-width:155px!important;max-width:155px!important;height:175px!important;min-height:175px!important;max-height:175px!important;scroll-snap-align:start;position:relative}
+.gm-league-order-tag{font-size:10px!important;color:#2a6da0!important;background:#e5f2ff;padding:3px 7px;border-radius:6px;font-weight:900;line-height:1.2}
+@media(max-width:600px){.gm-league-horizontal-track .gm-league-player-card{flex-basis:138px!important;min-width:138px!important;max-width:138px!important;width:138px!important;height:166px!important;min-height:166px!important;max-height:166px!important}.gm-league-line-heading small{font-size:9px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -2532,16 +2542,40 @@ function findPlayerProfile(id){const club=state.club;return (club?.players||[]).
 function openLeagueTeamRoster(team){
  document.getElementById('gmLeagueRosterBackdrop')?.remove();
  const players=Array.isArray(team.roster)?team.roster:[];
+ const byId=new Map(players.map(p=>[p.id,p]));
+ const choose=(ids,kind)=>{
+  const chosen=[...new Set(Array.isArray(ids)?ids:[])].map(id=>byId.get(id)).filter(p=>p&&p.isPitcher===(kind==='pitcher'));
+  const rest=players.filter(p=>p.isPitcher===(kind==='pitcher')&&p.squad==='1군'&&!chosen.some(x=>x.id===p.id));
+  return [...chosen,...rest];
+ };
+ const pitchers=choose(team.pitcherOrder,'pitcher'),batters=choose(team.battingOrder,'batter').slice(0,9);
  const overlay=document.createElement('div');overlay.id='gmLeagueRosterBackdrop';overlay.className='gm-league-roster-backdrop';
- const sorted=[...players].sort((a,b)=>(a.squad===b.squad?0:a.squad==='1군'?-1:1)||(a.isPitcher===b.isPitcher?0:a.isPitcher?1:-1)||(Number(overall(b))-Number(overall(a))));
- const card=p=>'<button type="button" class="gm-league-player-card" data-league-player="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 선수 정보 보기">'+playerPortrait({...p,currentTeamId:team.teamId})+'<strong>'+esc(playerLabel(p))+'</strong><span>'+esc(p.pos)+' · '+esc(p.squad||'1군')+'</span><small>Lv.'+(Number(p.level)||1)+' · 성장 '+esc(p.grade||'E')+' · 종합 '+overall(p)+'</small></button>';
+ const card=(p,label)=>'<button type="button" class="gm-league-player-card" data-league-player="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 선수 정보 보기"><span class="gm-league-order-tag">'+esc(label)+'</span>'+playerPortrait({...p,currentTeamId:team.teamId})+'<strong>'+esc(playerLabel(p))+'</strong><span>'+esc(p.pos)+'</span><small>Lv.'+(Number(p.level)||1)+' · 성장 '+esc(p.grade||'E')+' · 종합 '+overall(p)+'</small></button>';
+ const row=(list,kind)=>'<section class="gm-league-line"><div class="gm-league-line-heading"><strong>'+(kind==='pitcher'?'⚾ 투수진':'🏏 타순')+'</strong><small>'+(kind==='pitcher'?'선발 → 중계 → 마무리':'1번 → 9번')+' · 좌우로 드래그</small></div><div class="gm-league-horizontal-track" data-league-drag-track>'+ (list.length?list.map((p,i)=>card(p,kind==='pitcher'?(p.pos==='마무리'?'마무리':p.pos==='중계'?'중계':'선발'):(i+1)+'번 타자')).join(''):'<p class="muted">출전 가능한 선수가 없습니다.</p>')+'</div></section>';
  overlay.innerHTML='<section class="gm-league-roster-dialog" role="dialog" aria-modal="true" aria-label="'+esc(team.name)+' 선수단"><header class="gm-league-roster-head"><div><small>LEAGUE TEAM ROSTER</small><h2>'+esc(team.name)+'</h2><p>'+esc(team.ownerName||'구단주')+' · '+(team.real?'유저 구단':'AI 구단')+'</p></div><button type="button" class="gm-league-roster-close" aria-label="닫기">✕</button></header>'+
  '<div class="gm-league-roster-averages"><div><span>팀 평균</span><strong>'+(Number(team.teamAverage)||0).toFixed(2)+'</strong></div><div><span>타자 평균</span><strong>'+(Number(team.batterAverage)||0).toFixed(2)+'</strong></div><div><span>투수 평균</span><strong>'+(Number(team.pitcherAverage)||0).toFixed(2)+'</strong></div></div>'+
- '<div class="gm-league-roster-body"><div class="gm-league-roster-subhead"><h3>선수단 <small>'+players.length+'명</small></h3><span>선수를 누르면 상세 카드가 열립니다</span></div><div class="gm-league-roster-grid">'+(sorted.length?sorted.map(card).join(''):'<p>선수 정보가 없습니다.</p>')+'</div></div></section>';
+ '<div class="gm-league-roster-body"><div class="gm-league-roster-subhead"><h3>출전 선수단</h3><span>선수를 누르면 상세 카드가 열립니다</span></div>'+row(pitchers,'pitcher')+row(batters,'batter')+'</div></section>';
  document.body.appendChild(overlay);
  const close=()=>overlay.remove();
  overlay.querySelector('.gm-league-roster-close').onclick=close;
  overlay.addEventListener('click',e=>{if(e.target===overlay)close()});
+ overlay.querySelectorAll('[data-league-drag-track]').forEach(track=>{
+  let down=false,moved=false,x=0,left=0;
+  track.addEventListener('pointerdown',e=>{
+   if(e.pointerType==='touch'||e.button!==0)return;
+   down=true;moved=false;x=e.clientX;left=track.scrollLeft;track.setPointerCapture(e.pointerId);
+  });
+  track.addEventListener('pointermove',e=>{
+   if(!down)return;const dx=e.clientX-x;if(Math.abs(dx)>5)moved=true;
+   if(moved){track.classList.add('dragging');track.scrollLeft=left-dx}
+  });
+  const finish=()=>{down=false;track.classList.remove('dragging');if(moved){track.dataset.justDragged='1';setTimeout(()=>delete track.dataset.justDragged,80)}};
+  track.addEventListener('pointerup',finish);track.addEventListener('pointercancel',finish);
+  track.addEventListener('dragstart',e=>e.preventDefault());
+  track.addEventListener('click',e=>{
+   if(track.dataset.justDragged){e.preventDefault();e.stopPropagation();delete track.dataset.justDragged}
+  },true);
+ });
  overlay.querySelectorAll('[data-league-player]').forEach(btn=>btn.onclick=()=>{
   const found=players.find(p=>p.id===btn.dataset.leaguePlayer);if(!found)return;
   openPlayerProfile({...found,currentTeamId:team.teamId,originTeam:team.teamId});
