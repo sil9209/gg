@@ -252,7 +252,7 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
   const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
   const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12,S:0.24}[p.grade]||0.03;
   for(const key of statKeys(p)){
-   const focusMultiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1;
+   const focusMultiplier=p.growthFocusSelected?(key===p.growthFocus?5:0.5):1.5;
    // Quantize the normal-grade component first; S doubles exactly that same component.
    // A-tier and S-tier of equal age/focus therefore advance at a strict 1:2 ratio
    // except when an attribute has hit its 99.99 cap.
