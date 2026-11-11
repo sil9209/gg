@@ -1268,6 +1268,36 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-league-player-card span{font-size:11px;color:#6586a0}
 .gm-league-player-card small{font-size:10px;color:#5281a5}
 @media(max-width:600px){.gm-league-roster-backdrop{padding:7px}.gm-league-roster-averages{padding:10px;gap:6px}.gm-league-roster-averages strong{font-size:17px}.gm-league-roster-head{padding:15px}.gm-league-roster-body{padding:12px}.gm-league-roster-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.gm-league-player-card{padding:10px 5px!important}}
+
+.gm-header-mail{position:relative;display:inline-flex;align-items:center;gap:5px;padding:9px 13px!important;border:1px solid #bcd4ea!important;border-radius:9px!important;background:#edf5ff!important;color:#265a85!important;font-size:12px!important;font-weight:900!important}
+.gm-mail-badge{font-size:10px!important;min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center;background:#d33949;color:white;border-radius:16px}
+.gm-mail-header{display:flex;gap:15px;align-items:center;justify-content:space-between;margin:8px 0 22px;flex-wrap:wrap}
+.gm-mail-header small{font-size:10px;color:#7c91a4;font-weight:850;letter-spacing:.14em}
+.gm-mail-header h2{font-size:25px;color:#254f75;margin:8px 0}
+.gm-mail-header p{font-size:12px;color:#718da6;margin:0}
+.gm-mail-header>strong{padding:9px 13px;border:1px solid #cfdfee;background:#eff6fd;color:#296390;border-radius:10px;font-size:12px}
+.gm-mail-subtitle{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.gm-mail-subtitle h3{margin:0;font-size:16px;color:#294e70}
+.gm-mail-subtitle span,.gm-mail-hint{font-size:11px;color:#738da4}
+.gm-mail-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px;margin-bottom:14px}
+.gm-mail-form label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:850;color:#577891;min-width:0}
+.gm-mail-form input,.gm-mail-form select,.gm-mail-form textarea{width:100%;min-width:0;box-sizing:border-box;padding:11px!important;border:1px solid #cddfec!important;border-radius:9px!important;background:white!important;color:#294967!important}
+.gm-mail-message-label{grid-column:1/-1}
+.gm-mail-admin>button{background:#25446f!important;color:white!important;padding:12px 16px!important}
+.gm-mail-hint{margin-top:10px;line-height:1.6}
+.gm-mail-letter{display:flex;align-items:center;gap:15px;padding:15px 10px;border-bottom:1px solid #e4edf4}
+.gm-mail-letter:last-child{border-bottom:0}
+.gm-mail-letter.unclaimed{background:#f6fbff}
+.gm-mail-icon{font-size:26px;width:45px;min-width:45px;text-align:center}
+.gm-mail-letter-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.gm-mail-letter-body strong{font-size:14px;color:#2c5071}
+.gm-mail-letter-body span{font-size:12px;color:#66839b;white-space:pre-wrap;overflow-wrap:anywhere}
+.gm-mail-letter-body small{font-size:11px;color:#859ab0}
+.gm-mail-letter button{min-width:93px;padding:10px!important;border:1px solid #b4d1ea!important;background:#2b79b8!important;color:white!important;font-size:12px!important;font-weight:850}
+.gm-mail-letter button:disabled{background:#eef2f6!important;color:#8ea2b6!important;border-color:#e1e8f0!important;opacity:1!important}
+.gm-mail-empty{padding:45px 15px;text-align:center;color:#8197aa;font-size:13px}
+.gm-scout-coupon-status{padding:12px 15px;margin:12px 0 17px;background:#fff8e7;border:1px solid #efddba;border-radius:11px;color:#805d2d;font-weight:750;font-size:12px}
+@media(max-width:700px){.gm-mail-form{grid-template-columns:1fr}.gm-mail-letter{gap:8px;padding:12px 5px}.gm-mail-icon{min-width:31px;width:31px;font-size:21px}.gm-mail-letter button{min-width:75px;font-size:11px!important;padding:9px 6px!important}.gm-header-mail{padding:7px!important;font-size:11px!important}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1525,6 +1555,7 @@ function root(){
  if(inManage)document.getElementById('manageBack').onclick=()=>{tab='manage';root()};
  document.querySelector('[data-home-logo]')?.addEventListener('click',()=>{tab='home';root();window.scrollTo(0,0)});
  document.getElementById('gmOpenShop')?.addEventListener('click',()=>{if(tab!=='shop'){tab='shop';root()}});
+ document.getElementById('gmOpenMail')?.addEventListener('click',()=>{if(tab!=='mail'){tab='mail';root()}});
  const dockEl=document.getElementById('gmNavDock'),toggle=document.getElementById('gmNavToggle'),panel=document.getElementById('gmNavPanel');
  bindGameDockDrag();
  toggle.onclick=()=>{
@@ -2058,7 +2089,38 @@ function bindScoutCriteria(scope,afterChange){
  });
 }
 
-function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='shop'){
+function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(()=>{if(tab===heldTab)window.scrollTo({top:heldY,behavior:'instant'})});const c=state.club,el=document.getElementById('content');if(tab==='mail'){
+ const gifts={sportsDrink:{name:'스포츠음료',icon:'🥤'},growthBooster:{name:'성장부스터',icon:'🚀'},scoutCash100:{name:'일반 자금 스카우트 100회권',icon:'🎟'},scoutCP100:{name:'일반 CP 스카우트 100회권',icon:'💎'}};
+ const letters=Array.isArray(state.mail)?state.mail:[];
+ const unopened=letters.filter(m=>!m.claimed).length;
+ const formatDate=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});
+ el.innerHTML='<div class="gm-mail-header"><div><small>DIAMOND GM · MAIL CENTER</small><h2>📬 우편함</h2><p>GM이 발송한 선물을 확인하고 수령하세요.</p></div><strong>미수령 우편 '+unopened+'건</strong></div>'+
+ (state.user?.isAdmin?'<section class="panel gm-mail-admin"><div class="gm-mail-subtitle"><h3>🎁 GM 전체 유저 선물 발송</h3><span>등록된 모든 일반 회원에게 동일한 선물을 발송합니다.</span></div><div class="gm-mail-form"><label>제목<input id="gmGiftTitle" maxlength="60" value="GM 특별 선물" placeholder="우편 제목"></label><label>선물 물품<select id="gmGiftItem">'+Object.entries(gifts).map(([id,g])=>'<option value="'+id+'">'+g.icon+' '+g.name+'</option>').join('')+'</select></label><label>지급 수량<input id="gmGiftQty" type="number" min="1" max="10000" step="1" value="1"></label><label class="gm-mail-message-label">우편 내용<textarea id="gmGiftMessage" maxlength="300" rows="2" placeholder="선물 메시지">DIAMOND GM 운영팀에서 보내는 선물입니다.</textarea></label></div><button type="button" class="primary" id="gmSendGiftAll">모든 유저에게 선물 발송</button><p class="gm-mail-hint">100회권 1장은 일반 스카우트 100회를 무료로 실행하는 이용권입니다. 발송 후 회수할 수 없습니다.</p></section>':'')+
+ '<section class="panel gm-mail-list"><div class="gm-mail-subtitle"><h3>받은 우편</h3><span>선물 수령은 우편당 1회만 가능합니다.</span></div>'+
+ (letters.length?letters.map(m=>{const gift=gifts[m.item]||{name:'아이템',icon:'🎁'};return '<article class="gm-mail-letter '+(m.claimed?'claimed':'unclaimed')+'"><div class="gm-mail-icon">'+gift.icon+'</div><div class="gm-mail-letter-body"><strong>'+esc(m.title||'GM 선물')+'</strong><span>'+esc(m.message||'')+'</span><small>'+formatDate(m.sentAt)+' · '+gift.name+' × '+Number(m.quantity||0)+'</small></div><button type="button" data-mail-claim="'+esc(m.id)+'" '+(m.claimed?'disabled':'')+'>'+(m.claimed?'수령 완료':'선물받기')+'</button></article>'}).join(''):'<div class="gm-mail-empty">📭 아직 도착한 우편이 없습니다.</div>')+'</section>';
+ document.querySelectorAll('[data-mail-claim]').forEach(button=>button.onclick=async()=>{
+  button.disabled=true;
+  const answer=await api({type:'claimGmMail',id:button.dataset.mailClaim});
+  if(!answer)button.disabled=false;
+ });
+ if(state.user?.isAdmin){
+  const send=document.getElementById('gmSendGiftAll');
+  send.onclick=async()=>{
+   const title=document.getElementById('gmGiftTitle').value.trim(),item=document.getElementById('gmGiftItem').value,
+    quantity=Number(document.getElementById('gmGiftQty').value),message=document.getElementById('gmGiftMessage').value.trim();
+   if(!title){toast('우편 제목을 입력하세요');return}
+   if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000){toast('선물 수량은 1~10,000개까지 가능합니다');return}
+   const label=gifts[item]?.name||'아이템';
+   const approved=await gmConfirm('현재 등록된 모든 유저에게 '+label+' '+quantity+'개를 발송하시겠습니까? 발송 후에는 취소할 수 없습니다.',{title:'전체 유저 선물 발송',confirmText:'전체 발송'});
+   if(!approved)return;
+   send.disabled=true;
+   const result=await api({type:'gmSendGift',title,message,item,quantity});
+   if(!result)send.disabled=false;
+  };
+ }
+ return;
+}
+if(tab==='shop'){
  const admin=state.user?.isAdmin===true;
  const offers=Array.from({length:5},(_,i)=>state.shopItems?.find(item=>item.id==='slot'+(i+1))||{id:'slot'+(i+1),active:false});
  const shopPrice=item=>item.kind==='growthBooster'?Number(item.price||0).toLocaleString('ko-KR')+' CP':money(item.price);
