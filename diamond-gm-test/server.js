@@ -239,6 +239,7 @@ function weeklyGrowth(p,now=Date.now()){
 function applyTeamGameGrowth(c,count=1,activeIds=[]){
  if(!Number.isInteger(count)||count<1)return;
  const active=new Set(activeIds);
+ const bench=new Set((c.benchIds||[]).filter(id=>!active.has(id)));
  for(const p of c.players){
   ensurePlayer(p);
   if(p.flyingCoach||p.age>=45)continue;
@@ -253,6 +254,8 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
    continue;
   }
   const canField=active.has(p.id);
+  // Substitute/bench participants gain 50% of their total game development.
+  const gameGrowthFactor=bench.has(p.id)?0.5:1;
   const ageRate=p.age<=24?1.3:p.age<=29?1:p.age<=35?0.75:0.4;
   const gradeRate={E:0.03,D:0.05,C:0.07,B:0.09,A:0.12,S:0.24}[p.grade]||0.03;
   for(const key of statKeys(p)){
@@ -260,8 +263,8 @@ function applyTeamGameGrowth(c,count=1,activeIds=[]){
    // Quantize the normal-grade component first; S doubles exactly that same component.
    // A-tier and S-tier of equal age/focus therefore advance at a strict 1:2 ratio
    // except when an attribute has hit its 99.99 cap.
-   const baseline=statValue(0.02*focusMultiplier*count);
-   const activeBonus=canField?statValue((isSuper?gradeRate/2:gradeRate)*ageRate/6*focusMultiplier*count):0;
+   const baseline=statValue(0.02*focusMultiplier*count*gameGrowthFactor);
+   const activeBonus=canField?statValue((isSuper?gradeRate/2:gradeRate)*ageRate/6*focusMultiplier*count*gameGrowthFactor):0;
    const multiplier=isSuper?2:1;
    p[key]=statValue(p[key]+multiplier*(baseline+activeBonus));
   }
