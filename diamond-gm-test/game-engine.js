@@ -1,4 +1,4 @@
-/* Diamond GM deterministic, stat-driven nine-inning box-score engine. */
+/* Diamond GM deterministic, stat-driven nine-inning game with up to 12 innings. */
 function simulateGame({home,away,seed,stats}){
  let h=2166136261;for(const c of String(seed)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}let state=h>>>0;
  const rnd=()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return (state>>>0)/4294967296};
@@ -20,6 +20,8 @@ function simulateGame({home,away,seed,stats}){
   const pitcher=def.pitchers[pitcherIndex],pitcherRole=pitcherIndex===0?'starter':pitcherIndex===1?'relief':'closer',startingRuns=pitcher.r;
   const scoreRun=(runner,batter,isError=false)=>{runs++;off.runs++;if(runner)runner.r++;if(batter&&!isError)batter.rbi++;pitcher.r++;if(!isError)pitcher.er++};
   while(outs<3 && pa++<80){
+   // Walk-off: end the bottom of the ninth or any extra inning as soon as home leads.
+   if(!upper&&inning>=9&&H.runs>A.runs)break;
    const batter=off.hitters[off.pointer++%9];
    const scoringChance=Boolean(bases[1]||bases[2]),basesEmpty=!bases.some(Boolean),basesLoaded=bases.every(Boolean);
    const common={inning,outs,scoringChance,basesEmpty,basesLoaded,runnerFirst:!!bases[0],pitcherRole,late:inning>=7,
@@ -61,14 +63,16 @@ function simulateGame({home,away,seed,stats}){
   if(runs)events.push({inning,half:upper?'초':'말',team:off.name,text:runs+'득점',type:'score'});
   return runs;
  }
+ let completedInnings=0;
  for(inning=1;inning<=12;inning++){
   A.innings.push(half(A,H,true));
-  if(inning>=9&&H.runs>A.runs){H.innings.push(null);break}
+  if(inning>=9&&H.runs>A.runs){H.innings.push(null);completedInnings=inning;break}
   H.innings.push(half(H,A,false));
+  completedInnings=inning;
   if(inning>=9&&H.runs!==A.runs)break;
  }
  const box=t=>({name:t.name,runs:t.runs,hits:t.hits,errors:t.errors,walks:t.walks,innings:t.innings,batters:t.hitters.map(({p,i,history,...b})=>({...b,activatedAbilities:[...(triggered.get(p.id)||new Map()).values()]})),pitchers:t.pitchers.filter(p=>p.pitches>0).map(({p,lastStrikeout,scorelessInnings,...x})=>({...x,activatedAbilities:[...(triggered.get(p.id)||new Map()).values()],ip:Math.floor(x.outs/3)+'.'+x.outs%3,era:x.outs?Number((x.er*27/x.outs).toFixed(2)):0}))});
- const result={home:box(H),away:box(A),events,innings:inning,draw:H.runs===A.runs};
+ const result={home:box(H),away:box(A),events,innings:completedInnings,draw:H.runs===A.runs};
  const bat=[...H.hitters,...A.hitters].sort((x,y)=>(y.h*2+y.hr*3+y.rbi)-(x.h*2+x.hr*3+x.rbi))[0];result.mvp=bat?{name:bat.name,team:H.hitters.includes(bat)?H.name:A.name}:null;
  return result;
 }
