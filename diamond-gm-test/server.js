@@ -57,6 +57,16 @@ function chooseAwardPlayer(p){
  p.awardSourceYear=entry.year;
  return p;
 }
+// All three variants of one pseudonymous player share the same baseline at the same level.
+function awardBaseStats(p,center,spread){
+ if(!p.awardKey)return false;
+ for(const key of statKeys(p)){
+  const seed=crypto.createHash('sha256').update('award-stat-v1:'+p.awardKey+':'+String(p.level||1)+':'+key).digest();
+  const roll=seed.readUInt32BE(0)/4294967295;
+  p[key]=statValue(center+(roll-.5)*spread);
+ }
+ return true;
+}
 function awardBonus(p){
  const bonus=p.awardVariant==='M'?3:p.awardVariant==='G'?1:0;
  if(bonus)for(const key of statKeys(p))p[key]=statValue((Number(p[key])||0)+bonus);
@@ -76,6 +86,7 @@ function player(owner,opts={}){
   p.velocity=p.speed;p.stuff=p.power;p.control=p.contact;p.break=p.eye;
  }
  chooseAwardPlayer(p);
+ awardBaseStats(p,58,36);
  awardBonus(p);
  if(p.awardVariant)p.specialAbilities=awardStartingSkill(p);
  assignAvatarDNA(p);
@@ -746,7 +757,7 @@ function makeScoutPlayer(owner,kind,currency,era){
  p.level=level;
  ensurePlayer(p);
  const center=30+level*5.8;
- for(const key of statKeys(p))p[key]=statValue(center+(Math.random()-.5)*13);
+ if(!awardBaseStats(p,center,13))for(const key of statKeys(p))p[key]=statValue(center+(Math.random()-.5)*13);
  awardBonus(p);
  if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
  // An award G/M card always starts with exactly one valid special ability.
