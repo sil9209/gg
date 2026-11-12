@@ -195,6 +195,8 @@ const SPECIAL_ABILITIES=[{"id":"immortal_b","name":"불멸자","type":"batter","
 // Requested 145 additional skills are stored separately to keep the original catalog unchanged.
 const ADDITIONAL_SPECIALS=require('./additional-specials.json');
 SPECIAL_ABILITIES.push(...ADDITIONAL_SPECIALS);
+/* Pitcher counterpart of the batter Phoenix training ability. */
+SPECIAL_ABILITIES.push({id:'phoenix_p',name:'불사조',type:'pitcher',source:'training',when:'age40',boost:{velocity:1,stuff:1,control:1,break:1},desc:'40세 이상 시 구속·구위·제구·변화 +1'});
 // Exclusive starting-skill roster for Golden Glove and MVP cards; normal scouting/draw pools remain intact.
 const AWARD_STARTING_SPECIALS=[{"id":"award_immortal_b","name":"불멸자","type":"batter","source":"award","when":"age43","boost":{"contact":4,"power":4,"eye":4,"speed":4},"desc":"43세 이상 정확·파워·선구·주력 +4"},{"id":"award_immortal_p","name":"불멸자","type":"pitcher","source":"award","when":"age43","boost":{"velocity":4,"stuff":4,"control":4,"break":4},"desc":"43세 이상 구속·구위·제구·변화 +4"},{"id":"award_undying_b","name":"불사신","type":"batter","source":"award","when":"age40","boost":{"contact":3,"power":3,"eye":3,"speed":3},"desc":"40세 이상 정확·파워·선구·주력 +3"},{"id":"award_undying_p","name":"불사신","type":"pitcher","source":"award","when":"age40","boost":{"velocity":3,"stuff":3,"control":3,"break":3},"desc":"40세 이상 구속·구위·제구·변화 +3"},{"id":"award_autumn_b","name":"가을사나이","type":"batter","source":"award","when":"postseason","boost":{"contact":2,"power":2,"eye":2},"desc":"포스트시즌 정확·파워·선구 +2"},{"id":"award_autumn_p","name":"가을사나이","type":"pitcher","source":"award","when":"postseason","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"포스트시즌 구속·구위·제구·변화 +2"},{"id":"award_foreign_b","name":"외인용병","type":"batter","source":"award","when":"foreign","boost":{"contact":2,"power":2,"eye":2},"desc":"외국인 타자 정확·파워·선구 +2"},{"id":"award_foreign_p","name":"외인용병","type":"pitcher","source":"award","when":"foreign","boost":{"velocity":3,"stuff":3,"control":3,"break":3},"desc":"외국인 투수 구속·구위·제구·변화 +3"},{"id":"award_mood_b","name":"무드남","type":"batter","source":"award","when":"home","boost":{"contact":1,"power":1,"eye":1},"desc":"홈 경기 정확·파워·선구 +1"},{"id":"award_mood_p","name":"무드남","type":"pitcher","source":"award","when":"home","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"홈 경기 구속·구위·제구·변화 +2"},{"id":"award_clutch","name":"클러치 히터","type":"batter","source":"award","when":"scoring","boost":{"contact":3,"power":3},"desc":"득점권 정확·파워 +3"},{"id":"award_slugger","name":"슬러거","type":"batter","source":"award","when":"always","boost":{"power":4},"desc":"항상 파워 +4"},{"id":"award_onbase","name":"출루머신","type":"batter","source":"award","when":"leadoff","boost":{"contact":3,"eye":3},"desc":"1·2번 타순 정확·선구 +3"},{"id":"award_instinct","name":"타격본능","type":"batter","source":"award","when":"always","boost":{"contact":4},"desc":"항상 정확 +4"},{"id":"award_patience","name":"고진감래","type":"batter","source":"award","when":"hitless3","boost":{"contact":2,"power":2,"eye":2},"desc":"직전 3타수 무안타 시 정확·파워·선구 +2"},{"id":"award_madness","name":"광끼폭발","type":"batter","source":"award","when":"hits2","boost":{"contact":2,"power":2,"eye":2},"desc":"2연속 안타 후 다음 타석 정확·파워·선구 +2"},{"id":"award_loaded","name":"만루사나이","type":"batter","source":"award","when":"loaded","boost":{"contact":2,"power":2},"desc":"만루 시 정확·파워 +2"},{"id":"award_local","name":"신토불이","type":"batter","source":"award","when":"foreignPitcher","boost":{"contact":1,"power":1,"eye":1},"desc":"외국인 투수 상대 정확·파워·선구 +1"},{"id":"award_submarine","name":"잠수함킬러","type":"batter","source":"award","when":"underhand","boost":{"contact":2,"power":2,"eye":2},"desc":"언더핸드 투수 상대 정확·파워·선구 +2"},{"id":"award_sniper","name":"저격수","type":"batter","source":"award","when":"firstTeam","boost":{"contact":2,"power":2,"eye":2},"desc":"1위 팀 상대 정확·파워·선구 +2"},{"id":"award_rbi","name":"타점 제조기","type":"batter","source":"award","when":"scoring","boost":{"contact":2,"power":2,"eye":2},"desc":"득점권 정확·파워·선구 +2"},{"id":"award_hero","name":"해결사","type":"batter","source":"award","when":"twoOutScoring","boost":{"contact":2,"power":2,"eye":2},"desc":"2아웃 득점권 정확·파워·선구 +2"},{"id":"award_knife","name":"칼날제구","type":"pitcher","source":"award","when":"pitches60","boost":{"stuff":4,"control":4},"desc":"투구수 60개까지 구위·제구 +4"},{"id":"award_closer","name":"클로저","type":"pitcher","source":"award","when":"inning8to9","boost":{"velocity":3,"stuff":3,"break":3},"desc":"8·9회 구속·구위·변화 +3"},{"id":"award_curve","name":"변화구 마스터","type":"pitcher","source":"award","when":"pitches60","boost":{"stuff":4,"break":4},"desc":"투구수 60개까지 구위·변화 +4"},{"id":"award_setup","name":"필승조","type":"pitcher","source":"award","when":"inning6to8","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"6~8회 구속·구위·제구·변화 +2"},{"id":"award_fireman","name":"소방수","type":"pitcher","source":"award","when":"inning9","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"9회 구속·구위·제구·변화 +2"},{"id":"award_rest","name":"쉬는 시간","type":"pitcher","source":"award","when":"lastBatters","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"7~9번 타자 상대 구속·구위·제구·변화 +2"},{"id":"award_ace","name":"에이스","type":"pitcher","source":"award","when":"starter","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"선발 등판 시 구속·구위·제구·변화 +2"},{"id":"award_breakstreak","name":"연패탈출","type":"pitcher","source":"award","when":"losing3","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"3연패 후 다음 경기 구속·구위·제구·변화 +2"},{"id":"award_winrun","name":"파죽지세","type":"pitcher","source":"award","when":"winning3","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"3연승 후 다음 경기 구속·구위·제구·변화 +2"},{"id":"award_poker","name":"포커페이스","type":"pitcher","source":"award","when":"scoring","boost":{"velocity":2,"stuff":2,"control":2,"break":2},"desc":"득점권 구속·구위·제구·변화 +2"}];
 SPECIAL_ABILITIES.push(...AWARD_STARTING_SPECIALS);
@@ -822,6 +824,16 @@ function cleanShopText(value,length,required=false){
 
 
 const SPECIAL_DRAW_COST_CP=5;
+// Skills suggested by the recommendation button have half the draw weight of other skills.
+// Weighting applies equally to a single draw and each attempt of an automatic draw.
+const RECOMMENDED_TRAINING_SPECIAL_IDS=new Set(['additional_legend_p_5','additional_legend_p_23','ironman_p','phoenix_p','additional_legend_b_6','additional_legend_b_5','ironman_b','phoenix']);
+function pickTrainingSpecial(pool){
+ const weights=pool.map(x=>RECOMMENDED_TRAINING_SPECIAL_IDS.has(x.id)?1:2);
+ const total=weights.reduce((sum,n)=>sum+n,0);
+ let roll=crypto.randomInt(total);
+ for(let i=0;i<pool.length;i++){roll-=weights[i];if(roll<0)return pool[i]}
+ return pool[pool.length-1];
+}
 function makeScoutPlayer(owner,kind,currency,era){
  const roll=Math.random(),level=currency==='cash'?(roll<.50?5:roll<.80?6:roll<.95?7:8):(roll<.50?7:roll<.80?8:roll<.95?9:10);
  const p=player(owner,{year:kind==='era'?era:undefined,pitcher:kind==='pitcher'?true:kind==='hitter'?false:undefined});
@@ -1151,7 +1163,7 @@ else if(a.type==='autoDrawSpecialAbility'){
  while(attempts<maxAttempts&&remaining.size&&owned.size<8){
   const pool=eligible();
   if(!pool.length)break;
-  const drawn=pool[crypto.randomInt(pool.length)];
+  const drawn=pickTrainingSpecial(pool);
   attempts++;
   if(remaining.has(drawn.id)){
    owned.add(drawn.id);
@@ -1178,7 +1190,7 @@ else if(a.type==='drawSpecialAbility'){
  const tierCount=tier=>p.specialAbilities.filter(id=>SPECIAL_BY_ID.get(id)?.tier===tier).length;
  const pool=SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')&&x.source==='training'&&!existing.has(x.id)&&(!['legend','s'].includes(x.tier)||tierCount(x.tier)<2));
  if(!pool.length)throw Error('새로 배울 수 있는 특수능력이 없습니다');
- const picked=pool[crypto.randomInt(pool.length)];
+ const picked=pickTrainingSpecial(pool);
  c.cp-=SPECIAL_DRAW_COST_CP;
  p.specialAbilities.push(picked.id);
  result={message:p.name+' 선수 특수능력 획득 · '+picked.name,addedAbility:{id:picked.id,name:picked.name,desc:picked.desc},playerId:p.id};
