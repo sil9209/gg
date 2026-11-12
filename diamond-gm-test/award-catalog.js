@@ -28,7 +28,7 @@ const FOREIGN_LAST=['가르시아','그랜트','데이비스','로웰','로이�
 const hash=s=>{let h=2166136261;for(const ch of String(s)){h^=ch.charCodeAt(0);h=Math.imul(h,16777619)}return h>>>0};
 const map=new Map(),used=new Set();
 for(const real of [...ALL_REAL_NAMES].sort()){
- const foreign=/^[가-힣]{2,3}$/.test(real)===false;
+ const foreign=new Set(['폰세','페디','미란다','로하스','린드블럼','니퍼트','테임즈','밴헤켄','해커','나바로','알칸타라','샌즈','페르난데스','피렐라','버나디나','디아즈','레이예스','오스틴','하트']).has(real);
  let n='';
  for(let i=0;i<5000;i++){
   const h=hash('diamond-award-alias-v2:'+real+':'+i);
