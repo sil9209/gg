@@ -678,13 +678,19 @@ function attendanceState(c){
 function ensureDailyAttendanceMail(c){
  if(!c)return;
  const day=attendanceDay();
- if(c.dailyAttendance?.day===day)return;
  c.pendingDailyRewards=Array.isArray(c.pendingDailyRewards)?c.pendingDailyRewards:[];
- if(!c.pendingDailyRewards.some(m=>m.day===day)){
-  c.pendingDailyRewards.push({day,createdAt:Date.now(),claimed:false});
+ // Expire yesterday's and older unclaimed gifts at Korean midnight.
+ const before=c.pendingDailyRewards.length;
+ c.pendingDailyRewards=c.pendingDailyRewards.filter(m=>m.claimed||m.day===day);
+ let changed=before!==c.pendingDailyRewards.length;
+ if(c.dailyAttendance?.day!==day){
+  if(!c.pendingDailyRewards.some(m=>m.day===day)){
+   c.pendingDailyRewards.push({day,createdAt:Date.now(),claimed:false});
+  }
+  c.dailyAttendance={day,deferred:true};
+  changed=true;
  }
- c.dailyAttendance={day,deferred:true};
- save();
+ if(changed)save();
 }
 // League standings can inspect all clubs without accessing their private wallets.
 function leagueWithTeamRosters(c){
@@ -722,7 +728,7 @@ function userMail(u){
  const gm=(db.gmMail||[]).filter(m=>Array.isArray(m.recipients)&&m.recipients.includes(u.id))
  .slice(-100).map(m=>({id:m.id,item:m.item,quantity:m.quantity,title:m.title,message:m.message,sentAt:m.sentAt,claimed:!!u.claimedGmMail?.includes(m.id)}));
  const c=db.clubs.find(x=>x.owner===u.id);
- const daily=(c?.pendingDailyRewards||[]).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.claimed?m.cash:null,cp:m.claimed?m.cp:null,title:'오늘의 출석체크',message:m.day+' 출석 보상 · '+(m.claimed?'수령 완료':'게임머니 1억~5억 · 100~3,000 CP (수령 시 랜덤 지급)'),sentAt:m.createdAt,claimed:!!m.claimed}));
+ const daily=(c?.pendingDailyRewards||[]).filter(m=>m.claimed||m.day===attendanceDay()).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.claimed?m.cash:null,cp:m.claimed?m.cp:null,title:'오늘의 출석체크',message:m.day+' 출석 보상 · '+(m.claimed?'수령 완료 · '+Number(m.cash||0).toLocaleString('ko-KR')+'원 + '+Number(m.cp||0).toLocaleString('ko-KR')+' CP':'게임머니 1억~5억 · 100~3,000 CP (수령 시 랜덤 지급)'),sentAt:m.createdAt,claimed:!!m.claimed}));
  return [...gm,...daily].sort((a,b)=>b.sentAt-a.sentAt);
 }
 const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
@@ -772,7 +778,7 @@ else if(a.type==='claimGmMail'){
  if(!c)throw Error('구단을 생성한 뒤 우편을 받을 수 있습니다');
  if(String(a.id||'').startsWith('daily:')){
   const day=String(a.id).slice(6),mail=(c.pendingDailyRewards||[]).find(x=>x.day===day);
-  if(!mail||mail.claimed)throw Error('수령할 수 없는 출석 보상입니다');
+  if(!mail||mail.claimed||day!==attendanceDay())throw Error('출석 보상 수령기간이 만료됐거나 이미 수령했습니다');
   // Roll both amounts only when the gift is opened; older unopened gifts are re-rolled here.
   const cash=100000000+crypto.randomInt(41)*10000000;
   const cp=crypto.randomInt(100,3001);
