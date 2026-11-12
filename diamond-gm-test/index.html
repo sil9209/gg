@@ -1568,33 +1568,6 @@ const specialAbilityDetails=p=>'<section class="gm-special-section"><div class="
 function toast(txt){document.querySelector('.msg')?.remove();let x=document.createElement('div');x.className='msg';x.textContent=txt;document.body.append(x);setTimeout(()=>x.remove(),3500)}
 async function api(body,options={}){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout'){selectedTeam=null;lastRenderedTab=null;}if(x.result?.message&&!['scout','friendly'].includes(body.type))toast(x.result.message);if(!options.skipRender)render();else document.querySelectorAll('.stats .pill').forEach(el=>{if(el.textContent.includes('💰'))el.textContent='💰 '+money(state.club?.cash);if(el.textContent.includes('💎'))el.textContent='💎 '+walletCP(state.club?.cp)+' CP'});if(body.type==='scout'&&x.result?.scouted)showScoutResult(x.result.scouted);if(body.type==='scoutBatch'&&x.result?.scoutBatch)showScoutBatchResult();if(body.type==='scoutBatchDecision')closeScoutPopup();if(body.type==='scoutDecision')closeScoutPopup();if(body.type==='friendly'&&x.result?.friendly)friendlyResultModal(x.result.friendly);if(body.type==='play'&&x.result?.detail)openGameBoxScore(x.result.detail,'경기 상세정보');return x}catch(e){toast(e.message);return null}}
 
-let attendanceShownKey=null;
-function showAttendancePopup(force=false){
- const d=state.dailyAttendance;if(!state.user||!state.club||!d||d.claimed)return;
- const key=state.user.id+'|'+d.day;
- if((!force&&attendanceShownKey===key)||document.getElementById('gmAttendanceOverlay'))return;
- attendanceShownKey=key;
- const overlay=document.createElement('div');overlay.id='gmAttendanceOverlay';overlay.className='gm-attendance-overlay';
- overlay.innerHTML='<section class="gm-attendance-box" role="dialog" aria-modal="true" aria-labelledby="gmAttendanceHeading"><button type="button" class="gm-attendance-x" aria-label="닫기">✕</button><small>DAILY ATTENDANCE</small><div class="gm-attendance-star">✦</div><h2 id="gmAttendanceHeading">오늘의 출석 선물</h2><p>매일 하루 한 번 선물을 받으세요.<br>게임머니 1억~10억원과<br>10~5,000 CP를 각각 랜덤 지급합니다.</p><button type="button" class="primary" id="gmAttendanceClaim">출석체크 선물받기</button><p style="margin:13px 0 0">게임머니와 CP 각각 무작위 지급 · 한국시간 자정 초기화</p></section>';
- document.body.appendChild(overlay);
- const close=async()=>{overlay.remove();try{const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'deferDailyAttendance'})});if(!response.ok)throw Error('우편함 이동 실패');const data=await response.json();const teams=state.teams;state=data;if(!state.teams)state.teams=teams;render()}catch(e){toast('출석 선물 우편함 이동 실패')}};
- overlay.querySelector('.gm-attendance-x').onclick=close;
- overlay.onclick=e=>{if(e.target===overlay)close()};
- const claim=overlay.querySelector('#gmAttendanceClaim');
- claim.onclick=async()=>{
-  claim.disabled=true;claim.textContent='선물 지급 중…';
-  try{
-   const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'claimDailyAttendance'})});
-   const data=await response.json();if(!response.ok)throw Error(data.error||'출석 선물 지급 실패');
-   const reward=data.result?.attendanceReward;if(!reward)throw Error('출석 선물 정보가 없습니다');
-   const teams=state.teams;state=data;if(!state.teams)state.teams=teams;render();
-   const cashPrize=Number(reward.cash).toLocaleString('ko-KR')+'원',cpPrize=Number(reward.cp).toLocaleString('ko-KR')+' CP';
-   overlay.querySelector('.gm-attendance-box').innerHTML='<small>DAILY GIFT RECEIVED</small><div class="gm-attendance-star">✦</div><h2>출석 선물 획득!</h2><h3>💰 '+esc(cashPrize)+'</h3><h3>💎 '+esc(cpPrize)+'</h3><p>두 가지 선물이 구단에 지급되었습니다.<br>내일 다시 출석체크를 진행하세요.</p><button type="button" class="primary" id="gmAttendanceOkay">확인</button>';
-   overlay.querySelector('#gmAttendanceOkay').onclick=()=>overlay.remove();
-  }catch(error){toast(error.message);claim.disabled=false;claim.textContent='출석체크 선물받기'}
- };
- claim.focus({preventScroll:true});
-}
 async function start(){try{state=await(await fetch('/api/state')).json()}catch(e){toast('서버에 연결할 수 없습니다')}render()}
 
 function chosenTeam(){return (state.teams||[]).find(t=>t.id===(state.club?.teamId||state.user?.teamId||selectedTeam))||null}
@@ -2241,7 +2214,7 @@ function content(){const heldY=window.scrollY,heldTab=tab;requestAnimationFrame(
  const letters=Array.isArray(state.mail)?state.mail:[];
  const unopened=letters.filter(m=>!m.claimed).length;
  const formatDate=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'});
- el.innerHTML='<div class="gm-mail-header"><div><small>DIAMOND GM · MAIL CENTER</small><h2>📬 우편함</h2><p>GM이 발송한 선물을 확인하고 수령하세요.</p></div><strong>미수령 우편 '+unopened+'건</strong></div>'+
+ el.innerHTML='<div class="gm-mail-header"><div><small>DIAMOND GM · MAIL CENTER</small><h2>📬 우편함</h2><p>매일 출석체크 보상과 GM 선물을 이곳에서 수령하세요.</p></div><strong>미수령 우편 '+unopened+'건</strong></div>'+
  (state.user?.isAdmin?'<section class="panel gm-mail-admin"><div class="gm-mail-subtitle"><h3>🎁 GM 전체 유저 선물 발송</h3><span>등록된 모든 일반 회원에게 동일한 선물을 발송합니다.</span></div><div class="gm-mail-form"><label>제목<input id="gmGiftTitle" maxlength="60" value="GM 특별 선물" placeholder="우편 제목"></label><label>선물 물품<select id="gmGiftItem">'+Object.entries(gifts).map(([id,g])=>'<option value="'+id+'">'+g.icon+' '+g.name+'</option>').join('')+'</select></label><label><span id="gmGiftQtyLabel">지급 수량</span><input id="gmGiftQty" type="number" min="1" max="10000" step="1" value="1"></label><label class="gm-mail-message-label">우편 내용<textarea id="gmGiftMessage" maxlength="300" rows="2" placeholder="선물 메시지">DIAMOND GM 운영팀에서 보내는 선물입니다.</textarea></label></div><button type="button" class="primary" id="gmSendGiftAll">모든 유저에게 선물 발송</button><p class="gm-mail-hint">100회권 1장은 일반 스카우트 100회를 무료로 실행하는 이용권입니다. 발송 후 회수할 수 없습니다.</p></section>':'')+
  '<section class="panel gm-mail-list"><div class="gm-mail-subtitle"><h3>받은 우편</h3><span>선물 수령은 우편당 1회만 가능합니다.</span></div>'+
  (letters.length?letters.map(m=>{const gift=gifts[m.item]||{name:'아이템',icon:'🎁'};return '<article class="gm-mail-letter '+(m.claimed?'claimed':'unclaimed')+'"><div class="gm-mail-icon">'+gift.icon+'</div><div class="gm-mail-letter-body"><strong>'+esc(m.title||'GM 선물')+'</strong><span>'+esc(m.message||'')+'</span><small>'+formatDate(m.sentAt)+' · '+(m.item==='dailyAttendance'?money(m.cash)+' + '+Number(m.cp||0).toLocaleString('ko-KR')+' CP':m.item==='cp'?Number(m.quantity||0).toLocaleString('ko-KR')+' CP':gift.name+' × '+Number(m.quantity||0).toLocaleString('ko-KR'))+'</small></div><button type="button" data-mail-claim="'+esc(m.id)+'" '+(m.claimed?'disabled':'')+'>'+(m.claimed?'수령 완료':'선물받기')+'</button></article>'}).join(''):'<div class="gm-mail-empty">📭 아직 도착한 우편이 없습니다.</div>')+'</section>';
@@ -2855,7 +2828,7 @@ document.addEventListener('selectstart',event=>{
  if(!event.target.closest?.('input,textarea,select,[contenteditable="true"]'))event.preventDefault();
 },true);
 
-function render(){theme();if(!state.user)return selectedTeam?login():selectTeam();if(!state.club)return create();root();if(tab==='home')showAttendancePopup()}start();
+function render(){theme();if(!state.user)return selectedTeam?login():selectTeam();if(!state.club)return create();root()}start();
 let lastLeagueRefreshHour=Math.floor(Date.now()/3600000);
 setInterval(async()=>{const hour=Math.floor(Date.now()/3600000);if(hour===lastLeagueRefreshHour)return;lastLeagueRefreshHour=hour;if(!state?.club)return;try{const response=await fetch('/api/state',{cache:'no-store'});if(!response.ok)return;state=await response.json();if(['home','league'].includes(tab))content()}catch(e){}},30000);
 </script></body></html>
