@@ -2728,7 +2728,9 @@ function openLeagueTeamRoster(team){
   let down=false,moved=false,x=0,left=0;
   track.addEventListener('pointerdown',e=>{
    if(e.pointerType==='touch'||e.button!==0)return;
-   down=true;moved=false;x=e.clientX;left=track.scrollLeft;track.setPointerCapture(e.pointerId);
+   down=true;moved=false;x=e.clientX;left=track.scrollLeft;
+   // Capturing the pointer on the track retargets the final click away from the player button.
+   // Keep the original click target so a tap opens the player profile.
   });
   track.addEventListener('pointermove',e=>{
    if(!down)return;const dx=e.clientX-x;if(Math.abs(dx)>5)moved=true;
