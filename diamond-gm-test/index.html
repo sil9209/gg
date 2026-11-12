@@ -1562,7 +1562,16 @@ function playerPortrait(p,mode=''){
  return '<span class="player-portrait '+mode+'" data-avatar-version="pixel-1"><img alt="" draggable="false" loading="lazy" src="data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)+'">'+(team?'<span class="portrait-crest" style="--crest:'+esc(team.color)+';--crest-alt:'+esc(team.secondary)+'">'+esc(team.symbol)+'</span>':'')+'</span>';
 }
 function friendlyResultModal(r){
- const overlay=document.createElement('div');overlay.className='friendly-result-overlay';overlay.innerHTML='<div class="friendly-result-card" role="dialog" aria-modal="true"><h2>'+({win:'🏆 승리',loss:'패배',draw:'무승부'}[r.outcome]||'결과')+'</h2><div class="friendly-final-score">'+r.ours+' : '+r.theirs+'</div><p>VS '+esc(r.opponent)+'</p><strong>'+(r.cash?'+'+money(r.cash):r.cp?'+'+r.cp+' CP':r.drinks?'🥤 스포츠음료 +'+r.drinks+'개':'보상 없음')+'</strong><h3>선수별 성적과 컨디션</h3><div class="friendly-stat-list">'+(r.playerStats||[]).map(p=>'<div><span class="gm-friendly-player-name">'+esc(p.name)+'</span><small>'+esc(p.summary)+(p.activatedAbilities?.length?'<span class="gm-friendly-triggers"> ✦ '+p.activatedAbilities.map(a=>esc(a.name)).join(' · ')+'</span>':'')+'</small><b class="'+(p.delta>0?'raise':p.delta<0?'drop':'')+'">'+(p.delta>0?'↑ +1':p.delta<0?'↓ -1':'')+'</b></div>').join('')+'</div><button class="primary" id="closeFriendlyResult">확인</button></div>';document.body.appendChild(overlay);overlay.querySelector('#closeFriendlyResult').onclick=()=>overlay.remove();overlay.onclick=e=>{if(e.target===overlay)overlay.remove()};
+ document.querySelector('.friendly-result-overlay')?.remove();
+ const label=({win:'🏆 승리',loss:'패배',draw:'무승부'})[r.outcome]||'경기 종료';
+ const overlay=document.createElement('div');
+ overlay.className='friendly-result-overlay';
+ overlay.innerHTML='<div class="friendly-result-card" role="dialog" aria-modal="true" aria-label="친선경기 결과"><h2>'+label+'</h2><button class="primary" id="closeFriendlyResult">확인</button></div>';
+ document.body.appendChild(overlay);
+ const close=()=>overlay.remove();
+ overlay.querySelector('#closeFriendlyResult').onclick=close;
+ overlay.onclick=e=>{if(e.target===overlay)close()};
+ overlay.querySelector('#closeFriendlyResult').focus();
 }
 
 const fieldNames={contact:'정확',power:'파워',eye:'선구',speed:'주력',mental:'정신',defense:'수비'};
