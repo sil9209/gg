@@ -45,38 +45,35 @@ const foreignLast=['로드리게스','존슨','윌슨','가르시아','마르티
 // Stable fictional names. Different AI teams receive distinct identities rather than
 // copies of human players, and ordinary scouting uses a much broader name pool.
 function stableNameHash(text){const d=crypto.createHash('sha256').update(String(text)).digest();return d.readUInt32BE(0)}
-const generatedNameReservations=new Set();
+// Card ID (id) identifies a specific card; personId identifies the real/fictitious
+// player across different vintage years. Two unrelated players may share a display name.
 function ordinaryPlayerName(id,year,foreign=false){
- const usedName=(name)=>generatedNameReservations.has(year+'|'+name)||
-  awardPool(year).some(a=>a.alias===name)||
-  (db.clubs||[]).some(c=>(c.players||[]).some(p=>p.year===year&&p.name===name))||
-  (db.listings||[]).some(l=>l.player?.year===year&&l.player.name===name);
- for(let attempt=0;attempt<1200;attempt++){
-  const n=stableNameHash('new-player-name:v3:'+id+':'+attempt);
-  let name;
-  if(foreign){
-   const x=foreignFirst[n%foreignFirst.length];
-   const y=foreignLast[Math.floor(n/foreignFirst.length)%foreignLast.length];
-   name=x+' '+y;
-  }else{
-   const k=n%(names1.length*names2.length);
-   name=names1[Math.floor(k/names2.length)]+names2[k%names2.length];
-  }
-  if(!usedName(name)){generatedNameReservations.add(year+'|'+name);return name}
- }
- const fallback='선수'+String(id).replace(/[^a-zA-Z0-9]/g,'').slice(-9);
- generatedNameReservations.add(year+'|'+fallback);
- return fallback;
+ const h=stableNameHash('player-person-name-v4:'+id);
+ if(foreign)return foreignFirst[h%foreignFirst.length]+' '+foreignLast[Math.floor(h/foreignFirst.length)%foreignLast.length];
+ const k=h%(names1.length*names2.length);
+ return names1[Math.floor(k/names2.length)]+names2[k%names2.length];
+}
+function chooseReturningPerson(owner,year,isPitcher){
+ // Reuse an existing fictional player identity for another vintage card.
+ // The old card remains independent; position/throwing role do not change.
+ if(Math.random()>=.27)return null;
+ const related=(db.clubs||[]).filter(c=>c.owner===owner).flatMap(c=>c.players||[]);
+ const market=(db.listings||[]).filter(l=>l.player?.owner===owner).map(l=>l.player);
+ const candidates=[...related,...market].filter(p=>p&&p.personId&&!p.awardKey&&
+  p.isPitcher===isPitcher&&p.year!==year&&Math.abs(Number(p.year)-year)<=12&&
+  ![...related,...market].some(x=>x.personId===p.personId&&Number(x.year)===year));
+ if(!candidates.length)return null;
+ return candidates[rand(0,candidates.length-1)];
 }
 function aiFictionalName(seed,teamId,slot,foreign=false){
  const teamIndex=Math.max(0,TEAMS.findIndex(t=>t.id===teamId));
  // One-to-one allocation for all 250 roster slots in a ten-club league.
  const ordinal=teamIndex*25+slot;
- const offset=stableNameHash('AI-league-names-v3:'+String(seed).replace(/:[^:]+$/,''))%(names1.length*names2.length);
+ const offset=stableNameHash('AI-league-names-v4')%(names1.length*names2.length);
  const k=(offset+ordinal*109)%(names1.length*names2.length);
  if(foreign){
   // Separate collision-free foreign name lattice (22 × 21 slots).
-  const n=(stableNameHash('AI-foreign-names-v3:'+String(seed).replace(/:[^:]+$/,''))+ordinal*31)%(foreignFirst.length*foreignLast.length);
+  const n=(stableNameHash('AI-foreign-names-v4')+ordinal*31)%(foreignFirst.length*foreignLast.length);
   return foreignFirst[Math.floor(n/foreignLast.length)]+' '+foreignLast[n%foreignLast.length];
  }
  return names1[Math.floor(k/names2.length)]+names2[k%names2.length];
@@ -101,6 +98,7 @@ function chooseAwardPlayer(p){
  p.foreign=entry.alias.includes(' ');
  p.pos=entry.pos;
  p.awardKey=entry.key;
+ p.personId='award:'+entry.alias;
  p.awardVariant=variant;
  p.awardSourceYear=entry.year;
  return p;
@@ -129,12 +127,13 @@ function awardStartingSkill(p){
  return pool.length?[pool[crypto.randomInt(pool.length)].id]:[];
 }
 function player(owner,opts={}){
- const foreign=Math.random()<.22;
  const isP=typeof opts.pitcher==='boolean'?opts.pitcher:Math.random()<.36;
  const year=Number.isInteger(opts.year)?opts.year:rand(2000,2026);
- const pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];
- const id=uid();
- const p={id,owner,name:ordinaryPlayerName(id,year,foreign),foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0};
+ const returning=chooseReturningPerson(owner,year,isP);
+ const foreign=returning?!!returning.foreign:Math.random()<.22;
+ const pos=returning?returning.pos:(isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)]);
+ const id=uid(),personId=returning?.personId||'person:'+uid();
+ const p={id,personId,owner,name:returning?returning.name:ordinaryPlayerName(personId,year,foreign),foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0};
  // Pitcher attributes are explicit before the one-time award bonus is applied.
  if(isP){
   p.velocity=p.speed;p.stuff=p.power;p.control=p.contact;p.break=p.eye;
@@ -314,6 +313,8 @@ const CAP=99.99;
 const statValue=n=>Math.min(CAP,Math.max(0,Math.round((Number(n)||0)*100)/100));
 function ensurePlayer(p,now=Date.now()){
  if(!p)return p;
+ // Preserve saved cards and names; only populate missing identity metadata.
+ if(!p.personId)p.personId=p.awardKey?'award:'+String(p.name||'').replace(/[GM]$/,''):'person:'+p.id;
  if(!Number.isInteger(p.age)||p.age<17){const h=crypto.createHash('sha256').update(String(p.id||p.name)).digest();p.age=19+h[0]%20}
  if(!Number.isFinite(Number(p.mental)))p.mental=Number(p.stamina)||55;
  if(p.isPitcher){
@@ -518,7 +519,7 @@ function aiRoster(seed,average){
    const variation=(seedNum(nonce+':quality')-.5)*10;
    const id='AI-'+crypto.createHash('sha256').update(nonce).digest('hex').slice(0,24);
    const p={
-    id,name:aiFictionalName(seed,teamId,slot,foreign),foreign,
+    id,personId:'AI-person:'+teamId+':'+slot,name:aiFictionalName(seed,teamId,slot,foreign),foreign,
     age:19+Math.floor(seedNum(nonce+':age')*25),
     year:2000+Math.floor(seedNum(nonce+':year')*27),
     // A single AI identity never changes its pitching position.
@@ -858,7 +859,7 @@ function ensureDailyAttendanceMail(c){
 function leagueWithTeamRosters(c){
  const lg=leagueInfo(c),tier=lg.tier,start=lg.start;
  const group=leagueMembers(c),pool=group.pool;
- const fields=['id','name','age','pos','year','awardVariant','awardSourceYear','awardKey','grade','level','isPitcher','foreign','condition','originTeam','avatarDNA','avatarSeed','avatarVersion','growthFocus','growthFocusSelected','specialAbilities','contact','power','eye','speed','mental','defense','velocity','stuff','control','break','stamina'];
+ const fields=['id','personId','name','age','pos','year','awardVariant','awardSourceYear','awardKey','grade','level','isPitcher','foreign','condition','originTeam','avatarDNA','avatarSeed','avatarVersion','growthFocus','growthFocusSelected','specialAbilities','contact','power','eye','speed','mental','defense','velocity','stuff','control','break','stamina'];
  const safePlayer=(p,squad)=>{const out={squad};for(const key of fields)if(p[key]!==undefined)out[key]=p[key];return out};
  const score=p=>{const keys=statKeys(p);return keys.reduce((n,key)=>n+(Number(p[key])||0),0)/keys.length};
  lg.standings=lg.standings.map(row=>{
