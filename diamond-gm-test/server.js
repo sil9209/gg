@@ -40,8 +40,8 @@ async function verifiedAdWebhook(req,res){
 const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomUUID();const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
 const names1=['김','박','이','최','정','강','조','윤','장','임','한','오','서','신','권','황','송','안','문','류','전','홍','유','배','남','노','차','채','하','백','손','고','심','양','민','주','성','구','탁','표','설','진'];
 const names2=['도현','성준','재원','민수','지훈','태영','현우','주원','준혁','승민','태준','지성','건우','동현','진우','정민','시우','시윤','민재','민준','민혁','민규','우진','우석','우성','우빈','준서','준영','준호','준우','지우','지환','지후','지욱','지혁','재현','재민','재윤','재혁','재성','태민','태현','태훈','태환','태우','태성','현준','현민','현석','현진','현성','현빈','동우','동혁','동건','동민','동하','승우','승현','승혁','승호','승준','성민','성현','성훈','성우','성호','정우','정훈','정현','정혁','정준','정호','도윤','도훈','도겸','도영','도진','도원','시현','시준','시환','시온','유준','유찬','유민','유성','유현','윤호','윤재','윤성','윤민','윤준','준수','준현','준성','준형','경민','경준','경훈','경수','경호','건호','건희','건율','건민','건준','선우','선호','선준','선민','상우','상현','상준','상민','상훈','은우','은호','은성','은준','해준','해성','해민','해원','하준','하율','하민','하성','하진','호준','호민','호영','호진','호성','종민','종혁','종현','종우','종훈','영준','영민','영훈','영재','영우','찬우','찬혁','찬민','찬호','찬준','기현','기훈','기영','기준','기태','규민','규현','규성','규진','규태','휘준','휘성','휘찬','휘민','휘우'];
-const foreignFirst=['알렉스','데이비드','마이클','카를로스','루이스','호세','윌리엄','제이슨','로버트','타일러','마르코','에릭','다니엘','브랜든','케빈','앤서니'];
-const foreignLast=['로드리게스','존슨','윌슨','가르시아','마르티네스','스미스','로페즈','브라운','곤잘레스','리베라','톰슨','밀러','산체스','워커','페레즈'];
+const foreignFirst=['알렉스','데이비드','마이클','카를로스','루이스','호세','윌리엄','제이슨','로버트','타일러','마르코','에릭','다니엘','브랜든','케빈','앤서니','올리버','헨리','이안','리암','레오','에밀리오'];
+const foreignLast=['로드리게스','존슨','윌슨','가르시아','마르티네스','스미스','로페즈','브라운','곤잘레스','리베라','톰슨','밀러','산체스','워커','페레즈','데이비스','에르난데스','그랜트','테일러','카터','앤더슨'];
 // Stable fictional names. Different AI teams receive distinct identities rather than
 // copies of human players, and ordinary scouting uses a much broader name pool.
 function stableNameHash(text){const d=crypto.createHash('sha256').update(String(text)).digest();return d.readUInt32BE(0)}
@@ -73,18 +73,29 @@ function aiFictionalName(seed,teamId,slot,foreign=false){
  const ordinal=teamIndex*25+slot;
  const offset=stableNameHash('AI-league-names-v3:'+String(seed).replace(/:[^:]+$/,''))%(names1.length*names2.length);
  const k=(offset+ordinal*109)%(names1.length*names2.length);
- // The Korean-name path is intentionally used for every AI slot to guarantee
- // unique names even when an AI player is marked as a foreign national.
+ if(foreign){
+  // Separate collision-free foreign name lattice (22 × 21 slots).
+  const n=(stableNameHash('AI-foreign-names-v3:'+String(seed).replace(/:[^:]+$/,''))+ordinal*31)%(foreignFirst.length*foreignLast.length);
+  return foreignFirst[Math.floor(n/foreignLast.length)]+' '+foreignLast[n%foreignLast.length];
+ }
  return names1[Math.floor(k/names2.length)]+names2[k%names2.length];
 }
 // Award variants are separate recruitable cards. 2026 and pre-2010 are always standard.
+const generatedAwardReservations=new Set();
 function chooseAwardPlayer(p){
- if(p.year<2010||p.year>2025||Math.random()>=.46)return p;
+ if(p.year<2010||p.year>2025||Math.random()>=.12)return p;
  const pool=awardPool(p.year).filter(e=>(e.pos==='선발')===p.isPitcher);
  if(!pool.length)return p;
- const entry=pool[rand(0,pool.length-1)];
- const versions=['',...(entry.G?['G']:[]),...(entry.M?['M']:[])];
- const variant=versions[rand(0,versions.length-1)];
+ let entry=null,variant='';
+ for(let tries=0;tries<30;tries++){
+  const sample=pool[rand(0,pool.length-1)];
+  const versions=['',...(sample.G?['G']:[]),...(sample.M?['M']:[])];
+  const v=versions[rand(0,versions.length-1)];
+  const key=p.owner+'|'+p.year+'|'+sample.key+'|'+v;
+  const owned=(db.clubs||[]).some(c=>c.owner===p.owner&&(c.players||[]).some(x=>x.year===p.year&&x.awardKey===sample.key&&(x.awardVariant||'')===v));
+  if(!owned&&!generatedAwardReservations.has(key)){entry=sample;variant=v;generatedAwardReservations.add(key);break}
+ }
+ if(!entry)return p;
  p.name=entry.alias+variant;
  p.foreign=entry.alias.includes(' ');
  p.pos=entry.pos;
