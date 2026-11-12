@@ -673,6 +673,22 @@ function attendanceState(c){
  const record=c?.dailyAttendance;
  return {day,claimed:record?.day===day,record:record?.day===day?record:null};
 }
+// Automatically deliver the daily gift to the club mailbox, without a popup.
+// Creating a mail item does not credit cash or CP until it is claimed.
+function ensureDailyAttendanceMail(c){
+ if(!c)return;
+ const day=attendanceDay();
+ if(c.dailyAttendance?.day===day)return;
+ c.pendingDailyRewards=Array.isArray(c.pendingDailyRewards)?c.pendingDailyRewards:[];
+ if(!c.pendingDailyRewards.some(m=>m.day===day)){
+  c.pendingDailyRewards.push({
+   day,cash:100000000+crypto.randomInt(91)*10000000,
+   cp:crypto.randomInt(10,5001),createdAt:Date.now(),claimed:false
+  });
+ }
+ c.dailyAttendance={day,deferred:true};
+ save();
+}
 // League standings can inspect all clubs without accessing their private wallets.
 function leagueWithTeamRosters(c){
  const lg=leagueInfo(c),tier=lg.tier,start=lg.start;
@@ -709,10 +725,10 @@ function userMail(u){
  const gm=(db.gmMail||[]).filter(m=>Array.isArray(m.recipients)&&m.recipients.includes(u.id))
  .slice(-100).map(m=>({id:m.id,item:m.item,quantity:m.quantity,title:m.title,message:m.message,sentAt:m.sentAt,claimed:!!u.claimedGmMail?.includes(m.id)}));
  const c=db.clubs.find(x=>x.owner===u.id);
- const daily=(c?.pendingDailyRewards||[]).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.cash,cp:m.cp,title:'🎁 '+m.day+' 출석 보상',message:'미수령 출석 선물',sentAt:m.createdAt,claimed:!!m.claimed}));
+ const daily=(c?.pendingDailyRewards||[]).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.cash,cp:m.cp,title:'오늘의 출석체크',message:m.day+' 출석 보상 · 우편함에서 선물받기를 눌러 수령하세요.',sentAt:m.createdAt,claimed:!!m.claimed}));
  return [...gm,...daily].sort((a,b)=>b.sentAt-a.sentAt);
 }
-const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();topUpAdminWallet(u,u?db.clubs.find(c=>c.owner===u.id):null);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
