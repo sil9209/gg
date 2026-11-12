@@ -1583,6 +1583,23 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 #content .gm-training-panel .gm-training-row .gm-training-controls{flex-wrap:wrap!important;gap:7px!important}
 #content .gm-training-panel .gm-training-row .gm-upgrade-currency{flex:1 1 100%!important;width:100%!important;max-width:100%!important;min-width:0!important;min-height:36px!important;padding:7px 9px!important;border:1px solid #ccdfef!important;border-radius:8px!important;background:#f7fbff!important;color:#254f75!important;font-size:11px!important;font-weight:800!important}
 #content .gm-training-panel .gm-training-row .gm-training-upgrade{flex:1 1 auto!important}
+
+/* Clear match result beside the final score while preserving a 2-column schedule. */
+.gm-league-stat-page .gm-league-schedule-match{grid-template-columns:66px minmax(0,1fr) 112px!important}
+.gm-league-stat-page .gm-league-schedule-match .gm-schedule-result{
+ display:flex!important;align-items:center!important;justify-content:flex-end!important;
+ gap:5px!important;padding:2px!important;min-width:0!important;white-space:nowrap!important;
+ background:transparent!important;color:#285171!important;font-size:11px!important;
+}
+.gm-league-stat-page .gm-score-number{background:#e6f1fb;border-radius:6px;padding:6px 7px;min-width:42px;text-align:center}
+.gm-league-stat-page .gm-score-outcome{border-radius:5px;padding:6px 5px;font-size:9px;font-weight:900;line-height:1;color:#fff!important}
+.gm-league-stat-page .gm-score-win{background:#256bd0}
+.gm-league-stat-page .gm-score-lose{background:#d84a59}
+.gm-league-stat-page .gm-score-draw{background:#7e8ea2}
+@media(max-width:520px){
+.gm-league-stat-page .gm-league-schedule-match{grid-template-columns:47px minmax(0,1fr) 106px!important;column-gap:7px!important}
+.gm-league-stat-page .gm-score-number{padding:5px}
+}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1737,6 +1754,7 @@ async function api(body,options={}){try{const r=await fetch('/api/action',{metho
 async function start(){try{state=await(await fetch('/api/state')).json()}catch(e){toast('서버에 연결할 수 없습니다')}render()}
 
 function chosenTeam(){return (state.teams||[]).find(t=>t.id===(state.club?.teamId||state.user?.teamId||selectedTeam))||null}
+function clubDisplayName(club=state.club){return (state.teams||[]).find(t=>t.id===club?.teamId)?.name||club?.name||'구단'}
 function teamBadge(t,small=false){return '<span class="team-crest '+(small?'small':'')+'" style="--crest:'+esc(t.color)+';--crest-alt:'+esc(t.secondary)+'"><span class="crest-light">✦</span><span class="crest-letter">'+esc(t.symbol)+'</span></span>'}
 function theme(){const t=chosenTeam();const root=document.documentElement;if(t){root.style.setProperty('--team-accent',t.color);root.style.setProperty('--team-alt',t.secondary)}else{root.style.setProperty('--team-accent','#286bbb');root.style.setProperty('--team-alt','#164d8a')}}
 function selectTeam(){
@@ -1895,7 +1913,8 @@ function openGameBoxScore(detail,title='경기 상세정보'){
 function leagueIdentity(name,teamId,ownerName){
  const team=(state.teams||[]).find(t=>t.id===teamId)||(state.teams||[]).find(t=>t.name===name);
  const city=team?.city||(String(name||'').split(' ')[0]||'연고지');
- const mascot=team?team.name.slice(city.length).trim():(String(name||'').slice(city.length).trim()||'구단');
+ // Stadium suffixes such as "(잠실)" never become part of the mascot nickname.
+ const mascot=team?team.name.split(' ').slice(1).join(' '):(String(name||'').split(' ').slice(1).join(' ')||'구단');
  const crest=team?teamBadge(team,true):'<span class="team-mini-fallback">⚾</span>';
  return '<span class="league-team-identity">'+crest+'<span class="league-team-copy"><small class="league-owner">'+esc(ownerName||'AI 감독')+'</small><span class="league-names"><strong style="color:'+(team?esc(team.color):'var(--team-accent)')+'">'+esc(city)+'</strong><span>'+esc(mascot)+'</span></span></span></span>';
 }
@@ -2049,7 +2068,7 @@ function renderLineup(){
  '<button type="button" id="gmItemFlying" '+(!chosenItemPlayer||(!chosenItemPlayer.flyingCoach&&(c.flyingCoachTickets||0)<1)||(chosenItemPlayer.flyingCoach&&c.cp<(chosenItemPlayer.flyingCoach.contracts===0?10:chosenItemPlayer.flyingCoach.contracts===1?50:100))?'disabled':'')+'><b>📋 '+(chosenItemPlayer?.flyingCoach?'계약 7일 연장':'플레잉코치권 사용')+'</b><small>'+(chosenItemPlayer?.flyingCoach?'다음 계약 '+(chosenItemPlayer.flyingCoach.contracts===0?10:chosenItemPlayer.flyingCoach.contracts===1?50:100)+' CP':'보유 '+(c.flyingCoachTickets||0)+'장 · 나이·능력치 고정')+'</small></button></div></div>'+
  '<p class="gm-item-explainer">성장부스터는 S 등급으로 변경합니다. 📋 플레잉코치권은 나이·기본 능력치를 고정하고 성장·이적시장 거래를 막으며, 7일마다 CP로 계약해야 출전할 수 있습니다.</p></section>';
 
- el.innerHTML='<div class="gm-lineup-shell"><div class="gm-lineup-heading"><div><span class="gm-eyebrow">TEAM MANAGEMENT / LINEUP</span><h2>라인업 관리</h2><p>선수를 배치하고, 타순을 변경하고, 팀 전력을 관리하세요.</p></div><div class="gm-lineup-team"><span class="gm-team-mark">'+esc(chosenTeam()?.symbol||'⚾')+'</span><span><b>'+esc(c.name)+'</b><small>시즌 '+(c.season||1)+' · 구단 운영</small></span></div></div><nav class="gm-lineup-tabs" aria-label="라인업 종류"><button type="button" data-gm-mode="batter" class="'+(isB?'active':'')+'">타자 라인업 <span>9명 + 교체 5명</span></button><button type="button" data-gm-mode="pitcher" class="'+(!isB?'active':'')+'">투수 라인업 <span>선발 5 · 계투 4 · 필승조 2</span></button></nav><div class="gm-lineup-metrics"><div><small>선발 타자</small><strong>'+d.batting.length+'<span> / 9</span></strong></div><div><small>교체선수</small><strong>'+d.bench.length+'<span> / 5</span></strong></div><div><small>투수 배치</small><strong>'+filledPitch+'<span> / 11</span></strong></div><div><small>타선 평균 OVR</small><strong>'+avg(d.batting)+'</strong></div></div>'+(isB?hitters:pitchersView)+itemPanel+actionBar+'</div>';
+ el.innerHTML='<div class="gm-lineup-shell"><div class="gm-lineup-heading"><div><span class="gm-eyebrow">TEAM MANAGEMENT / LINEUP</span><h2>라인업 관리</h2><p>선수를 배치하고, 타순을 변경하고, 팀 전력을 관리하세요.</p></div><div class="gm-lineup-team"><span class="gm-team-mark">'+esc(chosenTeam()?.symbol||'⚾')+'</span><span><b>'+esc(clubDisplayName(c))+'</b><small>시즌 '+(c.season||1)+' · 구단 운영</small></span></div></div><nav class="gm-lineup-tabs" aria-label="라인업 종류"><button type="button" data-gm-mode="batter" class="'+(isB?'active':'')+'">타자 라인업 <span>9명 + 교체 5명</span></button><button type="button" data-gm-mode="pitcher" class="'+(!isB?'active':'')+'">투수 라인업 <span>선발 5 · 계투 4 · 필승조 2</span></button></nav><div class="gm-lineup-metrics"><div><small>선발 타자</small><strong>'+d.batting.length+'<span> / 9</span></strong></div><div><small>교체선수</small><strong>'+d.bench.length+'<span> / 5</span></strong></div><div><small>투수 배치</small><strong>'+filledPitch+'<span> / 11</span></strong></div><div><small>타선 평균 OVR</small><strong>'+avg(d.batting)+'</strong></div></div>'+(isB?hitters:pitchersView)+itemPanel+actionBar+'</div>';
  document.querySelectorAll('[data-gm-mode]').forEach(btn=>btn.onclick=()=>{lineupMode=btn.dataset.gmMode;renderLineup()});
  document.querySelectorAll('[data-gm-field]').forEach(btn=>btn.onclick=()=>lineupPicker(btn.dataset.gmField));
  document.querySelectorAll('[data-gm-pitch]').forEach(btn=>btn.onclick=()=>lineupPicker(btn.dataset.gmPitch,'pitcher'));
@@ -2447,9 +2466,9 @@ if(tab==='shop'){
  return
 }
 if(tab==='finance'){el.innerHTML=gmFinanceContent(c);return}
-if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button><button class="manage-link" data-manage="specials"><strong>✦ 특수능력</strong><small>선수별 랜덤 특수능력 뽑기 · 최대 8개</small></button><button class="manage-link" data-manage="finance"><strong>💰 자금관리</strong><small>선수별 연봉 · 연봉 총액 · 예상 잔액</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(c.name)+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
+if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button><button class="manage-link" data-manage="specials"><strong>✦ 특수능력</strong><small>선수별 랜덤 특수능력 뽑기 · 최대 8개</small></button><button class="manage-link" data-manage="finance"><strong>💰 자금관리</strong><small>선수별 연봉 · 연봉 총액 · 예상 잔액</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(clubDisplayName(c))+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
 const lg=state.league||{},prospects=c.players.filter(p=>Number.isFinite(Number(p.age))&&Number(p.age)<=25&&Number(p.age)>0).sort((a,b)=>Number(overall(b))-Number(overall(a))||Number(a.age)-Number(b.age)).slice(0,5);
-el.innerHTML='<div class="club-home"><div><div class="stadium"><div class="stadium-overlay"><div class="classic-subtitle">SEASON '+c.season+' · DIAMOND LEAGUE</div><h2>'+esc(c.name)+'</h2><p>10개 구단 정규시즌 · 매시간 자동 경기</p><p class="muted">일요일~금요일 144경기 · 토요일 가을야구</p><button id="stadiumLeague">🏆 리그 진행 · 순위 보기</button></div></div><div class="classic-shortcuts">'+tabs.filter(x=>['league','lineup','scout','friendly','market'].includes(x[0])).map(t=>'<button data-shortcut="'+t[0]+'"><span>'+t[1].split(' ')[0]+'</span>'+t[1].split(' ').slice(1).join(' ')+'</button>').join('')+'</div><div class="panel"><h3>⚾ 최근 경기 결과</h3>'+(lg.recent?.length?lg.recent.slice(0,4).map((g,i)=>'<div class="item">'+leagueMatch(g)+'<b>'+esc(g.score)+'</b><button type="button" data-home-box="'+i+'">상세정보</button></div>').join(''):'<p class="muted">정규시즌 결과가 없습니다.</p>')+'</div></div><div class="home-right"><div class="panel"><h3>🏟 구단 정보</h3><div class="item">구단명 <b>'+esc(c.name)+'</b></div><div class="item">보유 선수 <b>'+c.players.length+'명</b></div><div class="item">구단자금 <b>'+money(c.cash)+'</b></div><div class="item">CP <b>'+walletCP(c.cp)+'</b></div><div class="item">리그 참가 구단 <b>10개</b></div></div><div class="panel"><h3>🌟 유망주 순위 <small class="muted">25세 이하 · 종합 능력치순</small></h3>'+(prospects.length?prospects.map((p,i)=>'<div class="item gm-prospect"><span class="gm-prospect-rank">'+(i+1)+'</span><span class="gm-prospect-details">'+playerButton(p)+'<small>'+Number(p.age)+'세 · '+esc(p.pos)+' · '+g(p)+'</small></span><b>'+statCell(overall(p))+'</b></div>').join(''):'<p class="muted">현재 25세 이하 유망주가 없습니다.</p>')+'</div><div class="panel"><h3>🏆 리그 TOP 5</h3>'+(lg.standings||[]).slice(0,5).map((x,i)=>'<div class="item"><span>'+(i+1)+'. '+leagueIdentity(x.name,x.teamId,x.ownerName)+'</span><b>'+x.wins+'승 '+x.losses+'패</b></div>').join('')+'</div></div></div>';
+el.innerHTML='<div class="club-home"><div><div class="stadium"><div class="stadium-overlay"><div class="classic-subtitle">SEASON '+c.season+' · DIAMOND LEAGUE</div><h2>'+esc(clubDisplayName(c))+'</h2><p>10개 구단 정규시즌 · 매시간 자동 경기</p><p class="muted">일요일~금요일 144경기 · 토요일 가을야구</p><button id="stadiumLeague">🏆 리그 진행 · 순위 보기</button></div></div><div class="classic-shortcuts">'+tabs.filter(x=>['league','lineup','scout','friendly','market'].includes(x[0])).map(t=>'<button data-shortcut="'+t[0]+'"><span>'+t[1].split(' ')[0]+'</span>'+t[1].split(' ').slice(1).join(' ')+'</button>').join('')+'</div><div class="panel"><h3>⚾ 최근 경기 결과</h3>'+(lg.recent?.length?lg.recent.slice(0,4).map((g,i)=>'<div class="item">'+leagueMatch(g)+'<b>'+esc(g.score)+'</b><button type="button" data-home-box="'+i+'">상세정보</button></div>').join(''):'<p class="muted">정규시즌 결과가 없습니다.</p>')+'</div></div><div class="home-right"><div class="panel"><h3>🏟 구단 정보</h3><div class="item">구단명 <b>'+esc(clubDisplayName(c))+'</b></div><div class="item">보유 선수 <b>'+c.players.length+'명</b></div><div class="item">구단자금 <b>'+money(c.cash)+'</b></div><div class="item">CP <b>'+walletCP(c.cp)+'</b></div><div class="item">리그 참가 구단 <b>10개</b></div></div><div class="panel"><h3>🌟 유망주 순위 <small class="muted">25세 이하 · 종합 능력치순</small></h3>'+(prospects.length?prospects.map((p,i)=>'<div class="item gm-prospect"><span class="gm-prospect-rank">'+(i+1)+'</span><span class="gm-prospect-details">'+playerButton(p)+'<small>'+Number(p.age)+'세 · '+esc(p.pos)+' · '+g(p)+'</small></span><b>'+statCell(overall(p))+'</b></div>').join(''):'<p class="muted">현재 25세 이하 유망주가 없습니다.</p>')+'</div><div class="panel"><h3>🏆 리그 TOP 5</h3>'+(lg.standings||[]).slice(0,5).map((x,i)=>'<div class="item"><span>'+(i+1)+'. '+leagueIdentity(x.name,x.teamId,x.ownerName)+'</span><b>'+x.wins+'승 '+x.losses+'패</b></div>').join('')+'</div></div></div>';
 document.getElementById('stadiumLeague').onclick=()=>{tab='league';root()};
 document.querySelectorAll('[data-shortcut]').forEach(b=>b.onclick=()=>{tab=b.dataset.shortcut;root()});document.querySelectorAll('[data-home-box]').forEach(b=>b.onclick=()=>openGameBoxScore(lg.recent[Number(b.dataset.homeBox)]?.detail,'리그 경기 상세정보'));return}
 
@@ -2620,6 +2639,20 @@ const recentSeason=(lg.leagueHistory||[])[0];
 const sections=[['standings','🏆 순위표'],['schedule','📅 전체일정'],['batters','🏏 타자순위'],['pitchers','⚾ 투수순위']];
 const leagueNav='<nav class="gm-league-switch" aria-label="리그 통계 메뉴">'+sections.map(([id,name])=>'<button type="button" data-league-section="'+id+'" class="'+(leagueSection===id?'selected':'')+'" aria-pressed="'+(leagueSection===id)+'">'+name+'</button>').join('')+'</nav>';
 const bindLeagueNav=()=>document.querySelectorAll('[data-league-section]').forEach(btn=>btn.onclick=()=>{leagueSection=btn.dataset.leagueSection;content()});
+function scheduleResultMarkup(g){
+ if(g.preJoin)return '가입 전';
+ if(!g.played||!g.score)return '예정';
+ const score=String(g.score);
+ const values=score.match(/(\d+)\s*:\s*(\d+)/);
+ if(!values)return esc(score);
+ const home=Number(values[1]),away=Number(values[2]);
+ // When user's club is in the matchup, classify from that club's perspective;
+ // otherwise use the home team's perspective.
+ const isAway=g.awayTeamId===state.club?.teamId&&g.homeTeamId!==state.club?.teamId;
+ const ours=isAway?away:home,theirs=isAway?home:away;
+ const result=ours===theirs?'DRAW':ours>theirs?'WIN':'LOSE';
+ return '<span class="gm-score-number">'+esc(score)+'</span><span class="gm-score-outcome gm-score-'+result.toLowerCase()+'">'+result+'</span>';
+}
 if(leagueSection==='schedule'){
  const schedule=Array.isArray(lg.allSchedule)?lg.allSchedule:[];
  const dayKey=time=>new Date(time).toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
@@ -2628,7 +2661,7 @@ if(leagueSection==='schedule'){
  if(leagueScheduleDate==='today'&&!days.includes(todayKey))leagueScheduleDate=days[0]||'all';
  const date=leagueScheduleDate==='today'?todayKey:leagueScheduleDate;
  const selected=date==='all'?schedule:schedule.filter(g=>dayKey(g.time)===date);
- el.innerHTML=leagueNav+'<section class="panel gm-league-stat-page"><div class="gm-league-stat-header"><div><h2>📅 전체 경기 일정</h2><p>리그 전체 10개 구단의 144라운드 일정 · 총 '+schedule.length+'경기</p></div><label>날짜 선택<select id="gmLeagueDate"><option value="all" '+(date==='all'?'selected':'')+'>전체 날짜</option>'+days.map(d=>'<option value="'+esc(d)+'" '+(date===d?'selected':'')+'>'+esc(d)+'</option>').join('')+'</select></label></div><div class="gm-league-schedule-list">'+(selected.length?selected.map(g=>'<div class="gm-league-schedule-match"><span class="gm-league-round">'+g.round+'R</span><div>'+leagueMatch(g,true)+'</div><time>'+fmt(g.time)+'</time><b class="'+(g.played?'done':'upcoming')+'">'+(g.preJoin?'가입 전':g.played?esc(g.score):'예정')+'</b></div>').join(''):'<p class="muted">해당 날짜에 편성된 경기가 없습니다.</p>')+'</div></section>';
+ el.innerHTML=leagueNav+'<section class="panel gm-league-stat-page"><div class="gm-league-stat-header"><div><h2>📅 전체 경기 일정</h2><p>리그 전체 10개 구단의 144라운드 일정 · 총 '+schedule.length+'경기</p></div><label>날짜 선택<select id="gmLeagueDate"><option value="all" '+(date==='all'?'selected':'')+'>전체 날짜</option>'+days.map(d=>'<option value="'+esc(d)+'" '+(date===d?'selected':'')+'>'+esc(d)+'</option>').join('')+'</select></label></div><div class="gm-league-schedule-list">'+(selected.length?selected.map(g=>'<div class="gm-league-schedule-match"><span class="gm-league-round">'+g.round+'R</span><div>'+leagueMatch(g,true)+'</div><time>'+fmt(g.time)+'</time><b class="gm-schedule-result '+(g.played?'done':'upcoming')+'">'+scheduleResultMarkup(g)+'</b></div>').join(''):'<p class="muted">해당 날짜에 편성된 경기가 없습니다.</p>')+'</div></section>';
  bindLeagueNav();
  document.getElementById('gmLeagueDate').onchange=e=>{leagueScheduleDate=e.target.value;content()};
  document.querySelectorAll('[data-schedule-team]').forEach(btn=>btn.onclick=()=>{
