@@ -71,6 +71,10 @@ function player(owner,opts={}){
  const year=Number.isInteger(opts.year)?opts.year:rand(2000,2026);
  const pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];
  const p={id:uid(),owner,name:foreign?foreignFirst[rand(0,foreignFirst.length-1)]+' '+foreignLast[rand(0,foreignLast.length-1)]:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0};
+ // Pitcher attributes are explicit before the one-time award bonus is applied.
+ if(isP){
+  p.velocity=p.speed;p.stuff=p.power;p.control=p.contact;p.break=p.eye;
+ }
  chooseAwardPlayer(p);
  awardBonus(p);
  if(p.awardVariant)p.specialAbilities=awardStartingSkill(p);
