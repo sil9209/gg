@@ -1628,6 +1628,34 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-community-empty{text-align:center;padding:36px 8px;color:#8ba0b5;font-size:12px;border-top:1px solid #e3ebf4}
 .gm-community-more{width:100%;margin-top:10px;border:1px solid #d4e3f1!important;background:#f6f9fe!important;color:#376a9b!important;padding:10px!important;border-radius:8px!important;font-size:12px!important;font-weight:800!important}
 @media(max-width:620px){.club-home .gm-community{padding:17px 14px}.gm-community-heading{align-items:flex-start}.gm-community-heading p{max-width:210px}.gm-community-form-actions{flex-wrap:wrap}.gm-community-meta small{font-size:9px}}
+
+/* Recent match result: aligned team, score and details columns. */
+.club-home .gm-home-results .gm-home-result-row{display:grid!important;grid-template-columns:minmax(0,1fr) 68px 90px!important;align-items:center!important;gap:12px!important;min-height:67px;padding:9px 0!important}
+.club-home .gm-home-result-teams{min-width:0!important;overflow:hidden}
+.club-home .gm-home-result-teams .league-match-pair{display:flex!important;align-items:center;flex-wrap:nowrap!important;gap:8px;min-width:0}
+.club-home .gm-home-result-teams .league-team-identity{min-width:0;flex:0 1 auto}
+.club-home .gm-home-result-score{text-align:center!important;white-space:nowrap!important;justify-self:center!important;font-variant-numeric:tabular-nums;font-size:13px}
+.club-home .gm-home-result-detail{justify-self:end!important;width:90px!important;white-space:nowrap!important}
+@media(max-width:650px){.club-home .gm-home-results .gm-home-result-row{grid-template-columns:minmax(0,1fr) 47px 73px!important;gap:6px!important}.club-home .gm-home-result-detail{width:73px!important;font-size:11px!important;padding:9px 4px!important}.club-home .gm-home-result-teams .league-match-pair{gap:5px!important}.club-home .gm-home-result-score{font-size:11px!important}}
+/* Community category tabs and threaded comments. */
+.gm-community-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:3px 0 15px}
+.gm-community-tabs button{border:1px solid #cddfee!important;background:#f4f8fd!important;color:#42617e!important;border-radius:8px!important;padding:10px 5px!important;font-size:12px!important;font-weight:800!important;white-space:nowrap!important}
+.gm-community-tabs button.active{background:var(--team-accent,#2e71b8)!important;border-color:var(--team-accent,#2e71b8)!important;color:#fff!important}
+.gm-community-private-info{background:#fff8e8;border:1px solid #f1deb7;border-radius:8px;padding:10px;color:#87611a;font-size:11px;line-height:1.5;margin:0 0 13px}
+.gm-community-form-heading{font-size:13px;color:#2a526e}
+.gm-community-comment-toggle{margin-top:10px;border:1px solid #d4e2f0!important;border-radius:7px!important;background:#f6f9fe!important;color:#316b9d!important;padding:7px 10px!important;font-size:11px!important;font-weight:800!important}
+.gm-community-comments{background:#f8fbff;border:1px solid #e2edf7;border-radius:10px;margin-top:9px;padding:10px}
+.gm-community-comment{padding:9px 3px;border-bottom:1px solid #e7eef7}
+.gm-community-comment>div{display:flex;align-items:center;gap:8px}
+.gm-community-comment strong{font-size:11px;color:#315774}
+.gm-community-comment small{font-size:10px;color:#90a3b6}
+.gm-community-comment p{font-size:12px;line-height:1.55;color:#3b5a70;white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0 0}
+.gm-community-comment>div button{margin-left:auto;border:0!important;background:transparent!important;color:#9aabb9!important;font-size:10px!important;padding:3px!important}
+.gm-community-comment-empty{font-size:11px;color:#8c9fb0;padding:8px}
+.gm-community-comment-form{display:flex;gap:7px;margin-top:10px}
+.gm-community-comment-form input{width:100%;min-width:0;flex:1;border:1px solid #c9ddec;border-radius:7px;padding:9px;font-size:12px;background:white;color:#254663}
+.gm-community-comment-form button{flex:0 0 54px;border-radius:7px!important;background:var(--team-accent,#2e71b8)!important;color:white!important;font-size:11px!important;font-weight:800!important}
+@media(max-width:550px){.gm-community-tabs{gap:4px}.gm-community-tabs button{font-size:10px!important;padding:9px 3px!important}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1782,25 +1810,45 @@ async function api(body,options={}){try{const r=await fetch('/api/action',{metho
 async function start(){try{state=await(await fetch('/api/state')).json()}catch(e){toast('서버에 연결할 수 없습니다')}render()}
 
 let communityComposeOpen=false,communityShowAll=false;
+let communityTab='free',communityOpenComments=new Set();
+const COMMUNITY_TABS=[['free','자유게시판'],['suggestion','🔒 건의사항'],['trade','거래게시판']];
 function communityMarkup(){
- const items=Array.isArray(state.communityPosts)?state.communityPosts:[];
+ const all=Array.isArray(state.communityPosts)?state.communityPosts:[];
+ const items=all.filter(p=>(p.category||'free')===communityTab);
  const visible=communityShowAll?items:items.slice(0,5);
+ const isPrivate=communityTab==='suggestion';
  const timestamp=ms=>new Date(ms).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
- return '<section class="panel gm-community" id="gmCommunity"><div class="gm-community-heading"><div><h3>💬 구단주 커뮤니티</h3><p>다른 구단주들과 자유롭게 이야기를 나눠보세요.</p></div><button type="button" class="gm-community-write" id="gmCommunityCompose">'+(communityComposeOpen?'작성 취소':'✏️ 글쓰기')+'</button></div>'+
-  (communityComposeOpen?'<form id="gmCommunityForm" class="gm-community-form"><label for="gmCommunityTitle">제목</label><input type="text" id="gmCommunityTitle" maxlength="70" minlength="2" required placeholder="제목을 입력하세요 (2~70자)"><label for="gmCommunityBody">내용</label><textarea id="gmCommunityBody" maxlength="1500" required rows="5" placeholder="구단 운영 이야기, 선수 육성 팁, 자유로운 의견을 작성해보세요."></textarea><div class="gm-community-form-actions"><small>게시글은 모든 구단주에게 공개됩니다.</small><button type="submit" class="gm-community-submit">등록하기</button></div></form>':'')+
-  '<div class="gm-community-list">'+(visible.length?visible.map(post=>{
-   const team=(state.teams||[]).find(t=>t.id===post.teamId);
-   const author=esc(post.authorName||'구단주'),title=esc(post.title),text=esc(post.content);
-   return '<article class="gm-community-post"><div class="gm-community-meta">'+(team?teamBadge(team,true):'<span class="gm-community-no-team">⚾</span>')+'<span><strong>'+author+'</strong><small>'+esc(team?.name||post.teamName||'미소속')+' · '+esc(timestamp(post.createdAt))+'</small></span>'+(post.authorId===state.user?.id||state.user?.isAdmin?'<button type="button" class="gm-community-delete" data-community-delete="'+esc(post.id)+'" title="게시글 삭제">삭제</button>':'')+'</div><h4>'+title+'</h4><p class="gm-community-post-content">'+text+'</p></article>';
-  }).join(''):'<div class="gm-community-empty">아직 작성된 글이 없습니다. 첫 번째 글을 남겨보세요!</div>')+'</div>'+
-  (items.length>5?'<button type="button" id="gmCommunityMore" class="gm-community-more">'+(communityShowAll?'최근 글만 보기':'게시글 더 보기 ('+items.length+'개)')+'</button>':'')+
+ return '<section class="panel gm-community" id="gmCommunity">'+
+ '<div class="gm-community-heading"><div><h3>💬 구단주 커뮤니티</h3><p>구단 운영과 거래 이야기를 나눠보세요.</p></div><button type="button" class="gm-community-write" id="gmCommunityCompose">'+(communityComposeOpen?'작성 취소':'✏️ 글쓰기')+'</button></div>'+
+ '<nav class="gm-community-tabs" aria-label="커뮤니티 게시판">'+COMMUNITY_TABS.map(([id,title])=>'<button type="button" data-community-tab="'+id+'" class="'+(id===communityTab?'active':'')+'" aria-pressed="'+(id===communityTab)+'">'+title+'</button>').join('')+'</nav>'+
+ (isPrivate?'<p class="gm-community-private-info">🔒 건의사항은 작성자와 관리자만 열람할 수 있습니다. 댓글도 동일하게 비공개됩니다.</p>':'')+
+ (communityComposeOpen?'<form id="gmCommunityForm" class="gm-community-form"><strong class="gm-community-form-heading">'+(isPrivate?'🔒 비밀 건의사항':communityTab==='trade'?'거래게시판 글쓰기':'자유게시판 글쓰기')+'</strong><label for="gmCommunityTitle">제목</label><input type="text" id="gmCommunityTitle" maxlength="70" minlength="2" required placeholder="제목을 입력하세요 (2~70자)"><label for="gmCommunityBody">내용</label><textarea id="gmCommunityBody" maxlength="1500" required rows="5" placeholder="'+(isPrivate?'관리자에게 전달할 건의사항을 입력하세요.':'구단 운영 이야기, 선수 거래 정보 등을 작성해보세요.')+'"></textarea><div class="gm-community-form-actions"><small>'+(isPrivate?'🔒 작성자와 관리자에게만 공개됩니다.':'게시글은 모든 구단주에게 공개됩니다.')+'</small><button type="submit" class="gm-community-submit">등록하기</button></div></form>':'')+
+ '<div class="gm-community-list">'+(visible.length?visible.map(post=>{
+  const team=(state.teams||[]).find(t=>t.id===post.teamId);
+  const author=esc(post.authorName||'구단주'),title=esc(post.title),text=esc(post.content);
+  const comments=Array.isArray(post.comments)?post.comments:[];
+  const opened=communityOpenComments.has(post.id);
+  return '<article class="gm-community-post">'+
+   '<div class="gm-community-meta">'+(team?teamBadge(team,true):'<span class="gm-community-no-team">⚾</span>')+'<span><strong>'+author+'</strong><small>'+esc(team?.name||post.teamName||'미소속')+' · '+esc(timestamp(post.createdAt))+'</small></span>'+
+   ((post.authorId===state.user?.id||state.user?.isAdmin)?'<button type="button" class="gm-community-delete" data-community-delete="'+esc(post.id)+'" title="게시글 삭제">삭제</button>':'')+'</div>'+
+   '<h4>'+(post.isPrivate?'🔒 ':'')+title+'</h4><p class="gm-community-post-content">'+text+'</p>'+
+   '<button type="button" class="gm-community-comment-toggle" data-community-toggle="'+esc(post.id)+'" aria-expanded="'+opened+'">💬 댓글 '+comments.length+'개 '+(opened?'접기':'보기 / 작성')+'</button>'+
+   (opened?'<div class="gm-community-comments">'+(comments.length?comments.map(comment=>'<div class="gm-community-comment"><div><strong>'+esc(comment.authorName||'구단주')+'</strong><small>'+esc(timestamp(comment.createdAt))+'</small>'+(comment.authorId===state.user?.id||state.user?.isAdmin?'<button type="button" data-community-comment-delete="'+esc(comment.id)+'" data-community-comment-post="'+esc(post.id)+'">삭제</button>':'')+'</div><p>'+esc(comment.content)+'</p></div>').join(''):'<p class="gm-community-comment-empty">첫 댓글을 남겨보세요.</p>')+
+   '<form class="gm-community-comment-form" data-community-comment-form="'+esc(post.id)+'"><input type="text" name="comment" maxlength="500" required placeholder="댓글 입력 (최대 500자)" aria-label="댓글 내용"><button type="submit">등록</button></form></div>':'')+
+   '</article>';
+ }).join(''):'<div class="gm-community-empty">'+(isPrivate?'아직 등록된 건의사항이 없습니다.':'이 게시판에 작성된 글이 없습니다. 첫 번째 글을 남겨보세요!')+'</div>')+'</div>'+
+ (items.length>5?'<button type="button" id="gmCommunityMore" class="gm-community-more">'+(communityShowAll?'최근 글만 보기':'게시글 더 보기 ('+items.length+'개)')+'</button>':'')+
  '</section>';
 }
 function bindCommunity(){
+ const focus=()=>document.getElementById('gmCommunity')?.scrollIntoView({block:'nearest'});
+ document.querySelectorAll('[data-community-tab]').forEach(btn=>btn.onclick=()=>{
+  communityTab=btn.dataset.communityTab;communityComposeOpen=false;communityShowAll=false;root();focus();
+ });
  const compose=document.getElementById('gmCommunityCompose');
- if(compose)compose.onclick=()=>{communityComposeOpen=!communityComposeOpen;root();document.getElementById('gmCommunity')?.scrollIntoView({block:'nearest'})};
+ if(compose)compose.onclick=()=>{communityComposeOpen=!communityComposeOpen;root();focus()};
  const more=document.getElementById('gmCommunityMore');
- if(more)more.onclick=()=>{communityShowAll=!communityShowAll;root()};
+ if(more)more.onclick=()=>{communityShowAll=!communityShowAll;root();focus()};
  const form=document.getElementById('gmCommunityForm');
  if(form)form.onsubmit=async e=>{
   e.preventDefault();
@@ -1809,14 +1857,33 @@ function bindCommunity(){
   if(!title||!content)return toast('제목과 내용을 입력하세요');
   const button=form.querySelector('[type="submit"]');
   if(button)button.disabled=true;
-  const response=await api({type:'communityWrite',title,content},{skipRender:true});
-  if(response){communityComposeOpen=false;communityShowAll=false;root();document.getElementById('gmCommunity')?.scrollIntoView({block:'nearest'})}
+  const response=await api({type:'communityWrite',category:communityTab,title,content},{skipRender:true});
+  if(response){communityComposeOpen=false;communityShowAll=false;root();focus()}
   else if(button)button.disabled=false;
  };
- document.querySelectorAll('[data-community-delete]').forEach(button=>button.onclick=async()=>{
-  if(!confirm('이 게시글을 삭제하시겠습니까?'))return;
-  const response=await api({type:'communityDelete',id:button.dataset.communityDelete},{skipRender:true});
-  if(response)root();
+ document.querySelectorAll('[data-community-delete]').forEach(btn=>btn.onclick=async()=>{
+  if(!confirm('이 게시글과 댓글을 모두 삭제하시겠습니까?'))return;
+  const response=await api({type:'communityDelete',id:btn.dataset.communityDelete},{skipRender:true});
+  if(response){root();focus()}
+ });
+ document.querySelectorAll('[data-community-toggle]').forEach(btn=>btn.onclick=()=>{
+  const id=btn.dataset.communityToggle;
+  if(communityOpenComments.has(id))communityOpenComments.delete(id);else communityOpenComments.add(id);
+  root();focus();
+ });
+ document.querySelectorAll('[data-community-comment-form]').forEach(form=>form.onsubmit=async e=>{
+  e.preventDefault();
+  const field=form.elements.namedItem('comment'),content=field?.value?.trim();
+  if(!content)return toast('댓글을 입력하세요');
+  const button=form.querySelector('[type="submit"]');
+  if(button)button.disabled=true;
+  const response=await api({type:'communityComment',id:form.dataset.communityCommentForm,content},{skipRender:true});
+  if(response){root();focus()}else if(button)button.disabled=false;
+ });
+ document.querySelectorAll('[data-community-comment-delete]').forEach(btn=>btn.onclick=async()=>{
+  if(!confirm('댓글을 삭제하시겠습니까?'))return;
+  const response=await api({type:'communityCommentDelete',postId:btn.dataset.communityCommentPost,commentId:btn.dataset.communityCommentDelete},{skipRender:true});
+  if(response){root();focus()}
  });
 }
 function chosenTeam(){return (state.teams||[]).find(t=>t.id===(state.club?.teamId||state.user?.teamId||selectedTeam))||null}
@@ -2534,7 +2601,7 @@ if(tab==='shop'){
 if(tab==='finance'){el.innerHTML=gmFinanceContent(c);return}
 if(tab==='manage'){el.innerHTML='<h2 class="sectiontitle">⚙️ 구단관리</h2><p class="muted">선수단과 육성을 한곳에서 관리합니다.</p><div class="manage-grid"><button class="manage-link" data-manage="roster"><strong>👥 선수단 관리</strong><small>선수 목록 · 능력치 · 상세 관리</small></button><button class="manage-link" data-manage="train"><strong>⬆️ 선수 육성</strong><small>CP 성장 · 능력치 훈련</small></button><button class="manage-link" data-manage="specials"><strong>✦ 특수능력</strong><small>선수별 랜덤 특수능력 뽑기 · 최대 8개</small></button><button class="manage-link" data-manage="finance"><strong>💰 자금관리</strong><small>선수별 연봉 · 연봉 총액 · 예상 잔액</small></button></div><div class="panel"><h3>내 구단</h3><div class="item"><span>구단명</span><b>'+esc(clubDisplayName(c))+'</b></div><div class="item"><span>보유 선수</span><b>'+c.players.length+'명</b></div><div class="item"><span>보유 CP</span><b>'+walletCP(c.cp)+'</b></div><div class="item"><span>보유 게임머니</span><b>'+money(c.cash)+'</b></div></div>';document.querySelectorAll('[data-manage]').forEach(b=>b.onclick=()=>{tab=b.dataset.manage;root()});return}if(tab==='home'){
 const lg=state.league||{},prospects=c.players.filter(p=>Number.isFinite(Number(p.age))&&Number(p.age)<=25&&Number(p.age)>0).sort((a,b)=>Number(overall(b))-Number(overall(a))||Number(a.age)-Number(b.age)).slice(0,5);
-el.innerHTML='<div class="club-home"><div><div class="stadium"><div class="stadium-overlay"><div class="classic-subtitle">SEASON '+c.season+' · DIAMOND LEAGUE</div><h2>'+esc(clubDisplayName(c))+'</h2><p>10개 구단 정규시즌 · 매시간 자동 경기</p><p class="muted">일요일~금요일 144경기 · 토요일 가을야구</p><button id="stadiumLeague">🏆 리그 진행 · 순위 보기</button></div></div><div class="classic-shortcuts">'+tabs.filter(x=>['league','lineup','scout','friendly','market'].includes(x[0])).map(t=>'<button data-shortcut="'+t[0]+'"><span>'+t[1].split(' ')[0]+'</span>'+t[1].split(' ').slice(1).join(' ')+'</button>').join('')+'</div><div class="panel"><h3>⚾ 최근 경기 결과</h3>'+(lg.recent?.length?lg.recent.slice(0,4).map((g,i)=>'<div class="item">'+leagueMatch(g)+'<b>'+esc(g.score)+'</b><button type="button" data-home-box="'+i+'">상세정보</button></div>').join(''):'<p class="muted">정규시즌 결과가 없습니다.</p>')+'</div>'+communityMarkup()+'</div><div class="home-right"><div class="panel"><h3>🏟 구단 정보</h3><div class="item">구단명 <b>'+esc(clubDisplayName(c))+'</b></div><div class="item">보유 선수 <b>'+c.players.length+'명</b></div><div class="item">구단자금 <b>'+money(c.cash)+'</b></div><div class="item">CP <b>'+walletCP(c.cp)+'</b></div><div class="item">리그 참가 구단 <b>10개</b></div></div><div class="panel"><h3>🌟 유망주 순위 <small class="muted">25세 이하 · 종합 능력치순</small></h3>'+(prospects.length?prospects.map((p,i)=>'<div class="item gm-prospect"><span class="gm-prospect-rank">'+(i+1)+'</span><span class="gm-prospect-details">'+playerButton(p)+'<small>'+Number(p.age)+'세 · '+esc(p.pos)+' · '+g(p)+'</small></span><b>'+statCell(overall(p))+'</b></div>').join(''):'<p class="muted">현재 25세 이하 유망주가 없습니다.</p>')+'</div><div class="panel"><h3>🏆 리그 TOP 5</h3>'+(lg.standings||[]).slice(0,5).map((x,i)=>'<div class="item"><span>'+(i+1)+'. '+leagueIdentity(x.name,x.teamId,x.ownerName)+'</span><b>'+x.wins+'승 '+x.losses+'패</b></div>').join('')+'</div></div></div>';
+el.innerHTML='<div class="club-home"><div><div class="stadium"><div class="stadium-overlay"><div class="classic-subtitle">SEASON '+c.season+' · DIAMOND LEAGUE</div><h2>'+esc(clubDisplayName(c))+'</h2><p>10개 구단 정규시즌 · 매시간 자동 경기</p><p class="muted">일요일~금요일 144경기 · 토요일 가을야구</p><button id="stadiumLeague">🏆 리그 진행 · 순위 보기</button></div></div><div class="classic-shortcuts">'+tabs.filter(x=>['league','lineup','scout','friendly','market'].includes(x[0])).map(t=>'<button data-shortcut="'+t[0]+'"><span>'+t[1].split(' ')[0]+'</span>'+t[1].split(' ').slice(1).join(' ')+'</button>').join('')+'</div><div class="panel gm-home-results"><h3>⚾ 최근 경기 결과</h3>'+(lg.recent?.length?lg.recent.slice(0,4).map((g,i)=>'<div class="item gm-home-result-row"><div class="gm-home-result-teams">'+leagueMatch(g)+'</div><b class="gm-home-result-score">'+esc(g.score)+'</b><button type="button" class="gm-home-result-detail" data-home-box="'+i+'">상세정보</button></div>').join(''):'<p class="muted">정규시즌 결과가 없습니다.</p>')+'</div>'+communityMarkup()+'</div><div class="home-right"><div class="panel"><h3>🏟 구단 정보</h3><div class="item">구단명 <b>'+esc(clubDisplayName(c))+'</b></div><div class="item">보유 선수 <b>'+c.players.length+'명</b></div><div class="item">구단자금 <b>'+money(c.cash)+'</b></div><div class="item">CP <b>'+walletCP(c.cp)+'</b></div><div class="item">리그 참가 구단 <b>10개</b></div></div><div class="panel"><h3>🌟 유망주 순위 <small class="muted">25세 이하 · 종합 능력치순</small></h3>'+(prospects.length?prospects.map((p,i)=>'<div class="item gm-prospect"><span class="gm-prospect-rank">'+(i+1)+'</span><span class="gm-prospect-details">'+playerButton(p)+'<small>'+Number(p.age)+'세 · '+esc(p.pos)+' · '+g(p)+'</small></span><b>'+statCell(overall(p))+'</b></div>').join(''):'<p class="muted">현재 25세 이하 유망주가 없습니다.</p>')+'</div><div class="panel"><h3>🏆 리그 TOP 5</h3>'+(lg.standings||[]).slice(0,5).map((x,i)=>'<div class="item"><span>'+(i+1)+'. '+leagueIdentity(x.name,x.teamId,x.ownerName)+'</span><b>'+x.wins+'승 '+x.losses+'패</b></div>').join('')+'</div></div></div>';
 document.getElementById('stadiumLeague').onclick=()=>{tab='league';root()};
 document.querySelectorAll('[data-shortcut]').forEach(b=>b.onclick=()=>{tab=b.dataset.shortcut;root()});document.querySelectorAll('[data-home-box]').forEach(b=>b.onclick=()=>openGameBoxScore(lg.recent[Number(b.dataset.homeBox)]?.detail,'리그 경기 상세정보'));bindCommunity();return}
 
