@@ -906,7 +906,7 @@ function userMail(u){
  const gm=(db.gmMail||[]).filter(m=>Array.isArray(m.recipients)&&m.recipients.includes(u.id))
  .slice(-100).map(m=>({id:m.id,item:m.item,quantity:m.quantity,title:m.title,message:m.message,sentAt:m.sentAt,claimed:!!u.claimedGmMail?.includes(m.id)}));
  const c=db.clubs.find(x=>x.owner===u.id);
- const daily=(c?.pendingDailyRewards||[]).filter(m=>m.claimed||m.day===attendanceDay()).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.claimed?m.cash:null,cp:m.claimed?m.cp:null,title:'오늘의 출석체크',message:m.day+' 출석 보상 · '+(m.claimed?'수령 완료 · '+Number(m.cash||0).toLocaleString('ko-KR')+'원 + '+Number(m.cp||0).toLocaleString('ko-KR')+' CP':'게임머니 1억~5억 · 100~3,000 CP (수령 시 랜덤 지급)'),sentAt:m.createdAt,claimed:!!m.claimed}));
+ const daily=(c?.pendingDailyRewards||[]).filter(m=>m.claimed||m.day===attendanceDay()).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.claimed?m.cash:null,cp:m.claimed?m.cp:null,title:'오늘의 출석체크',message:m.day+' 출석 보상 · '+(m.claimed?'수령 완료 · '+Number(m.cash||0).toLocaleString('ko-KR')+'원 + '+Number(m.cp||0).toLocaleString('ko-KR')+' CP':'게임머니 1억~5억 · 100~2,000 CP (수령 시 랜덤 지급)'),sentAt:m.createdAt,claimed:!!m.claimed}));
  return [...gm,...daily].sort((a,b)=>b.sentAt-a.sentAt);
 }
 // Community posts are shared by all club owners and persisted in the game database.
@@ -1035,7 +1035,7 @@ else if(a.type==='claimGmMail'){
   if(!mail||mail.claimed||day!==attendanceDay())throw Error('출석 보상 수령기간이 만료됐거나 이미 수령했습니다');
   // Roll both amounts only when the gift is opened; older unopened gifts are re-rolled here.
   const cash=100000000+crypto.randomInt(41)*10000000;
-  const cp=crypto.randomInt(100,3001);
+  const cp=crypto.randomInt(100,2001);
   if(!Number.isSafeInteger(c.cash+cash)||!Number.isSafeInteger(c.cp+cp))throw Error('보유 수량 한도를 초과했습니다');
   c.cash+=cash;c.cp+=cp;
   mail.cash=cash;mail.cp=cp;mail.claimed=true;mail.claimedAt=Date.now();
