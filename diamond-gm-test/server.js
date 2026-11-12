@@ -48,6 +48,7 @@ function stableNameHash(text){const d=crypto.createHash('sha256').update(String(
 const generatedNameReservations=new Set();
 function ordinaryPlayerName(id,year,foreign=false){
  const usedName=(name)=>generatedNameReservations.has(year+'|'+name)||
+  awardPool(year).some(a=>a.alias===name)||
   (db.clubs||[]).some(c=>(c.players||[]).some(p=>p.year===year&&p.name===name))||
   (db.listings||[]).some(l=>l.player?.year===year&&l.player.name===name);
  for(let attempt=0;attempt<1200;attempt++){
@@ -492,8 +493,8 @@ function leagueMembers(c){
  const real=TEAMS.map(t=>db.clubs.filter(x=>tierNum(x)===tier&&(x.teamId||TEAMS[0].id)===t.id)[pool]||null);
  return {tier,pool,real};
 }
-/* Match outcomes remain stable across page reloads. AI clubs have stable, tier-specific
-   rosters within a season, derived from existing players without changing their owners. */
+/* Match outcomes remain stable across page reloads. AI clubs have stable, independent,
+   procedurally generated player rosters each season without cloning user players. */
 const leagueGameCache=new Map(),aiRosterCache=new Map();
 // Increment when the scoring probability model changes. Old current-season box scores are recalculated.
 const GAME_ENGINE_VERSION=4; // Refresh current-season matches and club labels after the ten-franchise rebrand.
