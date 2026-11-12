@@ -1578,6 +1578,11 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 #content .gm-training-panel .gm-training-row .gm-growth-rate{flex:none!important;width:auto!important;color:#2774ac!important;background:#eaf4ff!important}
 @media(max-width:1150px){#content .gm-training-panel .gm-training-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(max-width:650px){#content .gm-training-panel .gm-training-grid{grid-template-columns:minmax(0,1fr)!important}#content .gm-training-panel .gm-training-row{padding:12px!important}}
+
+/* Allow independent currency selection on every player upgrade card. */
+#content .gm-training-panel .gm-training-row .gm-training-controls{flex-wrap:wrap!important;gap:7px!important}
+#content .gm-training-panel .gm-training-row .gm-upgrade-currency{flex:1 1 100%!important;width:100%!important;max-width:100%!important;min-width:0!important;min-height:36px!important;padding:7px 9px!important;border:1px solid #ccdfef!important;border-radius:8px!important;background:#f7fbff!important;color:#254f75!important;font-size:11px!important;font-weight:800!important}
+#content .gm-training-panel .gm-training-row .gm-training-upgrade{flex:1 1 auto!important}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -2227,7 +2232,7 @@ function openGrowthChart(p){
  document.getElementById('gmGrowthChart')?.remove();
  const box=document.createElement('div');box.id='gmGrowthChart';box.className='gm-growth-modal-backdrop';
  box.innerHTML='<section class="gm-growth-modal" role="dialog" aria-modal="true" aria-label="'+esc(p.name)+' 성장표"><div class="gm-growth-modal-header"><div><h3>'+esc(playerLabel(p))+' 성장표</h3><p>'+esc(p.pos)+' · '+p.age+'세 · 현재 '+esc(p.grade)+'등급</p></div><button type="button" class="gm-growth-close" aria-label="닫기">✕</button></div>'+
- '<div class="gm-growth-chances">'+gmUpgradeOdds.map(x=>'<div class="'+(p.grade===x[0]?'current':'')+'"><span>'+x[0]+' → '+x[1]+'</span><strong>'+x[2]+'%</strong></div>').join('')+'</div><p>승급 1회당 5 CP · 실패 시 등급 유지'+(growthRate(p)===null?' · 최고 등급 도달':' · 현재 승급 성공률 '+growthRate(p)+'%')+'</p></section>';
+ '<div class="gm-growth-chances">'+gmUpgradeOdds.map(x=>'<div class="'+(p.grade===x[0]?'current':'')+'"><span>'+x[0]+' → '+x[1]+'</span><strong>'+x[2]+'%</strong></div>').join('')+'</div><p>승급 1회당 2 CP 또는 게임머니 1,000만원 · 실패 시 등급 유지'+(growthRate(p)===null?' · 최고 등급 도달':' · 현재 승급 성공률 '+growthRate(p)+'%')+'</p></section>';
  document.body.appendChild(box);
  const close=()=>box.remove();box.querySelector('.gm-growth-close').onclick=close;box.onclick=e=>{if(e.target===box)close()};
  box.querySelector('.gm-growth-close').focus();
@@ -2587,10 +2592,11 @@ if(tab==='roster'){
 if(tab==='train'){
  const visible=developmentPlayers(c,growthFilterKind,growthFilterSquad);
  el.innerHTML='<h2 class="sectiontitle">선수 육성</h2><div class="panel gm-training-panel">'+developmentFilters(growthFilterKind,growthFilterSquad)+
- '<div class="gm-growth-guideline gm-training-common"><b>육성 공통 안내</b><span>균형 성장: 모든 능력치 ×1.5 · 집중 성장: 선택 능력치 ×5, 나머지 ×0.5 · 36세 이상 능력치 감소</span><span>승급은 1회 5 CP · 성공 확률 E→D 65%, D→C 50%, C→B 25%, B→A 10% · 실패 시 등급 유지 · 플레잉코치 승급 불가</span></div>'+
- '<div class="gm-training-grid">'+(visible.length?visible.map(p=>'<div class="gm-training-row"><div class="gm-training-person">'+playerPortrait(p)+'<div>'+playerButton(p)+'<small>'+esc(p.pos)+' · '+p.age+'세 · 종합 '+overall(p)+'</small>'+g(p)+'</div></div><label class="gm-growth-select-label"><select data-growth-focus="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 집중 능력치 선택">'+growthOptions(p)+'</select></label><div class="gm-training-controls"><button class="gm-training-upgrade" data-upgrade="'+esc(p.id)+'" '+(['A','S'].includes(p.grade)||p.flyingCoach||c.cp<5?'disabled':'')+'>승급 5 CP</button><span class="gm-growth-rate">'+(growthRate(p)===null?'최고 등급':'성공률 '+growthRate(p)+'%')+'</span></div></div>').join(''):'<div class="gm-growth-empty">해당 분류의 선수가 없습니다.</div>')+'</div></div>';
+ '<div class="gm-growth-guideline gm-training-common"><b>육성 공통 안내</b><span>균형 성장: 모든 능력치 ×1.5 · 집중 성장: 선택 능력치 ×5, 나머지 ×0.5 · 36세 이상 능력치 감소</span><span>승급은 1회 2 CP 또는 게임머니 1,000만원 중 선택 · 성공 확률 E→D 65%, D→C 50%, C→B 25%, B→A 10% · 실패 시 등급 유지 · 플레잉코치 승급 불가</span></div>'+
+ '<div class="gm-training-grid">'+(visible.length?visible.map(p=>'<div class="gm-training-row"><div class="gm-training-person">'+playerPortrait(p)+'<div>'+playerButton(p)+'<small>'+esc(p.pos)+' · '+p.age+'세 · 종합 '+overall(p)+'</small>'+g(p)+'</div></div><label class="gm-growth-select-label"><select data-growth-focus="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 집중 능력치 선택">'+growthOptions(p)+'</select></label><div class="gm-training-controls"><select class="gm-upgrade-currency" data-upgrade-currency="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 승급 결제 수단"><option value="cp">2 CP</option><option value="cash">게임머니 1,000만원</option></select><button class="gm-training-upgrade" data-upgrade="'+esc(p.id)+'" '+(['A','S'].includes(p.grade)||p.flyingCoach||c.cp<2?'disabled':'')+'>승급</button><span class="gm-growth-rate">'+(growthRate(p)===null?'최고 등급':'성공률 '+growthRate(p)+'%')+'</span></div></div>').join(''):'<div class="gm-growth-empty">해당 분류의 선수가 없습니다.</div>')+'</div></div>';
  bindDevelopmentFilters('train');
- document.querySelectorAll('[data-upgrade]').forEach(btn=>btn.onclick=()=>api({type:'upgrade',id:btn.dataset.upgrade}));
+ document.querySelectorAll('[data-upgrade-currency]').forEach(sel=>sel.onchange=()=>{const btn=document.querySelector('[data-upgrade="'+sel.dataset.upgradeCurrency+'"]');if(!btn)return;const player=c.players.find(p=>p.id===sel.dataset.upgradeCurrency);btn.disabled=!player||['A','S'].includes(player.grade)||!!player.flyingCoach||(sel.value==='cp'?c.cp<2:c.cash<10000000)});
+ document.querySelectorAll('[data-upgrade]').forEach(btn=>btn.onclick=()=>{const sel=document.querySelector('[data-upgrade-currency="'+btn.dataset.upgrade+'"]');return api({type:'upgrade',id:btn.dataset.upgrade,currency:sel?.value||'cp'})});
  document.querySelectorAll('[data-growth-focus]').forEach(sel=>sel.onchange=()=>api({type:'setGrowthFocus',id:sel.dataset.growthFocus,focus:sel.value},{skipRender:true}));
  return}
 if(tab==='lineup'){renderLineup();return}
