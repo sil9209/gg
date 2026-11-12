@@ -61,6 +61,7 @@ function chooseReturningPerson(owner,year,isPitcher){
  const market=(db.listings||[]).filter(l=>l.player?.owner===owner).map(l=>l.player);
  const candidates=[...related,...market].filter(p=>p&&p.personId&&!p.awardKey&&
   p.isPitcher===isPitcher&&p.year!==year&&Math.abs(Number(p.year)-year)<=12&&
+  Number(p.age)+year-Number(p.year)>=17&&Number(p.age)+year-Number(p.year)<=43&&
   ![...related,...market].some(x=>x.personId===p.personId&&Number(x.year)===year));
  if(!candidates.length)return null;
  return candidates[rand(0,candidates.length-1)];
@@ -133,7 +134,7 @@ function player(owner,opts={}){
  const foreign=returning?!!returning.foreign:Math.random()<.22;
  const pos=returning?returning.pos:(isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)]);
  const id=uid(),personId=returning?.personId||'person:'+uid();
- const p={id,personId,owner,name:returning?returning.name:ordinaryPlayerName(personId,year,foreign),foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0};
+ const p={id,personId,owner,name:returning?returning.name:ordinaryPlayerName(personId,year,foreign),foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:returning?Number(returning.age)+year-Number(returning.year):rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0};
  // Pitcher attributes are explicit before the one-time award bonus is applied.
  if(isP){
   p.velocity=p.speed;p.stuff=p.power;p.control=p.contact;p.break=p.eye;
@@ -514,14 +515,14 @@ function aiRoster(seed,average){
   for(let i=0;i<count;i++){
    const slot=(pitcher?14:0)+i;
    const nonce=seed+':'+(pitcher?'pitcher':'batter')+':'+i;
-   const foreign=seedNum(nonce+':foreign')<.18;
+   const foreign=seedNum('AI-player-foreign-v4:'+teamId+':'+slot)<.18;
    const center=Math.max(23,Math.min(96,Number(average)||45));
    const variation=(seedNum(nonce+':quality')-.5)*10;
    const id='AI-'+crypto.createHash('sha256').update(nonce).digest('hex').slice(0,24);
    const p={
     id,personId:'AI-person:'+teamId+':'+slot,name:aiFictionalName(seed,teamId,slot,foreign),foreign,
-    age:19+Math.floor(seedNum(nonce+':age')*25),
     year:2000+Math.floor(seedNum(nonce+':year')*27),
+    age:19+Math.floor(seedNum('AI-player-age-v4:'+teamId+':'+slot)*25),
     // A single AI identity never changes its pitching position.
     pos:pitcher?(i<5?'선발':i<10?'중계':'마무리'):
       ['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수','지명타자'][i%9],
