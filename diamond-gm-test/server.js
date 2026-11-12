@@ -743,16 +743,23 @@ function leagueWithTeamRosters(c){
  lg.standings=lg.standings.map(row=>{
   const real=db.clubs.find(x=>x.id===row.id);
   const players=real?(real.players||[]):(()=>{const seed=start+':'+tier+':'+pool+':'+row.teamId;const roster=aiRoster(seed,LEAGUE_TIERS[tier].average);return [...roster.hitters,...roster.pitchers]})();
-  const starters=real?new Set([...(real.lineup||[]),real.pitcher,...Object.values(real.pitcherRotation||{}),...Object.values(real.pitcherAssignments||{}),...(real.benchIds||[])].filter(Boolean)):new Set(players.map(p=>p.id));
   const batting=players.filter(p=>!p.isPitcher),pitching=players.filter(p=>p.isPitcher);
   const avg=list=>list.length?Number((list.reduce((sum,p)=>sum+score(p),0)/list.length).toFixed(2)):0;
+  const battingOrder=real?[...new Set((real.lineup||[]).filter(id=>batting.some(p=>p.id===id)))].slice(0,9):batting.slice(0,9).map(p=>p.id);
+  if(real)for(const p of batting)if(battingOrder.length<9&&!battingOrder.includes(p.id))battingOrder.push(p.id);
+  const rotation=real?.pitcherRotation||{};
+  const roleKeys=[...Array.from({length:5},(_,i)=>'starter'+(i+1)),
+   ...Array.from({length:4},(_,i)=>'relief'+(i+1)),'setup','closer'];
+  const pitcherOrder=real?[...new Set([
+   ...roleKeys.map(role=>rotation[role]),
+   real.pitcher,real.pitcherAssignments?.starter,real.pitcherAssignments?.relief,real.pitcherAssignments?.closer,
+   ...pitching.map(p=>p.id)
+  ].filter(id=>pitching.some(p=>p.id===id)))]:pitching.map(p=>p.id);
+  // The league roster should always show this club's own current lineup and full available bullpen,
+  // not a single legacy 'pitcher' entry when advanced rotation has not been configured.
+  const starters=real?new Set([...battingOrder,...pitcherOrder,...(real.benchIds||[])]):new Set(players.map(p=>p.id));
   return {...row,real:!!real,teamAverage:avg(players),batterAverage:avg(batting),pitcherAverage:avg(pitching),
-   playerCount:players.length,
-   battingOrder:real?(real.lineup||[]).filter(id=>batting.some(p=>p.id===id)).slice(0,9):batting.slice(0,9).map(p=>p.id),
-   pitcherOrder:real?[...new Set([...(Object.keys(real.pitcherRotation||{}).sort((a,b)=>{
-    const rank=x=>x.startsWith('starter')?Number(x.slice(7)):x.startsWith('relief')?10+Number(x.slice(6)):x==='setup'?19:x==='closer'?20:30;
-    return rank(a)-rank(b)}).map(role=>real.pitcherRotation[role])),
-    real.pitcher,real.pitcherAssignments?.starter,real.pitcherAssignments?.relief,real.pitcherAssignments?.closer].filter(id=>pitching.some(p=>p.id===id)))]:pitching.map(p=>p.id),
+   playerCount:players.length,battingOrder,pitcherOrder,
    roster:players.map(p=>safePlayer(p,starters.has(p.id)?'1군':'2군'))};
  });
  return lg;
