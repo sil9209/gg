@@ -2427,7 +2427,7 @@ if(leagueSection==='batters'||leagueSection==='pitchers'){
  const ownRank=p=>p.teamId===state.club?.teamId&&ownPlayers.has(String(p.id));
  const leaderSource=isBat?lg.leagueLeaders?.batting:lg.leagueLeaders?.pitching;
  const categories=isBat?[['average','타율','avg',3],['homeRuns','홈런','hr',0],['rbi','타점','rbi',0],['stolenBases','도루','sb',0],['runs','득점','r',0],['hits','안타','h',0],['onBase','출루율','obp',3],['slugging','장타율','slg',3]]:
-  [['wins','승','wins',0],['losses','패','losses',0],['saves','세이브','saves',0],['holds','홀드','holds',0],['innings','이닝','outs',-1],['strikeouts','탈삼진','so',0]];
+  [['wins','승','wins',0],['losses','패','losses',0],['saves','세이브','saves',0],['holds','홀드','holds',0],['innings','이닝','outs',-1],['strikeouts','탈삼진','so',0],['era','평균자책','era',2],['whip','WHIP','whip',2]];
  const leaderMarkup='<div class="gm-league-leaders">'+categories.map(([id,title,key,digits])=>{
   const p=leaderSource?.[id],mine=p&&ownRank(p);
   const value=p?(digits<0?esc(p.ip):digits>0?Number(p[key]||0).toFixed(digits):Number(p[key]||0).toLocaleString('ko-KR')):'—';
