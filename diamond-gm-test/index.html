@@ -1350,6 +1350,19 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-league-schedule-match time{font-size:11px;color:#69849e;text-align:right}
 .gm-league-schedule-match b{font-size:12px;text-align:center;border-radius:6px;padding:6px;background:#e6f1fb;color:#286d9e}
 .gm-league-schedule-match b.upcoming{color:#8ca0ae;background:#f1f4f7}
+/* Compact two-column league schedule cards on desktop. */
+.gm-league-stat-page .gm-league-schedule-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:65dvh;overflow-y:auto;align-items:start}
+.gm-league-stat-page .gm-league-schedule-match{display:grid;grid-template-columns:55px minmax(0,1fr) 68px;grid-template-rows:auto auto;gap:3px 7px;min-width:0;align-items:center;padding:10px 9px;border:1px solid #dce7f1;border-radius:9px;background:#fff}
+.gm-league-stat-page .gm-league-schedule-match .gm-league-round{grid-column:1;grid-row:1}
+.gm-league-stat-page .gm-league-schedule-match time{grid-column:1;grid-row:2;display:block!important;font-size:10px;white-space:nowrap;text-align:left}
+.gm-league-stat-page .gm-league-schedule-match>div{grid-column:2;grid-row:1/3;min-width:0}
+.gm-league-stat-page .gm-league-schedule-match>b{grid-column:3;grid-row:1/3;min-width:0;font-size:11px;white-space:nowrap}
+.gm-league-stat-page .gm-league-schedule-match .league-match-pair{gap:5px;flex-wrap:wrap;min-width:0}
+.gm-league-stat-page .gm-league-schedule-match .league-team-identity{min-width:0;max-width:100%}
+.gm-league-stat-page .gm-league-schedule-match .league-names{font-size:11px}
+.gm-league-stat-page .gm-league-schedule-match .league-owner{font-size:10px}
+@media(max-width:980px){.gm-league-stat-page .gm-league-schedule-list{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:520px){.gm-league-stat-page .gm-league-schedule-match{grid-template-columns:42px minmax(0,1fr) 62px;padding:8px 6px;gap:3px 5px}}
 .gm-league-rank-table td,.gm-league-rank-table th{white-space:nowrap;text-align:center}.gm-ranking-column-sort{display:inline-flex;gap:3px;align-items:center;justify-content:center;padding:3px 5px!important;background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;color:inherit!important;white-space:nowrap;cursor:pointer;font-size:inherit!important;font-weight:inherit!important}.gm-ranking-column-sort.is-sorting{color:#276ab5!important;font-weight:950!important}
 .gm-league-record-note{font-size:11px;margin-top:14px}
 @media(max-width:700px){.gm-league-switch{gap:5px}.gm-league-switch button{font-size:11px!important;padding:10px 4px!important}.gm-league-schedule-match{grid-template-columns:34px minmax(140px,1fr) 68px;gap:5px;font-size:11px}.gm-league-schedule-match time{display:none}.gm-league-schedule-match .league-team-identity{font-size:11px}}
@@ -2834,6 +2847,22 @@ document.addEventListener('keydown',e=>{
 function findPlayerProfile(id){const club=state.club;return (club?.players||[]).find(p=>p.id===id)||(state.listings||[]).map(l=>l.player).find(p=>p.id===id)||(club?.scoutHistory||[]).map(h=>h.player).find(p=>p.id===id)||null}
 function openLeagueTeamRoster(team){
  document.getElementById('gmLeagueRosterBackdrop')?.remove();
+ // The viewer's own team uses the live club roster, avoiding stale league snapshot data.
+ if(state.club&&team.id===state.club.id){
+  const club=state.club;
+  const bats=(club.players||[]).filter(p=>!p.isPitcher);
+  const pitchers=(club.players||[]).filter(p=>p.isPitcher);
+  const battingOrder=[...new Set((club.lineup||[]).filter(id=>bats.some(p=>p.id===id)))].slice(0,9);
+  for(const p of bats)if(battingOrder.length<9&&!battingOrder.includes(p.id))battingOrder.push(p.id);
+  const roles=[...Array.from({length:5},(_,i)=>'starter'+(i+1)),...Array.from({length:4},(_,i)=>'relief'+(i+1)),'setup','closer'];
+  const pitcherOrder=[...new Set([
+   ...roles.map(k=>club.pitcherRotation?.[k]),club.pitcher,
+   club.pitcherAssignments?.starter,club.pitcherAssignments?.relief,club.pitcherAssignments?.closer,
+   ...pitchers.map(p=>p.id)
+  ].filter(id=>pitchers.some(p=>p.id===id)))];
+  const first=new Set([...battingOrder,...pitcherOrder,...(club.benchIds||[])]);
+  team={...team,battingOrder,pitcherOrder,roster:club.players.map(p=>({...p,squad:first.has(p.id)?'1군':'2군'}))};
+ }
  const players=Array.isArray(team.roster)?team.roster:[];
  const byId=new Map(players.map(p=>[p.id,p]));
  const choose=(ids,kind)=>{
