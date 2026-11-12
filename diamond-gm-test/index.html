@@ -1369,7 +1369,26 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-lineup-items #gmItemFlying{background:#ecf8f1!important;border-color:#b9d9c8!important;color:#28734c!important}
 .gm-lineup-items #gmItemFlying:hover:not(:disabled){background:#d9f2e5!important}
 @media(max-width:680px){.gm-lineup-items .gm-item-actions{grid-template-columns:1fr!important}}
-.gm-main-content{min-width:0;width:100%}button:focus,button:focus-visible,[role="button"]:focus,[role="button"]:focus-visible,.team-choice:focus-visible{outline:none!important;outline-offset:0!important;box-shadow:none!important;-webkit-tap-highlight-color:transparent!important}button::before,button::after{pointer-events:none}</style></head><body><div id="app"></div><script>
+.gm-main-content{min-width:0;width:100%}button:focus,button:focus-visible,[role="button"]:focus,[role="button"]:focus-visible,.team-choice:focus-visible{outline:none!important;outline-offset:0!important;box-shadow:none!important;-webkit-tap-highlight-color:transparent!important}button::before,button::after{pointer-events:none}
+/* Compact single-row league category leaders: eight categories, ranked top five. */
+.gm-league-stat-page .gm-league-leaders{display:grid!important;grid-template-columns:repeat(8,minmax(0,1fr))!important;gap:7px!important;margin:10px 0 18px!important;width:100%!important;min-width:0!important;max-width:100%!important;overflow:visible!important}
+.gm-league-stat-page .gm-league-leader{min-width:0!important;display:flex!important;flex-direction:column!important;gap:6px!important;padding:9px 7px!important;border-radius:10px!important;border:1px solid #d5e2ee!important;background:#f8fbff!important;overflow:hidden}
+.gm-league-leader.is-sorting{border-color:var(--team-accent)!important;box-shadow:inset 0 0 0 1px var(--team-accent)!important}
+.gm-leader-heading{display:flex;justify-content:space-between;align-items:center;gap:3px;min-width:0}
+.gm-leader-heading span{font-size:11px;font-weight:900;color:#315877;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gm-leader-heading small{font-size:9px;color:#8095a8;white-space:nowrap}
+.gm-leader-first{display:flex;flex-direction:column;min-width:0;gap:3px;padding:7px 5px;border:1px solid #e1e9f2;border-radius:8px;background:#fff}
+.gm-leader-first>strong{font-size:clamp(17px,1.65vw,24px)!important;line-height:1.1;color:#1f4b7c;font-weight:950}
+.gm-league-leader .gm-leader-first>button{border:0!important;background:transparent!important;color:#194974!important;text-align:left!important;font-size:12px!important;font-weight:950!important;padding:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;display:block!important;max-width:100%!important;min-height:18px!important}
+.gm-leader-first>small{font-size:9px;color:#7890a6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gm-leader-others{display:flex;flex-direction:column;gap:3px;min-width:0}
+.gm-leader-entry{display:flex;gap:3px;min-width:0;align-items:center;padding:4px 3px;border:1px solid #e8eef4;border-radius:6px;background:#fff}
+.gm-leader-entry>span{flex:none;font-size:9px;font-weight:850;color:#69849a}
+.gm-leader-entry>button{flex:1;min-width:0;display:block!important;text-align:left!important;border:0!important;background:transparent!important;font-size:10px!important;font-weight:800!important;color:#254d70!important;padding:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;min-height:15px!important}
+.gm-league-leader .gm-leader-first.is-mine,.gm-league-leader .gm-leader-entry.is-mine{background:color-mix(in srgb,var(--team-accent) 18%,white)!important;border-color:color-mix(in srgb,var(--team-accent) 43%,white)!important}
+.gm-league-leader .gm-leader-first.is-mine>strong,.gm-league-leader .gm-leader-first.is-mine>button,.gm-league-leader .gm-leader-entry.is-mine>button{color:var(--team-alt)!important}
+@media(max-width:760px){.gm-league-stat-page .gm-league-leaders{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+</style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
 const statNum=n=>Math.min(99.99,Math.max(0,Number(n)||0)).toFixed(2);
@@ -2428,10 +2447,31 @@ if(leagueSection==='batters'||leagueSection==='pitchers'){
  const leaderSource=isBat?lg.leagueLeaders?.batting:lg.leagueLeaders?.pitching;
  const categories=isBat?[['average','타율','avg',3],['homeRuns','홈런','hr',0],['rbi','타점','rbi',0],['stolenBases','도루','sb',0],['runs','득점','r',0],['hits','안타','h',0],['onBase','출루율','obp',3],['slugging','장타율','slg',3]]:
   [['wins','승','wins',0],['losses','패','losses',0],['saves','세이브','saves',0],['holds','홀드','holds',0],['innings','이닝','outs',-1],['strikeouts','탈삼진','so',0],['era','평균자책','era',2],['whip','WHIP','whip',2]];
+ const topRank=(key,ascending)=>{
+  const decision=['wins','losses','saves','holds'].includes(key);
+  const rate=['avg','obp','slg'].includes(key);
+  return sourceRows.filter(p=>{
+   const v=p[key];
+   if(v===null||v===undefined||!Number.isFinite(Number(v)))return false;
+   if(rate&&!p.qualified)return false;
+   if(decision&&(!p.decisionsAvailable||Number(v)<=0))return false;
+   if(['hr','rbi','sb','r','h','so'].includes(key)&&Number(v)<=0)return false;
+   return true;
+  }).sort((a,b)=>{
+   const delta=Number(a[key])-Number(b[key]);
+   return (ascending?delta:-delta)||(Number(b[isBat?'h':'outs'])||0)-(Number(a[isBat?'h':'outs'])||0)||String(a.name).localeCompare(String(b.name),'ko');
+  }).slice(0,5);
+ };
  const leaderMarkup='<div class="gm-league-leaders">'+categories.map(([id,title,key,digits])=>{
-  const p=leaderSource?.[id],mine=p&&ownRank(p);
-  const value=p?(digits<0?esc(p.ip):digits>0?Number(p[key]||0).toFixed(digits):Number(p[key]||0).toLocaleString('ko-KR')):'—';
-  return '<div class="gm-league-leader '+(mine?'is-mine':'')+(activeSort===key?' is-sorting':'')+'" data-rank-sort="'+key+'" role="button" tabindex="0" aria-pressed="'+(activeSort===key)+'" title="'+title+' 기준 순위 정렬"><span>'+title+(activeSort===key?' ▾':'')+'</span><strong>'+value+'</strong><button type="button" '+(p?'data-ranking-player="'+esc(p.id)+'" data-ranking-team="'+esc(p.teamId)+'"':'disabled')+'>'+esc(p?.name||'기록 없음')+'</button><small>'+esc(p?.teamName||'')+'</small></div>';
+  const top=topRank(key,['era','whip'].includes(key));
+  const first=top[0],mine=first&&ownRank(first);
+  const display=p=>digits<0?esc(p.ip||'0.0'):digits>0?Number(p[key]||0).toFixed(digits):Number(p[key]||0).toLocaleString('ko-KR');
+  const link=(p,label)=>'<button type="button" data-ranking-player="'+esc(p.id)+'" data-ranking-team="'+esc(p.teamId)+'" title="'+esc(p.name)+' 선수 상세보기">'+label+esc(p.name)+'</button>';
+  return '<div class="gm-league-leader '+(mine?'is-mine ':'')+(activeSort===key?'is-sorting':'')+'" data-rank-sort="'+key+'" role="button" tabindex="0" aria-pressed="'+(activeSort===key)+'" title="'+title+' 기준 순위 정렬">'+
+   '<div class="gm-leader-heading"><span>'+title+(activeSort===key?' ▾':'')+'</span><small>TOP 5</small></div>'+
+   (first?'<div class="gm-leader-first '+(mine?'is-mine':'')+'"><strong>'+display(first)+'</strong>'+link(first,'1위 ')+'<small>'+esc(first.teamName||'')+'</small></div>':'<div class="gm-leader-first"><strong>—</strong><small>기록 없음</small></div>')+
+   '<div class="gm-leader-others">'+top.slice(1).map((p,i)=>'<div class="gm-leader-entry '+(ownRank(p)?'is-mine':'')+'"><span>'+(i+2)+'위</span>'+link(p,'')+'</div>').join('')+'</div>'+
+   '</div>';
  }).join('')+'</div>';
  const header=(label,key)=>'<th><button type="button" class="gm-ranking-column-sort '+(activeSort===key?'is-sorting':'')+'" data-ranking-column="'+key+'" aria-label="'+label+' 기준 정렬">'+label+(activeSort===key?(sortAscending?' ▲':' ▼'):' ↕')+'</button></th>';
  const th='<th>순위</th><th>선수</th><th>구단</th>'+(isBat?[
