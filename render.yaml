@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: inventory-orders-live-2026
+    runtime: python
+    region: singapore
+    plan: starter
+    buildCommand: pip install -r inventory-live/requirements.txt
+    startCommand: cd inventory-live && gunicorn --workers 1 --bind 0.0.0.0:$PORT app:app
+    healthCheckPath: /health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: DATABASE_PATH
+        value: /var/data/inventory.sqlite3
+    disk:
+      name: inventory-orders-data
+      mountPath: /var/data
+      sizeGB: 1
