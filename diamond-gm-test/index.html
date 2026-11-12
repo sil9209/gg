@@ -1507,6 +1507,39 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-league-stat-page .gm-league-leader .gm-colored-rank .gm-own-check,
 .gm-league-stat-page .gm-league-leader .gm-colored-rank.is-mine .gm-own-check{display:inline-flex!important;flex:none!important;background:#fff!important;color:var(--rank-club-color,#304f77)!important;border:0!important}
 .gm-league-stat-page .gm-league-leader .gm-colored-rank:focus-within{outline:2px solid #84b9ef;outline-offset:1px}
+
+/* The entire 1–5 ranking panel has one club-color background, without nested color tiles. */
+.gm-league-stat-page .gm-league-leader.gm-unified-leader{
+ background:var(--team-accent,#304f77)!important;
+ border:1px solid var(--team-accent,#304f77)!important;
+ box-shadow:none!important;
+ color:#fff!important;
+ gap:5px!important;
+}
+.gm-league-stat-page .gm-unified-leader .gm-leader-heading>span,
+.gm-league-stat-page .gm-unified-leader .gm-leader-heading>small{color:#fff!important}
+.gm-league-stat-page .gm-unified-leader .gm-leader-first,
+.gm-league-stat-page .gm-unified-leader .gm-leader-first.is-mine,
+.gm-league-stat-page .gm-unified-leader .gm-leader-entry,
+.gm-league-stat-page .gm-unified-leader .gm-leader-entry.is-mine{
+ background:transparent!important;border:0!important;box-shadow:none!important;
+ color:#fff!important;
+}
+.gm-league-stat-page .gm-unified-leader .gm-leader-first{border-bottom:1px solid #ffffff55!important;border-radius:0!important;padding:7px 2px 11px!important}
+.gm-league-stat-page .gm-unified-leader .gm-leader-entry{padding:5px 2px!important;border-radius:0!important}
+.gm-league-stat-page .gm-unified-leader .gm-leader-entry+ .gm-leader-entry{border-top:1px solid #ffffff25!important}
+.gm-league-stat-page .gm-unified-leader .gm-leader-first>strong,
+.gm-league-stat-page .gm-unified-leader .gm-leader-first>small,
+.gm-league-stat-page .gm-unified-leader .gm-leader-first>button,
+.gm-league-stat-page .gm-unified-leader .gm-leader-entry>span,
+.gm-league-stat-page .gm-unified-leader .gm-leader-entry>button,
+.gm-league-stat-page .gm-unified-leader .gm-leader-first.is-mine>strong,
+.gm-league-stat-page .gm-unified-leader .gm-leader-first.is-mine>button,
+.gm-league-stat-page .gm-unified-leader .gm-leader-entry.is-mine>button{color:#fff!important}
+.gm-league-stat-page .gm-unified-leader .gm-own-check{background:#fff!important;color:var(--team-accent,#304f77)!important}
+.gm-league-stat-page .gm-league-schedule-match{grid-template-columns:66px minmax(0,1fr) 68px!important;column-gap:15px!important}
+.gm-league-stat-page .gm-league-schedule-match>div{padding-left:5px!important}
+@media(max-width:520px){.gm-league-stat-page .gm-league-schedule-match{grid-template-columns:52px minmax(0,1fr) 62px!important;column-gap:10px!important}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -2601,9 +2634,10 @@ if(leagueSection==='batters'||leagueSection==='pitchers'){
    const color=String(team?.color||'#304f77');
    return /^#[0-9a-fA-F]{6}$/.test(color)?color:'#304f77';
   };
-  const colored=p=>'style="--rank-club-color:'+clubColor(p)+'"';
+  const representativeColor=String((state.teams||[]).find(t=>t.id===state.club?.teamId)?.color||'#304f77');
+  const colored=()=>'style="--rank-club-color:'+(/^#[0-9a-fA-F]{6}$/.test(representativeColor)?representativeColor:'#304f77')+'"';
   const link=(p,label)=>'<button type="button" data-ranking-player="'+esc(p.id)+'" data-ranking-team="'+esc(p.teamId)+'" title="'+esc(p.name)+' 선수 상세보기">'+label+esc(p.name)+(ownRank(p)?'<span class="gm-own-check" aria-label="내 선수" title="내 선수">✓</span>':'')+'</button>';
-  return '<div class="gm-league-leader '+(mine?'is-mine ':'')+(activeSort===key?'is-sorting':'')+'" data-rank-sort="'+key+'" role="button" tabindex="0" aria-pressed="'+(activeSort===key)+'" title="'+title+' 기준 순위 정렬">'+
+  return '<div class="gm-league-leader gm-unified-leader '+(mine?'is-mine ':'')+(activeSort===key?'is-sorting':'')+'" data-rank-sort="'+key+'" role="button" tabindex="0" aria-pressed="'+(activeSort===key)+'" title="'+title+' 기준 순위 정렬">'+
    '<div class="gm-leader-heading"><span>'+title+(activeSort===key?' ▾':'')+'</span><small>TOP 5</small></div>'+
    (first?'<div class="gm-leader-first gm-colored-rank '+(mine?'is-mine':'')+'" '+colored(first)+'><strong>'+display(first)+'</strong>'+link(first,'1위 ')+'<small>'+esc(first.teamName||'')+'</small></div>':'<div class="gm-leader-first"><strong>—</strong><small>기록 없음</small></div>')+
    '<div class="gm-leader-others">'+top.slice(1).map((p,i)=>'<div class="gm-leader-entry gm-colored-rank '+(ownRank(p)?'is-mine':'')+'" '+colored(p)+'><span>'+(i+2)+'위</span>'+link(p,'')+'</div>').join('')+'</div>'+
