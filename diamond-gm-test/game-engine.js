@@ -91,21 +91,36 @@ function simulateGame({home,away,seed,stats}){
     opponentContact:Number(batter.p.contact)||0,opponentSpeed:Number(batter.p.speed)||0,opponentEye:Number(batter.p.eye)||0});
    const fatigue=clamp((pitcher.pitches-(Number(pv.stamina)||55)*1.1)*.12,0,14);
    const contact=bv.contact, power=bv.power, eye=bv.eye, speed=bv.speed, control=pv.control-fatigue,stuff=pv.stuff-fatigue,velocity=pv.velocity-fatigue,breaking=pv.break-fatigue;
-   const walk=clamp(.085+(eye-control)*.0012,.025,.19);
-   const strikeout=clamp(.205+(velocity-contact)*.0011+(breaking-eye)*.0007,.06,.36);
-   const hr=clamp(.032+(power-stuff)*.0007,.004,.105);
-   const hit=clamp(.235+(contact-stuff)*.0015+(speed-55)*.00027,.115,.39);
-   const err=clamp(.012+(55-Number(def.team.defense||55))*.0003,.002,.04);
+   // KBO-scale baseline, with measurable gaps from player batting and pitching attributes.
+   // Walk/K/HR are mutually exclusive plate-appearance outcomes; balls in play are resolved separately.
+   const walk=clamp(.083+(eye-control)*.00125,.018,.165);
+   const strikeout=clamp(.18+(velocity-contact)*.0015+(breaking-eye)*.0009,.08,.34);
+   const hr=clamp(.023+(power-stuff)*.00075+(contact-55)*.00010,.002,.075);
+   const hit=clamp(.31+(contact-stuff)*.0025+(speed-55)*.0004,.12,.48);
+   const err=clamp(.013+(55-Number(def.team.defense||55))*.00022,.004,.03);
    const roll=rnd();pitcher.pitches+=Math.floor(3+rnd()*4);
-   if(roll<walk){batter.bb++;pitcher.bb++;off.walks++;batter.history.push('walk');pitcher.lastStrikeout=false;if(bases.every(Boolean))scoreRun(bases[2],batter);for(let j=2;j>=1;j--)if(bases[j-1]&&(!bases[j]||j===2))bases[j]=bases[j-1];bases[0]=batter;continue}
+   if(roll<walk){
+    batter.bb++;pitcher.bb++;off.walks++;batter.history.push('walk');pitcher.lastStrikeout=false;
+    // A walk advances only forced runners; never overwrite a runner on third.
+    if(bases[0]){
+     if(bases[1]){
+      if(bases[2])scoreRun(bases[2],batter);
+      bases[2]=bases[1];
+     }
+     bases[1]=bases[0];
+    }
+    bases[0]=batter;
+    continue;
+   }
    batter.ab++;
    if(roll<walk+strikeout){batter.so++;pitcher.so++;pitcher.outs++;outs++;batter.history.push('strikeout');pitcher.lastStrikeout=true;continue}
    if(roll<walk+strikeout+hr){batter.h++;batter.hr++;batter.tb+=4;off.hits++;batter.history.push('hit');pitcher.lastStrikeout=false;pitcher.h++;pitcher.hr++;for(let j=2;j>=0;j--)if(bases[j])scoreRun(bases[j],batter);scoreRun(batter,batter);bases=[null,null,null];events.push({inning,half:upper?'초':'말',team:off.name,text:batter.name+' 홈런',type:'homeRun'});continue}
    const hitRoll=rnd();
-   if(hitRoll<hit){batter.h++;off.hits++;pitcher.h++;batter.history.push('hit');pitcher.lastStrikeout=false;const basesTaken=rnd()<clamp(.14+(power-55)*.0015,.06,.25)?2:rnd()<.012?3:1;if(basesTaken===2)batter.h2++;else if(basesTaken===3)batter.h3++;
+   if(hitRoll<hit){batter.h++;off.hits++;pitcher.h++;batter.history.push('hit');pitcher.lastStrikeout=false;const basesTaken=rnd()<clamp(.19+(power-55)*.0012,.09,.28)?2:rnd()<clamp(.018+(speed-55)*.00016,.006,.035)?3:1;if(basesTaken===2)batter.h2++;else if(basesTaken===3)batter.h3++;
    batter.tb+=basesTaken;
-   const next=[null,null,null];for(let j=2;j>=0;j--)if(bases[j]){const advance=basesTaken+(rnd()<clamp(.25+(Number(bases[j].p.speed)||55)*.002,0,.5)?1:0);if(j+advance>=3)scoreRun(bases[j],batter);else next[j+advance]=bases[j]}if(basesTaken===3)next[2]=batter;else next[basesTaken-1]=batter;bases=next;continue}
-   if(roll<walk+strikeout+hr+hit+err){def.errors++;batter.history.push('out');pitcher.lastStrikeout=false;if(bases[2]){scoreRun(bases[2],null,true);bases[2]=null}for(let j=1;j>=0;j--)if(bases[j]&&!bases[j+1]){bases[j+1]=bases[j];bases[j]=null}bases[0]=batter;continue}
+   const next=[null,null,null];for(let j=2;j>=0;j--)if(bases[j]){const advance=basesTaken+(rnd()<clamp(.62+((Number(bases[j].p.speed)||55)-55)*.003,.30,.82)?1:0);if(j+advance>=3)scoreRun(bases[j],batter);else next[j+advance]=bases[j]}if(basesTaken===3)next[2]=batter;else next[basesTaken-1]=batter;bases=next;continue}
+   // Error chance must be a fresh roll. The old shared plate-appearance roll caused ~9 errors per team per game.
+   if(rnd()<err){def.errors++;batter.history.push('out');pitcher.lastStrikeout=false;if(bases[2]){scoreRun(bases[2],null,true);bases[2]=null}for(let j=1;j>=0;j--)if(bases[j]&&!bases[j+1]){bases[j+1]=bases[j];bases[j]=null}bases[0]=batter;continue}
    batter.history.push('out');pitcher.lastStrikeout=false;if(bases[0]&&outs<2&&rnd()<clamp(.08+(55-speed)*.0005,.03,.13)){outs+=2;pitcher.outs+=2;bases[0]=null}else{outs++;pitcher.outs++}
   }
   if(pitcher.r===startingRuns&&outs>=3)pitcher.scorelessInnings=(pitcher.scorelessInnings||0)+1;
