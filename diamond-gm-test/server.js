@@ -681,10 +681,7 @@ function ensureDailyAttendanceMail(c){
  if(c.dailyAttendance?.day===day)return;
  c.pendingDailyRewards=Array.isArray(c.pendingDailyRewards)?c.pendingDailyRewards:[];
  if(!c.pendingDailyRewards.some(m=>m.day===day)){
-  c.pendingDailyRewards.push({
-   day,cash:100000000+crypto.randomInt(91)*10000000,
-   cp:crypto.randomInt(10,5001),createdAt:Date.now(),claimed:false
-  });
+  c.pendingDailyRewards.push({day,createdAt:Date.now(),claimed:false});
  }
  c.dailyAttendance={day,deferred:true};
  save();
@@ -725,7 +722,7 @@ function userMail(u){
  const gm=(db.gmMail||[]).filter(m=>Array.isArray(m.recipients)&&m.recipients.includes(u.id))
  .slice(-100).map(m=>({id:m.id,item:m.item,quantity:m.quantity,title:m.title,message:m.message,sentAt:m.sentAt,claimed:!!u.claimedGmMail?.includes(m.id)}));
  const c=db.clubs.find(x=>x.owner===u.id);
- const daily=(c?.pendingDailyRewards||[]).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.cash,cp:m.cp,title:'오늘의 출석체크',message:m.day+' 출석 보상 · 우편함에서 선물받기를 눌러 수령하세요.',sentAt:m.createdAt,claimed:!!m.claimed}));
+ const daily=(c?.pendingDailyRewards||[]).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.claimed?m.cash:null,cp:m.claimed?m.cp:null,title:'오늘의 출석체크',message:m.day+' 출석 보상 · '+(m.claimed?'수령 완료':'게임머니 1억~5억 · 100~3,000 CP (수령 시 랜덤 지급)'),sentAt:m.createdAt,claimed:!!m.claimed}));
  return [...gm,...daily].sort((a,b)=>b.sentAt-a.sentAt);
 }
 const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
@@ -752,30 +749,10 @@ if(a.type==='register'||a.type==='login'){const name=String(a.username||'').trim
  if(a.type==='register'){if(found)throw Error('이미 존재하는 아이디');const ownerName=String(a.ownerName||'').trim();if(ownerName.length<2||ownerName.length>16||/[<>]/.test(ownerName))throw Error('구단주명은 2~16자로 입력해 주세요');const salt=crypto.randomBytes(12).toString('hex');found={id:uid(),username:name,salt,hash:pwd(pass,salt),teamId:team.id,ownerName};db.users.push(found)}else if(!found||found.hash!==pwd(pass,found.salt))throw Error('아이디 또는 비밀번호 오류');if(found.teamId&&found.teamId!==team.id)throw Error('가입 당시 선택한 구단으로 로그인하세요');if(!found.teamId){found.teamId=team.id;const old=db.clubs.find(x=>x.owner===found.id);if(old){old.teamId=team.id;old.name=team.name}}const token=crypto.randomBytes(24).toString('hex');sessions.set(token,found.id);save();return send(res,200,view(found),{'Set-Cookie':'sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'})}
 if(a.type==='logout'){sessions.delete(getCookie(req));return send(res,200,{user:null},{'Set-Cookie':'sid=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'})}
 if(!u)throw Error('로그인이 필요합니다');let c=db.clubs.find(x=>x.owner===u.id),result=null;topUpAdminWallet(u,c);
-if(a.type==='claimDailyAttendance'){
+if(a.type==='claimDailyAttendance'||a.type==='deferDailyAttendance'){
  if(!c)throw Error('구단을 먼저 생성하세요');
- const today=attendanceDay();
- if(c.dailyAttendance?.day===today)throw Error('오늘의 출석 보상을 이미 처리했습니다');
- // Cash and CP are each awarded independently on every successful daily check-in.
- // Cash: 91 equiprobable amounts between 100m and 1b in 10m increments.
- // CP: 4991 equiprobable integers in the inclusive 10..5000 range.
- const cash=100000000+crypto.randomInt(91)*10000000;
- const cp=crypto.randomInt(10,5001);
- c.cash=(Number(c.cash)||0)+cash;
- c.cp=(Number(c.cp)||0)+cp;
- c.dailyAttendance={day:today,cash,cp,claimedAt:Date.now()};
- result={message:'오늘의 출석 보상 지급 완료',attendanceReward:{cash,cp,day:today}};
-}
-else if(a.type==='deferDailyAttendance'){
- if(!c)throw Error('구단을 먼저 생성하세요');
- const today=attendanceDay();
- if(c.dailyAttendance?.day!==today){
-  const cash=100000000+crypto.randomInt(91)*10000000,cp=crypto.randomInt(10,5001);
-  c.pendingDailyRewards=Array.isArray(c.pendingDailyRewards)?c.pendingDailyRewards:[];
-  c.pendingDailyRewards.push({day:today,cash,cp,createdAt:Date.now(),claimed:false});
-  c.dailyAttendance={day:today,deferred:true};
- }
- result={message:'출석 보상이 우편함에 보관되었습니다'};
+ ensureDailyAttendanceMail(c);
+ result={message:'출석체크 보상은 우편함에서만 수령할 수 있습니다'};
 }
 else if(a.type==='gmSendGift'){
  if(!isAdminUser(u))throw Error('GM 계정만 전체 선물을 발송할 수 있습니다');
@@ -796,11 +773,13 @@ else if(a.type==='claimGmMail'){
  if(String(a.id||'').startsWith('daily:')){
   const day=String(a.id).slice(6),mail=(c.pendingDailyRewards||[]).find(x=>x.day===day);
   if(!mail||mail.claimed)throw Error('수령할 수 없는 출석 보상입니다');
-  const cash=Number(mail.cash),cp=Number(mail.cp);
-  if(!Number.isSafeInteger(cash)||!Number.isSafeInteger(cp)||cash<0||cp<0)throw Error('보상 정보가 올바르지 않습니다');
+  // Roll both amounts only when the gift is opened; older unopened gifts are re-rolled here.
+  const cash=100000000+crypto.randomInt(41)*10000000;
+  const cp=crypto.randomInt(100,3001);
   if(!Number.isSafeInteger(c.cash+cash)||!Number.isSafeInteger(c.cp+cp))throw Error('보유 수량 한도를 초과했습니다');
-  c.cash+=cash;c.cp+=cp;mail.claimed=true;mail.claimedAt=Date.now();
-  result={message:'출석 보상 '+cash.toLocaleString('ko-KR')+'원 · '+cp.toLocaleString('ko-KR')+' CP 수령 완료'};
+  c.cash+=cash;c.cp+=cp;
+  mail.cash=cash;mail.cp=cp;mail.claimed=true;mail.claimedAt=Date.now();
+  result={message:'출석 보상 '+cash.toLocaleString('ko-KR')+'원 · '+cp.toLocaleString('ko-KR')+' CP 수령 완료',attendanceReward:{cash,cp,day}};
  }else{
  const mail=(db.gmMail||[]).find(x=>x.id===String(a.id||'')&&x.recipients?.includes(u.id));
  if(!mail||!GIFT_ITEMS[mail.item])throw Error('수령할 수 없는 우편입니다');
