@@ -2411,13 +2411,15 @@ if(tab==='specials'){
  };
  autoSelectors.forEach(sel=>sel.addEventListener('change',validateAutoSelection));
  recommendButton?.addEventListener('click',()=>{
-  // Scout-only legend skills must not enter the training draw pool.
-  const preferred=['ironman_b','ironman_p','phoenix'];
+  // Training includes the distinct legendary variants; ordinary immortal/undying remain scout-only.
+  const preferred=picked?.isPitcher?
+   ['additional_legend_p_5','additional_legend_p_23','ironman_p']:
+   ['additional_legend_b_6','additional_legend_b_5','ironman_b','phoenix'];
   const allowed=preferred.filter(id=>trainingPool.some(skill=>skill.id===id));
   autoSelectors.forEach((sel,i)=>{sel.value=allowed[i]||'';});
   validateAutoSelection();
-  if(allowed.length)toast('추천 특수능력 선택 완료 · 불멸자·불사신은 스카우트 전용입니다.');
-  else toast('추천 훈련 능력을 선택할 수 없습니다. 이미 보유했거나 해당 선수 유형에 맞지 않습니다.');
+  if(allowed.length)toast('추천 목표 '+allowed.length+'개 선택 완료 · 이미 보유하거나 제한에 걸린 능력은 제외됩니다.');
+  else toast('추천할 특수능력이 없습니다. 이미 보유했거나 획득 한도에 도달했습니다.');
  });
  validateAutoSelection();
  autoDrawButton.onclick=async()=>{
