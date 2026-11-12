@@ -4,9 +4,9 @@ function simulateGame({home,away,seed,stats}){
  const rnd=()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return (state>>>0)/4294967296};
  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
  const build=(team,homeFlag)=>{
-  const hitters=(team.hitters||[]).slice(0,9).map((p,i)=>({p,i,id:p.id||'bot-b-'+i,name:p.name||'AI 타자 '+(i+1),ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,history:[]}));
+  const hitters=(team.hitters||[]).slice(0,9).map((p,i)=>({p,i,id:p.id||'bot-b-'+i,name:p.name||'AI 타자 '+(i+1),ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,cs:0,history:[]}));
   const pitchers=(team.pitchers||[]).slice(0,3).map((p,i)=>({p,id:p.id||'bot-p-'+i,name:p.name||'AI 투수 '+(i+1),outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0,enteredLeading:false,w:0,l:0,sv:0,hld:0}));
-  while(hitters.length<9){let i=hitters.length,p={id:'replacement-'+i,name:'대체 타자',contact:40,power:40,eye:40,speed:40,defense:40,condition:3};hitters.push({p,i,id:p.id,name:p.name,ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,history:[]})}
+  while(hitters.length<9){let i=hitters.length,p={id:'replacement-'+i,name:'대체 타자',contact:40,power:40,eye:40,speed:40,defense:40,condition:3};hitters.push({p,i,id:p.id,name:p.name,ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,cs:0,history:[]})}
   if(!pitchers.length)pitchers.push({p:{name:'대체 투수',velocity:40,stuff:40,control:40,break:40,stamina:40,condition:3},name:'대체 투수',outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0,enteredLeading:false,w:0,l:0,sv:0,hld:0});
   return {name:team.name,home:homeFlag,hitters,pitchers,pointer:0,runs:0,hits:0,errors:0,walks:0,innings:[],team};
  };
@@ -16,6 +16,7 @@ function simulateGame({home,away,seed,stats}){
  let inning=1;
  function half(off,def,upper){
   let outs=0,runs=0,bases=[null,null,null],pa=0;
+  const stealAttempts=new Map();
   // Starter normally works five complete innings. Four runs allowed triggers an early hook.
   // Use the reliever from inning six and the closer from inning nine when available.
   const starter=def.pitchers[0];
@@ -36,6 +37,39 @@ function simulateGame({home,away,seed,stats}){
     if(pitcher.pitches===0)pitcher.enteredLeading=def.runs>off.runs;
     events.push({inning,half:upper?'초':'말',team:def.name,text:'중계투수 '+pitcher.name+' 조기 등판',type:'pitchingChange'});
    }
+   // Baserunning: actual runner speed vs the opposing catcher's fielding strength.
+   // At most two attempts per runner per half-inning; no steal with the next base occupied.
+   // Caught stealing consumes an out without consuming a batter's plate appearance.
+   const catcher=def.hitters.find(x=>def.team.positions?.[x.id]==='C')||
+    def.hitters.find(x=>x.p.pos==='포수')||def.hitters[0];
+   const catcherAssigned=!!(catcher&&(def.team.positions?.[catcher.id]==='C'||(!def.team.positions&&catcher.p.pos==='포수')));
+   const catcherDefense=catcher?values(catcher.p,{inning,outs,isHome:def.home,fieldPosition:'C'}).defense:50;
+   for(const from of [1,0]){
+    const runner=bases[from];
+    if(!runner||bases[from+1])continue;
+    const attempts=stealAttempts.get(runner.id)||0;
+    if(attempts>=2)continue;
+    const rv=values(runner.p,{inning,outs,isHome:off.home,fieldPosition:off.team.positions?.[runner.id]});
+    const speed=rv.speed;
+    const effectiveCatcherDefense=clamp(catcherDefense+(catcherAssigned?0:-15),10,100);
+    const opportunity=clamp((from===0?.055:.018)+(speed-55)*.0012+
+      (55-effectiveCatcherDefense)*.00035-(outs===2?.01:0),.004,.135);
+    if(rnd()>=opportunity)continue;
+    stealAttempts.set(runner.id,attempts+1);
+    const success=clamp(.67+(speed-55)*.0055-(effectiveCatcherDefense-55)*.0038+
+      (from===1?-.10:0),.28,.94);
+    if(rnd()<success){
+     bases[from]=null;bases[from+1]=runner;runner.sb++;
+     events.push({inning,half:upper?'초':'말',team:off.name,
+       text:runner.name+' '+(from===0?'2':'3')+'루 도루 성공',type:'stolenBase'});
+    }else{
+     bases[from]=null;runner.cs++;outs++;pitcher.outs++;
+     events.push({inning,half:upper?'초':'말',team:off.name,
+       text:runner.name+' 도루 실패 · 포수 '+(catcher?.name||'수비')+' 저지',type:'caughtStealing'});
+    }
+    break;
+   }
+   if(outs>=3)break;
    const batter=off.hitters[off.pointer++%9];
    const scoringChance=Boolean(bases[1]||bases[2]),basesEmpty=!bases.some(Boolean),basesLoaded=bases.every(Boolean);
    const common={inning,outs,scoringChance,basesEmpty,basesLoaded,runnerFirst:!!bases[0],pitcherRole,late:inning>=7,
