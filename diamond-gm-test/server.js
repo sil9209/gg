@@ -416,7 +416,7 @@ initializeAvatarRegistry();
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
-function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueJoinedAt:Date.now(),leagueTier:0,lastSettledWeek:weekStart()-604800000,salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
+function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name:canonicalFranchiseName(user.teamId,name),teamId:user.teamId,leagueJoinedAt:Date.now(),leagueTier:0,lastSettledWeek:weekStart()-604800000,salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 const DEFENSE_POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'];
 const DEFENSE_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 function fix(c){
@@ -460,13 +460,20 @@ function getCookie(req){return (req.headers.cookie||'').split(';').map(x=>x.trim
 const TEAMS=[{"id":"twins","name":"서울 돌고래즈","city":"서울 (잠실)","symbol":"D","color":"#087E9F","secondary":"#FFFFFF","mascot":"돌고래"},{"id":"bears","name":"서울 너구리즈","city":"서울 (잠실)","symbol":"R","color":"#B85518","secondary":"#432B22","mascot":"너구리"},{"id":"heroes","name":"서울 두더지즈","city":"서울 (고척)","symbol":"M","color":"#94710E","secondary":"#191C20","mascot":"두더지"},{"id":"landers","name":"인천 펭귄즈","city":"인천","symbol":"P","color":"#287F9B","secondary":"#313B45","mascot":"펭귄"},{"id":"wizards","name":"수원 캥거루즈","city":"수원","symbol":"K","color":"#93774E","secondary":"#245A3E","mascot":"캥거루"},{"id":"eagles","name":"대전 부엉이즈","city":"대전","symbol":"O","color":"#55307A","secondary":"#E7B74A","mascot":"부엉이"},{"id":"tigers","name":"광주 악어즈","city":"광주","symbol":"C","color":"#125C43","secondary":"#B9DD48","mascot":"악어"},{"id":"lions","name":"대구 늑대즈","city":"대구","symbol":"W","color":"#65737A","secondary":"#164C55","mascot":"늑대"},{"id":"giants","name":"부산 펠리컨즈","city":"부산","symbol":"L","color":"#B54D66","secondary":"#197C76","mascot":"펠리컨"},{"id":"dinos","name":"창원 코뿔소즈","city":"창원","symbol":"H","color":"#414751","secondary":"#783348","mascot":"코뿔소"}];
 const BOT_NAMES=TEAMS.map(t=>t.name);
 // Franchise rebrand: retain stable team IDs and every player's stats/resources.
-const OLD_FRANCHISE_NAMES={"twins":"서울 쌍둥이즈","bears":"서울 불곰즈","heroes":"서울 번개단","landers":"인천 항해자들","wizards":"수원 마법사들","eagles":"대전 독수리단","tigers":"광주 호랑이단","lions":"대구 사자군단","giants":"부산 거인단","dinos":"창원 공룡단"};
-let didRebrand=false;
-for(const c of db.clubs||[]){
- const team=TEAMS.find(t=>t.id===c.teamId);
- if(team&&c.name===OLD_FRANCHISE_NAMES[team.id]){c.name=team.name;didRebrand=true}
+// The franchise's canonical name comes from its immutable team ID, never a stale
+// saved display name. This also fixes administrator clubs and older customized names.
+function canonicalFranchiseName(teamId,fallback=''){
+ return TEAMS.find(t=>t.id===teamId)?.name||fallback;
 }
-if(didRebrand)save();
+function syncFranchiseNames(){
+ let updated=false;
+ for(const c of db.clubs||[]){
+  const current=canonicalFranchiseName(c.teamId,c.name);
+  if(c.name!==current){c.name=current;updated=true}
+ }
+ return updated;
+}
+if(syncFranchiseNames())save();
 
 function weekStart(now=Date.now()){const d=new Date(now+32400000);const day=d.getUTCDay();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day)-32400000}
 // Legacy clubs did not store their joining date. Protect existing completed seasons,
@@ -902,7 +909,7 @@ function userMail(u){
  const daily=(c?.pendingDailyRewards||[]).filter(m=>m.claimed||m.day===attendanceDay()).map(m=>({id:'daily:'+m.day,item:'dailyAttendance',quantity:1,cash:m.claimed?m.cash:null,cp:m.claimed?m.cp:null,title:'오늘의 출석체크',message:m.day+' 출석 보상 · '+(m.claimed?'수령 완료 · '+Number(m.cash||0).toLocaleString('ko-KR')+'원 + '+Number(m.cp||0).toLocaleString('ko-KR')+' CP':'게임머니 1억~5억 · 100~3,000 CP (수령 시 랜덤 지급)'),sentAt:m.createdAt,claimed:!!m.claimed}));
  return [...gm,...daily].sort((a,b)=>b.sentAt-a.sentAt);
 }
-const view=(u)=>{syncGrowth();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{if(syncFranchiseNames())save();syncGrowth();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -921,7 +928,7 @@ if(a.type==='register'||a.type==='login'){const name=String(a.username||'').trim
    found={id:uid(),username:ADMIN_USERNAME,salt,hash:pwd(pass,salt),teamId:'bears',ownerName:'게임 관리자',isAdmin:true};
    db.users.push(found);
   }else{found.hash=pwd(pass,found.salt)}
-  if(!db.clubs.some(c=>c.owner===found.id))db.clubs.push(club(found,'서울 불곰즈'));
+  if(!db.clubs.some(c=>c.owner===found.id))db.clubs.push(club(found,canonicalFranchiseName(found.teamId,TEAMS[0].name)));
  }
  if(a.type==='register'){if(found)throw Error('이미 존재하는 아이디');const ownerName=String(a.ownerName||'').trim();if(ownerName.length<2||ownerName.length>16||/[<>]/.test(ownerName))throw Error('구단주명은 2~16자로 입력해 주세요');const salt=crypto.randomBytes(12).toString('hex');found={id:uid(),username:name,salt,hash:pwd(pass,salt),teamId:team.id,ownerName};db.users.push(found)}else if(!found||found.hash!==pwd(pass,found.salt))throw Error('아이디 또는 비밀번호 오류');if(found.teamId&&found.teamId!==team.id)throw Error('가입 당시 선택한 구단으로 로그인하세요');if(!found.teamId){found.teamId=team.id;const old=db.clubs.find(x=>x.owner===found.id);if(old){old.teamId=team.id;old.name=team.name}}const token=crypto.randomBytes(24).toString('hex');sessions.set(token,found.id);save();return send(res,200,view(found),{'Set-Cookie':'sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'})}
 if(a.type==='logout'){sessions.delete(getCookie(req));return send(res,200,{user:null},{'Set-Cookie':'sid=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'})}
