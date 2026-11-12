@@ -1,5 +1,6 @@
 const http=require('http'),fs=require('fs'),crypto=require('crypto');
 const {simulateGame}=require('./game-engine');
+const {awardPool}=require('./award-catalog');
 const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
 // Paid rewarded ads require a verified advertiser event; browser events alone never issue currency.
 const AD_REWARD_CP=500,AD_DAILY_LIMIT=10;
@@ -40,7 +41,42 @@ const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomU
 const names1=['김','박','이','최','정','강','조','윤','장','임','한','오','서','신','권','황'],names2=['도현','성준','재원','민수','지훈','태영','현우','주원','준혁','승민','태준','지성','건우','동현','진우','정민'];
 const foreignFirst=['알렉스','데이비드','마이클','카를로스','루이스','호세','윌리엄','제이슨','로버트','타일러','마르코','에릭','다니엘','브랜든','케빈','앤서니'];
 const foreignLast=['로드리게스','존슨','윌슨','가르시아','마르티네스','스미스','로페즈','브라운','곤잘레스','리베라','톰슨','밀러','산체스','워커','페레즈'];
-function player(owner){const foreign=Math.random()<.22;const isP=Math.random()<.36,year=rand(2000,2026),pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];const p={id:uid(),owner,name:foreign?foreignFirst[rand(0,foreignFirst.length-1)]+' '+foreignLast[rand(0,foreignLast.length-1)]:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0};assignAvatarDNA(p);return p}
+// Award variants are separate recruitable cards. 2026 and pre-2010 are always standard.
+function chooseAwardPlayer(p){
+ if(p.year<2010||p.year>2025||Math.random()>=.46)return p;
+ const pool=awardPool(p.year).filter(e=>(e.pos==='선발')===p.isPitcher);
+ if(!pool.length)return p;
+ const entry=pool[rand(0,pool.length-1)];
+ const versions=['',...(entry.G?['G']:[]),...(entry.M?['M']:[])];
+ const variant=versions[rand(0,versions.length-1)];
+ p.name=entry.alias+variant;
+ p.foreign=entry.alias.includes(' ');
+ p.pos=entry.pos;
+ p.awardKey=entry.key;
+ p.awardVariant=variant;
+ p.awardSourceYear=entry.year;
+ return p;
+}
+function awardBonus(p){
+ const bonus=p.awardVariant==='M'?3:p.awardVariant==='G'?1:0;
+ if(bonus)for(const key of statKeys(p))p[key]=statValue((Number(p[key])||0)+bonus);
+}
+function awardStartingSkill(p){
+ const pool=SPECIAL_ABILITIES.filter(x=>x.type===(p.isPitcher?'pitcher':'batter')&&(x.source==='scout'||x.source==='training'));
+ return pool.length?[pool[crypto.randomInt(pool.length)].id]:[];
+}
+function player(owner,opts={}){
+ const foreign=Math.random()<.22;
+ const isP=typeof opts.pitcher==='boolean'?opts.pitcher:Math.random()<.36;
+ const year=Number.isInteger(opts.year)?opts.year:rand(2000,2026);
+ const pos=isP?['선발','중계','마무리'][rand(0,2)]:['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)];
+ const p={id:uid(),owner,name:foreign?foreignFirst[rand(0,foreignFirst.length-1)]+' '+foreignLast[rand(0,foreignLast.length-1)]:names1[rand(0,names1.length-1)]+names2[rand(0,names2.length-1)],foreign,avatarSeed:rand(0,999999),year,pos,isPitcher:isP,grade:Math.random()<.45?'E':'D',power:rand(40,76),contact:rand(40,76),eye:rand(40,76),speed:rand(40,76),defense:rand(40,76),stamina:rand(40,76),mental:rand(40,76),age:rand(19,43),condition:3,lastGrowthWeek:weekStart(),games:0,avg:0,hr:0,era:0};
+ chooseAwardPlayer(p);
+ awardBonus(p);
+ if(p.awardVariant)p.specialAbilities=awardStartingSkill(p);
+ assignAvatarDNA(p);
+ return p;
+}
 
 
 const AVATAR_TRAITS={faceShape:7,skinTone:10,hairStyle:14,hairColor:8,eyeShape:7,eyeSize:6,eyeSpacing:6,eyebrowShape:7,noseShape:8,mouthShape:8,jawShape:6,beardStyle:7,feature:8};
@@ -702,16 +738,15 @@ function cleanShopText(value,length,required=false){
 const SPECIAL_DRAW_COST_CP=5;
 function makeScoutPlayer(owner,kind,currency,era){
  const roll=Math.random(),level=currency==='cash'?(roll<.50?5:roll<.80?6:roll<.95?7:8):(roll<.50?7:roll<.80?8:roll<.95?9:10);
- const p=player(owner);
- if(kind==='pitcher'){p.isPitcher=true;p.pos=['선발','중계','마무리'][rand(0,2)]}
- if(kind==='hitter'){p.isPitcher=false;p.pos=['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수'][rand(0,7)]}
- if(kind==='era')p.year=era;
+ const p=player(owner,{year:kind==='era'?era:undefined,pitcher:kind==='pitcher'?true:kind==='hitter'?false:undefined});
  p.level=level;
  ensurePlayer(p);
  const center=30+level*5.8;
  for(const key of statKeys(p))p[key]=statValue(center+(Math.random()-.5)*13);
+ awardBonus(p);
  if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
- p.specialAbilities=rollScoutSpecials(p);
+ // An award G/M card always starts with exactly one valid special ability.
+ p.specialAbilities=p.awardVariant?awardStartingSkill(p):rollScoutSpecials(p);
  return p;
 }
 
@@ -744,7 +779,7 @@ function ensureDailyAttendanceMail(c){
 function leagueWithTeamRosters(c){
  const lg=leagueInfo(c),tier=lg.tier,start=lg.start;
  const group=leagueMembers(c),pool=group.pool;
- const fields=['id','name','age','pos','year','grade','level','isPitcher','foreign','condition','originTeam','avatarDNA','avatarSeed','avatarVersion','growthFocus','growthFocusSelected','specialAbilities','contact','power','eye','speed','mental','defense','velocity','stuff','control','break','stamina'];
+ const fields=['id','name','age','pos','year','awardVariant','awardSourceYear','awardKey','grade','level','isPitcher','foreign','condition','originTeam','avatarDNA','avatarSeed','avatarVersion','growthFocus','growthFocusSelected','specialAbilities','contact','power','eye','speed','mental','defense','velocity','stuff','control','break','stamina'];
  const safePlayer=(p,squad)=>{const out={squad};for(const key of fields)if(p[key]!==undefined)out[key]=p[key];return out};
  const score=p=>{const keys=statKeys(p);return keys.reduce((n,key)=>n+(Number(p[key])||0),0)/keys.length};
  lg.standings=lg.standings.map(row=>{
