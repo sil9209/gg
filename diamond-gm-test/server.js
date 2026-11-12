@@ -910,16 +910,32 @@ function userMail(u){
  return [...gm,...daily].sort((a,b)=>b.sentAt-a.sentAt);
 }
 // Community posts are shared by all club owners and persisted in the game database.
-function communityFeed(){
- return (Array.isArray(db.communityPosts)?db.communityPosts:[]).slice(-80).reverse().map(post=>{
-  const author=db.users.find(user=>user.id===post.authorId);
+const COMMUNITY_CATEGORIES=['free','suggestion','trade'];
+function communityCategory(p){
+ return COMMUNITY_CATEGORIES.includes(p?.category)?p.category:'free';
+}
+function canReadCommunityPost(post,user){
+ return communityCategory(post)!=='suggestion'||(user&&(post.authorId===user.id||isAdminUser(user)));
+}
+function communityFeed(user){
+ // Privacy enforcement happens on the server, before JSON serialization.
+ return (Array.isArray(db.communityPosts)?db.communityPosts:[])
+  .filter(post=>canReadCommunityPost(post,user)).slice(-150).reverse().map(post=>{
+  const author=db.users.find(u=>u.id===post.authorId);
   const team=TEAMS.find(t=>t.id===post.teamId);
+  const comments=(Array.isArray(post.comments)?post.comments:[]).map(comment=>{
+   const commenter=db.users.find(u=>u.id===comment.authorId);
+   return {id:comment.id,authorId:comment.authorId,
+    authorName:commenter?.ownerName||commenter?.username||'탈퇴한 구단주',
+    content:comment.content,createdAt:comment.createdAt};
+  });
   return {id:post.id,title:post.title,content:post.content,createdAt:post.createdAt,
+   category:communityCategory(post),isPrivate:communityCategory(post)==='suggestion',
    authorId:post.authorId,authorName:author?.ownerName||author?.username||'탈퇴한 구단주',
-   teamId:post.teamId,teamName:team?.name||'미소속'};
+   teamId:post.teamId,teamName:team?.name||'미소속',comments};
  });
 }
-const view=(u)=>{if(syncFranchiseNames())save();syncGrowth();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed():[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{if(syncFranchiseNames())save();syncGrowth();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -946,22 +962,52 @@ if(!u)throw Error('로그인이 필요합니다');let c=db.clubs.find(x=>x.owner
 if(a.type==='communityWrite'){
  if(!c)throw Error('구단을 먼저 생성하세요');
  const title=String(a.title||'').trim(),content=String(a.content||'').trim();
+ const category=String(a.category||'free');
+ if(!COMMUNITY_CATEGORIES.includes(category))throw Error('게시판 종류를 선택하세요');
  if(title.length<2||title.length>70)throw Error('제목은 2~70자로 입력하세요');
  if(content.length<1||content.length>1500)throw Error('내용은 1~1,500자로 입력하세요');
  if(!Array.isArray(db.communityPosts))db.communityPosts=[];
  const last=db.communityPosts.filter(x=>x.authorId===u.id).slice(-1)[0];
  if(last&&Date.now()-Number(last.createdAt||0)<15000)throw Error('게시글은 15초 간격으로 작성할 수 있습니다');
- db.communityPosts.push({id:uid(),authorId:u.id,teamId:c.teamId,title,content,createdAt:Date.now()});
+ db.communityPosts.push({id:uid(),authorId:u.id,teamId:c.teamId,title,content,
+  category,comments:[],createdAt:Date.now()});
  if(db.communityPosts.length>500)db.communityPosts=db.communityPosts.slice(-500);
- result={message:'커뮤니티에 글을 등록했습니다'};
+ result={message:category==='suggestion'?'비밀 건의사항을 등록했습니다':'게시글을 등록했습니다'};
 }
 else if(a.type==='communityDelete'){
  if(!Array.isArray(db.communityPosts))db.communityPosts=[];
  const i=db.communityPosts.findIndex(x=>x.id===a.id);
  if(i<0)throw Error('게시글을 찾을 수 없습니다');
- if(db.communityPosts[i].authorId!==u.id&&!isAdminUser(u))throw Error('본인 게시글만 삭제할 수 있습니다');
+ const post=db.communityPosts[i];
+ if(!canReadCommunityPost(post,u))throw Error('열람 권한이 없습니다');
+ if(post.authorId!==u.id&&!isAdminUser(u))throw Error('본인 게시글만 삭제할 수 있습니다');
  db.communityPosts.splice(i,1);
  result={message:'게시글을 삭제했습니다'};
+}
+else if(a.type==='communityComment'){
+ if(!c)throw Error('구단을 먼저 생성하세요');
+ const post=(db.communityPosts||[]).find(x=>x.id===String(a.id||''));
+ if(!post)throw Error('게시글을 찾을 수 없습니다');
+ if(!canReadCommunityPost(post,u))throw Error('댓글 작성 권한이 없습니다');
+ const content=String(a.content||'').trim();
+ if(content.length<1||content.length>500)throw Error('댓글은 1~500자로 입력하세요');
+ post.comments=Array.isArray(post.comments)?post.comments:[];
+ if(post.comments.length>=150)throw Error('이 게시글은 댓글 등록 한도에 도달했습니다');
+ const last=post.comments.filter(x=>x.authorId===u.id).slice(-1)[0];
+ if(last&&Date.now()-Number(last.createdAt||0)<3000)throw Error('댓글은 3초 간격으로 작성할 수 있습니다');
+ post.comments.push({id:uid(),authorId:u.id,content,createdAt:Date.now()});
+ result={message:'댓글을 등록했습니다'};
+}
+else if(a.type==='communityCommentDelete'){
+ const post=(db.communityPosts||[]).find(x=>x.id===String(a.postId||''));
+ if(!post)throw Error('게시글을 찾을 수 없습니다');
+ if(!canReadCommunityPost(post,u))throw Error('댓글 열람 권한이 없습니다');
+ post.comments=Array.isArray(post.comments)?post.comments:[];
+ const i=post.comments.findIndex(x=>x.id===String(a.commentId||''));
+ if(i<0)throw Error('댓글을 찾을 수 없습니다');
+ if(post.comments[i].authorId!==u.id&&!isAdminUser(u))throw Error('본인 댓글만 삭제할 수 있습니다');
+ post.comments.splice(i,1);
+ result={message:'댓글을 삭제했습니다'};
 }
 else if(a.type==='claimDailyAttendance'||a.type==='deferDailyAttendance'){
  if(!c)throw Error('구단을 먼저 생성하세요');
