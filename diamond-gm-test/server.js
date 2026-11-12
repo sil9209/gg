@@ -300,23 +300,11 @@ function syncGrowth(now=Date.now()){
  const oldCount=db.listings.length;db.listings=db.listings.filter(l=>l.player.age<45);if(db.listings.length!==oldCount)changed=true;
  if(changed)save();
 }
-// Legacy clubs did not store their joining date. Protect existing completed seasons,
-// but stop newly created first-season clubs receiving retroactive matches.
-let migratedLeagueJoin=false;
-for(const c of db.clubs||[]){
- if(!Number.isFinite(Number(c.leagueJoinedAt))){
-  c.leagueJoinedAt=(Array.isArray(c.leagueHistory)&&c.leagueHistory.length)?weekStart()-604800000:Date.now();
-  c.growthLeagueWeek=weekStart();
-  c.growthLeagueCredited=0;
-  migratedLeagueJoin=true;
- }
-}
-if(migratedLeagueJoin)save();
 initializeAvatarRegistry();
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
-function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueJoinedAt:Date.now(),leagueTier:0,lastSettledWeek:weekStart()-604800000,salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
+function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name,teamId:user.teamId,leagueJoinedAt:Date.now(),leagueTier:0,lastSettledWeek:weekStart(),salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 const DEFENSE_POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'];
 const DEFENSE_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 function fix(c){
@@ -360,6 +348,19 @@ function getCookie(req){return (req.headers.cookie||'').split(';').map(x=>x.trim
 const TEAMS=[{"id":"twins","name":"서울 쌍둥이즈","city":"서울","symbol":"Ⅱ","color":"#C92845","secondary":"#263B69","mascot":"쌍둥이"},{"id":"bears","name":"서울 불곰즈","city":"서울","symbol":"B","color":"#24385C","secondary":"#BA7246","mascot":"불곰"},{"id":"heroes","name":"서울 번개단","city":"서울","symbol":"⚡","color":"#982D50","secondary":"#E8B6C2","mascot":"번개"},{"id":"landers","name":"인천 항해자들","city":"인천","symbol":"N","color":"#D73545","secondary":"#D7BC83","mascot":"항해"},{"id":"wizards","name":"수원 마법사들","city":"수원","symbol":"W","color":"#292B35","secondary":"#BD3646","mascot":"마법"},{"id":"eagles","name":"대전 독수리단","city":"대전","symbol":"E","color":"#E16F22","secondary":"#1D344E","mascot":"독수리"},{"id":"lions","name":"대구 사자군단","city":"대구","symbol":"L","color":"#2164B4","secondary":"#E4E9F0","mascot":"사자"},{"id":"tigers","name":"광주 호랑이단","city":"광주","symbol":"T","color":"#C82832","secondary":"#152D54","mascot":"호랑이"},{"id":"giants","name":"부산 거인단","city":"부산","symbol":"G","color":"#243E73","secondary":"#D64B48","mascot":"거인"},{"id":"dinos","name":"창원 공룡단","city":"창원","symbol":"D","color":"#2369A8","secondary":"#C49B58","mascot":"공룡"}];
 const BOT_NAMES=TEAMS.map(t=>t.name);
 function weekStart(now=Date.now()){const d=new Date(now+32400000);const day=d.getUTCDay();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day)-32400000}
+// Legacy clubs did not store their joining date. Protect existing completed seasons,
+// but stop newly created first-season clubs receiving retroactive matches.
+let migratedLeagueJoin=false;
+for(const c of db.clubs||[]){
+ if(!Number.isFinite(Number(c.leagueJoinedAt))){
+  c.leagueJoinedAt=(Array.isArray(c.leagueHistory)&&c.leagueHistory.length)?weekStart()-604800000:Date.now();
+  c.growthLeagueWeek=weekStart();
+  c.growthLeagueCredited=0;
+  if(!(Array.isArray(c.leagueHistory)&&c.leagueHistory.length))c.lastSettledWeek=weekStart();
+  migratedLeagueJoin=true;
+ }
+}
+if(migratedLeagueJoin)save();
 function seedNum(t){return parseInt(crypto.createHash('sha256').update(String(t)).digest('hex').slice(0,8),16)/4294967295}
 const LEAGUE_TIERS=[{"key":"rookie","name":"루키리그","average":45},{"key":"amateur","name":"아마추어리그","average":52},{"key":"semi-pro","name":"세미프로리그","average":59},{"key":"pro","name":"프로리그","average":66},{"key":"national","name":"내셔널리그","average":73},{"key":"elite","name":"엘리트리그","average":80},{"key":"master","name":"마스터리그","average":87},{"key":"champion","name":"챔피언리그","average":94}];
 const originalCash=[30000000,25000000,20000000,16000000,13000000,10000000,8000000,6000000,4000000,2000000];
@@ -439,8 +440,23 @@ function gameTeam(c,average,name,seed,round=1){
  const hitters=(c.lineup||[]).map(id=>c.players.find(p=>p.id===id&&!p.isPitcher&&eligible(p))).filter(Boolean).slice(0,9);
  for(const p of c.players.filter(p=>!p.isPitcher&&eligible(p)))if(hitters.length<9&&!hitters.some(x=>x.id===p.id))hitters.push(p);
  const rotation=c.pitcherRotation||{},all=c.players.filter(p=>p.isPitcher&&eligible(p));
- const selected=[rotation['starter'+(1+(round-1)%5)]||c.pitcher,rotation.relief1||c.pitcherAssignments?.relief,rotation.closer||c.pitcherAssignments?.closer].map(id=>all.find(p=>p.id===id)).filter(Boolean);
- const pitchers=[...new Map(selected.map(x=>[x.id,x])).values()];if(!pitchers.length&&all[0])pitchers.push(all[0]);
+ // Five distinct starters rotate by game round; a missing starter slot is filled automatically.
+ const findPitcher=id=>all.find(p=>p.id===id);
+ const rotationSlots=Array.from({length:5},(_,i)=>findPitcher(rotation['starter'+(i+1)]));
+ const usedStarters=new Set(rotationSlots.filter(Boolean).map(p=>p.id));
+ const standby=all.filter(p=>!usedStarters.has(p.id)&&p.pos==='선발');
+ const other=all.filter(p=>!usedStarters.has(p.id)&&p.pos!=='선발');
+ for(let i=0;i<5;i++)if(!rotationSlots[i]){
+  const replacement=standby.shift()||other.shift();
+  if(replacement){rotationSlots[i]=replacement;usedStarters.add(replacement.id)}
+ }
+ const currentStarter=rotationSlots[(Math.max(1,round)-1)%5]||all[(Math.max(1,round)-1)%Math.max(1,all.length)];
+ const reliever=findPitcher(rotation.relief1||c.pitcherAssignments?.relief)||
+  all.find(p=>p.id!==currentStarter?.id&&p.pos==='중계')||all.find(p=>p.id!==currentStarter?.id);
+ const closer=findPitcher(rotation.closer||c.pitcherAssignments?.closer)||
+  all.find(p=>p.id!==currentStarter?.id&&p.id!==reliever?.id&&p.pos==='마무리')||
+  all.find(p=>p.id!==currentStarter?.id&&p.id!==reliever?.id);
+ const pitchers=[...new Map([currentStarter,reliever,closer].filter(Boolean).map(p=>[p.id,p])).values()];
  const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(Number(p.defense)||50)*(pos==='DH'||DEFENSE_NATIVE[p.pos]===pos?1:.84)},0)/Math.max(1,hitters.length);
  const positions=Object.fromEntries(hitters.map(p=>[p.id,matchFieldPosition(c,p)]));
  return {name,hitters,pitchers,defense,positions,round,winStreak:Math.max(0,Number(c.winStreak)||0),lossStreak:Math.max(0,Number(c.lossStreak)||0)};
