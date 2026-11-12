@@ -1,4 +1,4 @@
-/* Diamond GM deterministic, stat-driven nine-inning game with up to 12 innings. */
+/* Diamond GM seeded, stat-driven nine-inning simulation (up to 12 innings) with stamina-based bullpen changes. */
 function simulateGame({home,away,seed,stats}){
  let h=2166136261;for(const c of String(seed)){h^=c.charCodeAt(0);h=Math.imul(h,16777619)}let state=h>>>0;
  const rnd=()=>{state^=state<<13;state^=state>>>17;state^=state<<5;return (state>>>0)/4294967296};
@@ -8,7 +8,7 @@ function simulateGame({home,away,seed,stats}){
   const pitchers=(team.pitchers||[]).slice(0,3).map((p,i)=>({p,id:p.id||'bot-p-'+i,name:p.name||'AI 투수 '+(i+1),outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0,enteredLeading:false,w:0,l:0,sv:0,hld:0}));
   while(hitters.length<9){let i=hitters.length,p={id:'replacement-'+i,name:'대체 타자',contact:40,power:40,eye:40,speed:40,defense:40,condition:3};hitters.push({p,i,id:p.id,name:p.name,ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,cs:0,history:[]})}
   if(!pitchers.length)pitchers.push({p:{name:'대체 투수',velocity:40,stuff:40,control:40,break:40,stamina:40,condition:3},name:'대체 투수',outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0,enteredLeading:false,w:0,l:0,sv:0,hld:0});
-  return {name:team.name,home:homeFlag,hitters,pitchers,pointer:0,runs:0,hits:0,errors:0,walks:0,innings:[],team};
+  return {name:team.name,home:homeFlag,hitters,pitchers,pointer:0,runs:0,hits:0,errors:0,walks:0,innings:[],activePitcherIndex:0,team};
  };
  const H=build(home,true),A=build(away,false),events=[];
  const triggered=new Map();
@@ -17,26 +17,50 @@ function simulateGame({home,away,seed,stats}){
  function half(off,def,upper){
   let outs=0,runs=0,bases=[null,null,null],pa=0;
   const stealAttempts=new Map();
-  // Starter normally works five complete innings. Four runs allowed triggers an early hook.
-  // Use the reliever from inning six and the closer from inning nine when available.
-  const starter=def.pitchers[0];
-  let pitcherIndex=inning>=9?Math.min(2,def.pitchers.length-1):inning>=6||starter.r>=4?Math.min(1,def.pitchers.length-1):0;
-  let pitcher=def.pitchers[pitcherIndex],pitcherRole=pitcherIndex===0?'starter':pitcherIndex===1?'relief':'closer',startingRuns=pitcher.r;
+  // Pitcher usage carries across innings; there is no fixed 5/3/1 split.
+  // Changes depend on stamina, pitch count, runs allowed, game leverage and seeded variation.
+  let pitcherIndex=def.activePitcherIndex||0;
+  let pitcher=def.pitchers[pitcherIndex];
+  let pitcherRole=pitcherIndex===0?'starter':pitcherIndex===1?'relief':'closer';
+  let startingRuns=pitcher.r;
+  const bullpenDecision=()=>{
+   if(pitcherIndex>=def.pitchers.length-1)return false;
+   if(pitcher.pitches===0)return false; // the new pitcher must face at least one batter
+   const stamina=clamp(Number(pitcher.p.stamina)||55,20,100);
+   const condition=clamp(Number(pitcher.p.condition)||3,1,5);
+   const effectiveStamina=stamina*(.82+condition*.06);
+   const starter=pitcherIndex===0;
+   // Individual target varies by game and pitcher. Stronger stamina allows longer outings.
+   if(!pitcher.hookAt){
+    const variation=(rnd()-.5)*(starter?40:26);
+    pitcher.hookAt=Math.round((starter?34:12)+effectiveStamina*(starter?.90:.46)+variation);
+   }
+   const load=pitcher.pitches;
+   const threshold=pitcher.hookAt;
+   const overload=clamp((load-threshold+20)/(starter?85:53),0,.80);
+   const poorOuting=clamp(pitcher.er*(starter?.045:.07),0,.27);
+   const highLeverage=inning>=7&&Math.abs(def.runs-off.runs)<=3;
+   const tactical=starter&&inning>=5?.035:!starter&&highLeverage?.035:0;
+   const chance=clamp(overload+poorOuting+tactical,0,.88);
+   // Even a strong starter may leave early; keep maximums to avoid unrealistically high counts.
+   const hardLimit=(starter?122:58)+Math.round(effectiveStamina*(starter?.28:.14));
+   if(load<hardLimit&&rnd()>=chance)return false;
+   pitcherIndex++;
+   def.activePitcherIndex=pitcherIndex;
+   pitcher=def.pitchers[pitcherIndex];
+   pitcherRole=pitcherIndex===1?'relief':'closer';
+   startingRuns=pitcher.r;
+   pitcher.enteredLeading=def.runs>off.runs;
+   events.push({inning,half:upper?'초':'말',team:def.name,text:(pitcherRole==='closer'?'마무리투수 ':'중계투수 ')+pitcher.name+' 등판 (투구수·체력·실점 반영)',type:'pitchingChange'});
+   return true;
+  };
   if(pitcher.pitches===0)pitcher.enteredLeading=def.runs>off.runs;
   const scoreRun=(runner,batter,isError=false)=>{runs++;off.runs++;if(runner)runner.r++;if(batter&&!isError)batter.rbi++;pitcher.r++;if(!isError)pitcher.er++};
   while(outs<3 && pa++<80){
    // Walk-off: end the bottom of the ninth or any extra inning as soon as home leads.
    if(!upper&&inning>=9&&H.runs>A.runs)break;
-   // Reassess after each plate appearance: four runs allowed means an immediate
-   // pitching change, including before the fifth inning is complete.
-   if(pitcherIndex===0&&pitcher.r>=4&&def.pitchers.length>1){
-    pitcherIndex=1;
-    pitcher=def.pitchers[1];
-    pitcherRole='relief';
-    startingRuns=pitcher.r;
-    if(pitcher.pitches===0)pitcher.enteredLeading=def.runs>off.runs;
-    events.push({inning,half:upper?'초':'말',team:def.name,text:'중계투수 '+pitcher.name+' 조기 등판',type:'pitchingChange'});
-   }
+   // Review at every plate appearance, including mid-inning after a rough outing.
+   bullpenDecision();
    // Baserunning: actual runner speed vs the opposing catcher's fielding strength.
    // At most two attempts per runner per half-inning; no steal with the next base occupied.
    // Caught stealing consumes an out without consuming a batter's plate appearance.
