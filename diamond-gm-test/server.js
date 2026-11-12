@@ -418,7 +418,7 @@ initializeAvatarRegistry();
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
-function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name:canonicalFranchiseName(user.teamId,name),teamId:user.teamId,leagueJoinedAt:Date.now(),leagueTier:0,lastSettledWeek:weekStart()-604800000,salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:500000000,cp:300,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
+function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name:canonicalFranchiseName(user.teamId,name),teamId:user.teamId,leagueJoinedAt:Date.now(),leagueTier:0,lastSettledWeek:weekStart()-604800000,salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:1000000000,cp:500,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 const DEFENSE_POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'];
 const DEFENSE_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 function fix(c){
