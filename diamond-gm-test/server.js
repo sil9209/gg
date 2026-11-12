@@ -377,6 +377,8 @@ function leagueMembers(c){
 /* Match outcomes remain stable across page reloads. AI clubs have stable, tier-specific
    rosters within a season, derived from existing players without changing their owners. */
 const leagueGameCache=new Map(),aiRosterCache=new Map();
+// Increment when the scoring probability model changes. Old current-season box scores are recalculated.
+const GAME_ENGINE_VERSION=2;
 const AI_OWNER_TITLES=['야구왕','홈런장인','불꽃감독','그라운드지휘관','다이아감독','투수조련사','승리의전략가','명장','타격박사','승부사','야구연구소','끝내기장인','구단운영자','스카우트마스터','전설의감독'];
 const AI_OWNER_NAMES=['민준','도현','성준','재원','지훈','태영','현우','주원','승민','태준','지성','건우','정민','윤호','재민'];
 function aiOwnerName(seed){
@@ -477,14 +479,17 @@ function leagueInfo(c,now=Date.now()){
  function slotTime(slot){return start+Math.floor(slot/24)*86400000+(slot%24)*3600000}
  function result(g){
   const key=[start,tier,pool,g.round,g.home,g.away].join('|');
-  if(leagueGameCache.has(key))return leagueGameCache.get(key);
-  const stored=db.leagueGames&&db.leagueGames[key];if(stored){leagueGameCache.set(key,stored);return stored}
+  const cached=leagueGameCache.get(key);
+  if(cached?.engineVersion===GAME_ENGINE_VERSION)return cached;
+  const stored=db.leagueGames&&db.leagueGames[key];
+  if(stored?.engineVersion===GAME_ENGINE_VERSION){leagueGameCache.set(key,stored);return stored}
   const h=members.find(m=>m.id===g.home),a=members.find(m=>m.id===g.away);
   const strength=LEAGUE_TIERS[tier].average;
   const simulated=runGame(
    gameTeam(h.club,strength,h.name,h.club?key+':home':start+':'+tier+':'+pool+':'+h.teamId,g.round),
    gameTeam(a.club,strength,a.name,a.club?key+':away':start+':'+tier+':'+pool+':'+a.teamId,g.round),key);
   const box=simulated;
+  box.engineVersion=GAME_ENGINE_VERSION;
   leagueGameCache.set(key,box);
   if(leagueGameCache.size>12000)leagueGameCache.delete(leagueGameCache.keys().next().value);
   if(start>=weekStart()-604800000){if(!db.leagueGames)db.leagueGames={};db.leagueGames[key]=box;newLeagueResults++}
@@ -515,8 +520,10 @@ function leagueInfo(c,now=Date.now()){
   }
   t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
- const qualifiedPA=Math.floor(completed.length/5)*3.1;
  const allBatterStats=[...batterStats.values()].filter(row=>row.ab+row.bb>0).map(row=>{
+  // Qualification is based on the player's own club games, not other clubs' schedules.
+  const teamGames=standings.find(team=>team.teamId===row.teamId)?.played||0;
+  const qualifiedPA=Math.floor(teamGames*3.1);
   const pa=row.ab+row.bb;
   const avg=row.ab?row.h/row.ab:0;
   const obp=pa?(row.h+row.bb)/pa:0;
