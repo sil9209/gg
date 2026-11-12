@@ -1213,6 +1213,10 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 
 /* Pick up to four target skills before a bounded, server-side auto draw. */
 .gm-auto-special{display:flex;flex-direction:column;gap:10px;padding:17px;border:1px solid #d9e5f0;background:#f5f9fe;border-radius:13px}
+.gm-auto-special-recommend{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.gm-auto-special-recommend-btn{border:1px solid #b9d4e9!important;background:#f2f8ff!important;color:#235c86!important;padding:5px 10px!important;border-radius:7px!important;font-size:11px!important;font-weight:850!important;min-width:unset!important;min-height:unset!important;white-space:nowrap!important}
+.gm-auto-special-recommend-btn:hover:not(:disabled){background:#e6f2ff!important}
+.gm-auto-special-recommend-btn:disabled{opacity:.5;cursor:not-allowed}
 .gm-auto-special-header{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
 .gm-auto-special-header strong{color:#2d577a;font-size:14px}
 .gm-auto-special-header small{color:#7c92a8;font-size:11px}
@@ -2379,7 +2383,7 @@ if(tab==='specials'){
  '<div class="panel gm-special-work">'+developmentFilters(specialFilterKind,specialFilterSquad)+'<b>선수 선택</b><p class="gm-special-carousel-note">카드를 좌우로 드래그하여 선수를 선택하세요.</p><div class="gm-special-carousel" id="specialPlayerCards">'+(players.length?players.map(p=>'<button type="button" class="gm-special-card '+(p.id===specialTrainPlayerId?'selected':'')+'" data-special-player="'+esc(p.id)+'"><span class="gm-special-card-top">'+g(p)+(p.id===specialTrainPlayerId?'✓':'')+'</span><span class="gm-special-card-name">'+esc(playerLabel(p))+'</span><span class="gm-special-card-sub">'+p.age+'세 · '+esc(p.pos)+'<br>종합 '+overall(p)+'</span><span class="gm-special-card-skills">특수능력 '+specialAbilityData(p).length+'/8</span></button>').join(''):'<p class="gm-growth-empty">해당 분류의 선수가 없습니다.</p>')+'</div>'+
  (picked?'<div class="gm-special-player">'+playerPortrait(picked)+playerButton(picked)+'<span>'+g(picked)+'</span><small>전설 '+ownedTierCount('legend')+'/2 · S '+ownedTierCount('s')+'/2</small></div>':'')+
  '<div class="gm-special-work-action"><strong>5 CP / 1회</strong><small>현재 보유 '+walletCP(c.cp)+' CP</small><button type="button" id="specialDraw" class="primary" '+(!picked||owned.length>=8||trainingPool.length===0||c.cp<5?'disabled':'')+'>✦ 랜덤 특수능력 뽑기</button></div>'+
- '<section class="gm-auto-special"><div class="gm-auto-special-header"><strong>🎯 목표 특수능력 자동 뽑기</strong><small>최대 4개 설정</small></div><div class="gm-auto-special-grid">'+
+ '<section class="gm-auto-special"><div class="gm-auto-special-header"><strong>🎯 목표 특수능력 자동 뽑기</strong><div class="gm-auto-special-recommend"><small>최대 4개 설정</small><button type="button" id="gmAutoSpecialRecommend" class="gm-auto-special-recommend-btn" '+(!picked?'disabled':'')+'>✓ 추천</button></div></div><div class="gm-auto-special-grid">'+
  Array.from({length:4},(_,i)=>'<label class="gm-auto-special-choice">목표 '+(i+1)+'<select data-auto-special-target="'+i+'"><option value="">'+(i===0?'목표 특수능력 선택':'선택 안 함')+'</option>'+trainingPool.map(x=>'<option value="'+esc(x.id)+'">'+esc(x.name)+'</option>').join('')+'</select></label>').join('')+
  '</div><div class="gm-auto-special-actions"><span class="gm-auto-special-note">5 CP/회 · 목표 획득 또는 CP 부족 시 종료<br>나오지 않은 특수능력은 보유하지 않습니다.</span><button type="button" class="primary" id="specialAutoDraw" '+(!picked||owned.length>=8||trainingPool.length===0||c.cp<5?'disabled':'')+'>목표까지 자동 뽑기</button></div></section><p class="muted">스카우트 전용 능력은 이곳에서 획득할 수 없습니다. 예: 포수도 키스톤 콤비를 뽑을 수 있지만, 실제로 2루수·유격수로 출장할 때만 발동합니다.</p></div>'+
  '<div class="panel gm-special-slots"><h3>특수능력 슬롯 <small>'+owned.length+' / 8</small></h3><div class="gm-special-slot-grid">'+Array.from({length:8},(_,i)=>owned[i]?'<div class="gm-special-slot filled"><b>✦ '+esc(owned[i].name)+'</b><small>'+esc(owned[i].desc)+'</small><button type="button" class="gm-special-remove" data-remove-ability="'+esc(owned[i].id)+'" aria-label="'+esc(owned[i].name)+' 삭제">삭제</button></div>':'<div class="gm-special-slot"><b>'+(i+1)+'</b><small>빈 슬롯</small></div>').join('')+'</div></div>';
@@ -2393,6 +2397,7 @@ if(tab==='specials'){
   const response=await api({type:'removeSpecialAbility',id:picked.id,abilityId});
   if(!response&&button.isConnected)button.disabled=false;
  });
+ const recommendButton=document.getElementById('gmAutoSpecialRecommend');
  const autoSelectors=[...document.querySelectorAll('[data-auto-special-target]')];
  const autoDrawButton=document.getElementById('specialAutoDraw');
  const validateAutoSelection=()=>{
@@ -2405,6 +2410,15 @@ if(tab==='specials'){
   return {ids,duplicate,exceeds};
  };
  autoSelectors.forEach(sel=>sel.addEventListener('change',validateAutoSelection));
+ recommendButton?.addEventListener('click',()=>{
+  // Scout-only legend skills must not enter the training draw pool.
+  const preferred=['ironman_b','ironman_p','phoenix'];
+  const allowed=preferred.filter(id=>trainingPool.some(skill=>skill.id===id));
+  autoSelectors.forEach((sel,i)=>{sel.value=allowed[i]||'';});
+  validateAutoSelection();
+  if(allowed.length)toast('추천 특수능력 선택 완료 · 불멸자·불사신은 스카우트 전용입니다.');
+  else toast('추천 훈련 능력을 선택할 수 없습니다. 이미 보유했거나 해당 선수 유형에 맞지 않습니다.');
+ });
  validateAutoSelection();
  autoDrawButton.onclick=async()=>{
   const {ids,duplicate,exceeds}=validateAutoSelection();
