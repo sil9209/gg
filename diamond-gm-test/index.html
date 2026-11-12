@@ -1484,6 +1484,29 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
  #playerProfileOverlay .player-profile-stats{padding:12px 16px 16px!important}
  #playerProfileOverlay .player-profile-bottom{padding:12px 16px!important}
 }
+
+/* Team-colored TOP 5 ranking cards — scoped to batter/pitcher leader summaries. */
+.gm-league-stat-page .gm-league-leader .gm-colored-rank,
+.gm-league-stat-page .gm-league-leader .gm-colored-rank.is-mine{
+ background:var(--rank-club-color,#304f77)!important;
+ border-color:transparent!important;
+ box-shadow:none!important;
+ color:#fff!important;
+}
+.gm-league-stat-page .gm-league-leader .gm-leader-first.gm-colored-rank{border-radius:8px!important;padding:10px 9px!important}
+.gm-league-stat-page .gm-league-leader .gm-leader-entry.gm-colored-rank{border-radius:6px!important;padding:5px 6px!important;gap:4px}
+.gm-league-stat-page .gm-league-leader .gm-colored-rank>strong,
+.gm-league-stat-page .gm-league-leader .gm-colored-rank>span,
+.gm-league-stat-page .gm-league-leader .gm-colored-rank>small,
+.gm-league-stat-page .gm-league-leader .gm-colored-rank>button,
+.gm-league-stat-page .gm-league-leader .gm-colored-rank.is-mine>strong,
+.gm-league-stat-page .gm-league-leader .gm-colored-rank.is-mine>button{color:#fff!important}
+.gm-league-stat-page .gm-league-leader .gm-leader-first.gm-colored-rank>strong{font-size:25px!important;font-weight:950!important}
+.gm-league-stat-page .gm-league-leader .gm-leader-first.gm-colored-rank>small{opacity:.88}
+.gm-league-stat-page .gm-league-leader .gm-colored-rank>button{display:inline-flex!important;align-items:center!important;gap:4px!important;min-width:0!important;max-width:100%!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:nowrap!important}
+.gm-league-stat-page .gm-league-leader .gm-colored-rank .gm-own-check,
+.gm-league-stat-page .gm-league-leader .gm-colored-rank.is-mine .gm-own-check{display:inline-flex!important;flex:none!important;background:#fff!important;color:var(--rank-club-color,#304f77)!important;border:0!important}
+.gm-league-stat-page .gm-league-leader .gm-colored-rank:focus-within{outline:2px solid #84b9ef;outline-offset:1px}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -2573,11 +2596,17 @@ if(leagueSection==='batters'||leagueSection==='pitchers'){
   const top=topRank(key,['era','whip'].includes(key));
   const first=top[0],mine=first&&ownRank(first);
   const display=p=>digits<0?esc(p.ip||'0.0'):digits>0?Number(p[key]||0).toFixed(digits):Number(p[key]||0).toLocaleString('ko-KR');
+  const clubColor=p=>{
+   const team=(state.teams||[]).find(t=>t.id===p.teamId)||(state.teams||[]).find(t=>t.name===p.teamName);
+   const color=String(team?.color||'#304f77');
+   return /^#[0-9a-fA-F]{6}$/.test(color)?color:'#304f77';
+  };
+  const colored=p=>'style="--rank-club-color:'+clubColor(p)+'"';
   const link=(p,label)=>'<button type="button" data-ranking-player="'+esc(p.id)+'" data-ranking-team="'+esc(p.teamId)+'" title="'+esc(p.name)+' 선수 상세보기">'+label+esc(p.name)+(ownRank(p)?'<span class="gm-own-check" aria-label="내 선수" title="내 선수">✓</span>':'')+'</button>';
   return '<div class="gm-league-leader '+(mine?'is-mine ':'')+(activeSort===key?'is-sorting':'')+'" data-rank-sort="'+key+'" role="button" tabindex="0" aria-pressed="'+(activeSort===key)+'" title="'+title+' 기준 순위 정렬">'+
    '<div class="gm-leader-heading"><span>'+title+(activeSort===key?' ▾':'')+'</span><small>TOP 5</small></div>'+
-   (first?'<div class="gm-leader-first '+(mine?'is-mine':'')+'"><strong>'+display(first)+'</strong>'+link(first,'1위 ')+'<small>'+esc(first.teamName||'')+'</small></div>':'<div class="gm-leader-first"><strong>—</strong><small>기록 없음</small></div>')+
-   '<div class="gm-leader-others">'+top.slice(1).map((p,i)=>'<div class="gm-leader-entry '+(ownRank(p)?'is-mine':'')+'"><span>'+(i+2)+'위</span>'+link(p,'')+'</div>').join('')+'</div>'+
+   (first?'<div class="gm-leader-first gm-colored-rank '+(mine?'is-mine':'')+'" '+colored(first)+'><strong>'+display(first)+'</strong>'+link(first,'1위 ')+'<small>'+esc(first.teamName||'')+'</small></div>':'<div class="gm-leader-first"><strong>—</strong><small>기록 없음</small></div>')+
+   '<div class="gm-leader-others">'+top.slice(1).map((p,i)=>'<div class="gm-leader-entry gm-colored-rank '+(ownRank(p)?'is-mine':'')+'" '+colored(p)+'><span>'+(i+2)+'위</span>'+link(p,'')+'</div>').join('')+'</div>'+
    '</div>';
  }).join('')+'</div>';
  const header=(label,key)=>'<th><button type="button" class="gm-ranking-column-sort '+(activeSort===key?'is-sorting':'')+'" data-ranking-column="'+key+'" aria-label="'+label+' 기준 정렬">'+label+(activeSort===key?(sortAscending?' ▲':' ▼'):' ↕')+'</button></th>';
