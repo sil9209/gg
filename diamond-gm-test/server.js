@@ -454,8 +454,17 @@ function save(){fs.writeFileSync(PATH,JSON.stringify(db))}
 function send(res,status,obj,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(obj))}
 function getCookie(req){return (req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('sid='))?.slice(4)}
 
-const TEAMS=[{"id":"twins","name":"서울 쌍둥이즈","city":"서울","symbol":"Ⅱ","color":"#C92845","secondary":"#263B69","mascot":"쌍둥이"},{"id":"bears","name":"서울 불곰즈","city":"서울","symbol":"B","color":"#24385C","secondary":"#BA7246","mascot":"불곰"},{"id":"heroes","name":"서울 번개단","city":"서울","symbol":"⚡","color":"#982D50","secondary":"#E8B6C2","mascot":"번개"},{"id":"landers","name":"인천 항해자들","city":"인천","symbol":"N","color":"#D73545","secondary":"#D7BC83","mascot":"항해"},{"id":"wizards","name":"수원 마법사들","city":"수원","symbol":"W","color":"#292B35","secondary":"#BD3646","mascot":"마법"},{"id":"eagles","name":"대전 독수리단","city":"대전","symbol":"E","color":"#E16F22","secondary":"#1D344E","mascot":"독수리"},{"id":"lions","name":"대구 사자군단","city":"대구","symbol":"L","color":"#2164B4","secondary":"#E4E9F0","mascot":"사자"},{"id":"tigers","name":"광주 호랑이단","city":"광주","symbol":"T","color":"#C82832","secondary":"#152D54","mascot":"호랑이"},{"id":"giants","name":"부산 거인단","city":"부산","symbol":"G","color":"#243E73","secondary":"#D64B48","mascot":"거인"},{"id":"dinos","name":"창원 공룡단","city":"창원","symbol":"D","color":"#2369A8","secondary":"#C49B58","mascot":"공룡"}];
+const TEAMS=[{"id":"twins","name":"서울 돌고래즈","city":"서울 (잠실 1)","symbol":"D","color":"#087E9F","secondary":"#FFFFFF","mascot":"돌고래"},{"id":"bears","name":"서울 너구리즈","city":"서울 (잠실 2)","symbol":"R","color":"#B85518","secondary":"#432B22","mascot":"너구리"},{"id":"heroes","name":"서울 두더지즈","city":"서울 (고척)","symbol":"M","color":"#94710E","secondary":"#191C20","mascot":"두더지"},{"id":"landers","name":"인천 펭귄즈","city":"인천","symbol":"P","color":"#287F9B","secondary":"#313B45","mascot":"펭귄"},{"id":"wizards","name":"수원 캥거루즈","city":"수원","symbol":"K","color":"#93774E","secondary":"#245A3E","mascot":"캥거루"},{"id":"eagles","name":"대전 부엉이즈","city":"대전","symbol":"O","color":"#55307A","secondary":"#E7B74A","mascot":"부엉이"},{"id":"tigers","name":"광주 악어즈","city":"광주","symbol":"C","color":"#125C43","secondary":"#B9DD48","mascot":"악어"},{"id":"lions","name":"대구 늑대즈","city":"대구","symbol":"W","color":"#65737A","secondary":"#164C55","mascot":"늑대"},{"id":"giants","name":"부산 펠리컨즈","city":"부산","symbol":"L","color":"#B54D66","secondary":"#197C76","mascot":"펠리컨"},{"id":"dinos","name":"창원 코뿔소즈","city":"창원","symbol":"H","color":"#414751","secondary":"#783348","mascot":"코뿔소"}];
 const BOT_NAMES=TEAMS.map(t=>t.name);
+// Franchise rebrand: retain stable team IDs and every player's stats/resources.
+const OLD_FRANCHISE_NAMES={"twins":"서울 쌍둥이즈","bears":"서울 불곰즈","heroes":"서울 번개단","landers":"인천 항해자들","wizards":"수원 마법사들","eagles":"대전 독수리단","tigers":"광주 호랑이단","lions":"대구 사자군단","giants":"부산 거인단","dinos":"창원 공룡단"};
+let didRebrand=false;
+for(const c of db.clubs||[]){
+ const team=TEAMS.find(t=>t.id===c.teamId);
+ if(team&&c.name===OLD_FRANCHISE_NAMES[team.id]){c.name=team.name;didRebrand=true}
+}
+if(didRebrand)save();
+
 function weekStart(now=Date.now()){const d=new Date(now+32400000);const day=d.getUTCDay();return Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()-day)-32400000}
 // Legacy clubs did not store their joining date. Protect existing completed seasons,
 // but stop newly created first-season clubs receiving retroactive matches.
@@ -487,7 +496,7 @@ function leagueMembers(c){
    rosters within a season, derived from existing players without changing their owners. */
 const leagueGameCache=new Map(),aiRosterCache=new Map();
 // Increment when the scoring probability model changes. Old current-season box scores are recalculated.
-const GAME_ENGINE_VERSION=3; // Regenerate current-season AI identities after removing cloned user names.
+const GAME_ENGINE_VERSION=4; // Refresh current-season matches and club labels after the ten-franchise rebrand.
 const AI_OWNER_TITLES=['야구왕','홈런장인','불꽃감독','그라운드지휘관','다이아감독','투수조련사','승리의전략가','명장','타격박사','승부사','야구연구소','끝내기장인','구단운영자','스카우트마스터','전설의감독'];
 const AI_OWNER_NAMES=['민준','도현','성준','재원','지훈','태영','현우','주원','승민','태준','지성','건우','정민','윤호','재민'];
 function aiOwnerName(seed){
