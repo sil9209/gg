@@ -2661,7 +2661,7 @@ if(tab==='specials'){
  const owned=picked?specialAbilityData(picked):[];
  const ownedTierCount=tier=>owned.filter(x=>x.tier===tier).length;
  const trainingPool=(state.specialAbilityCatalog||[]).filter(x=>picked&&x.source==='training'&&x.type===(picked.isPitcher?'pitcher':'batter')&&!owned.some(o=>o.id===x.id)&&(!['legend','s'].includes(x.tier)||ownedTierCount(x.tier)<2));
- el.innerHTML='<h2 class="sectiontitle">✦ 특수능력 훈련</h2><p class="muted">선수별 총 8개 · 전설 최대 2개 · S 최대 2개 · 무작위 획득 · 중복 없음. 조건이 맞지 않으면 보유해도 발동하지 않습니다.</p>'+
+ el.innerHTML='<h2 class="sectiontitle">✦ 특수능력 훈련</h2><p class="muted">선수별 총 8개 · 전설 최대 2개 · S 최대 2개 · 중복 없음. 추천 특수능력은 다른 특수능력 대비 등장 가중치 50%. 조건이 맞지 않으면 보유해도 발동하지 않습니다.</p>'+
  '<div class="panel gm-special-work">'+developmentFilters(specialFilterKind,specialFilterSquad)+'<b>선수 선택</b><p class="gm-special-carousel-note">카드를 좌우로 드래그하여 선수를 선택하세요.</p><div class="gm-special-carousel" id="specialPlayerCards">'+(players.length?players.map(p=>'<button type="button" class="gm-special-card '+(p.id===specialTrainPlayerId?'selected':'')+'" data-special-player="'+esc(p.id)+'"><span class="gm-special-card-top">'+g(p)+(p.id===specialTrainPlayerId?'✓':'')+'</span><span class="gm-special-card-name">'+esc(playerLabel(p))+'</span><span class="gm-special-card-sub">'+p.age+'세 · '+esc(p.pos)+'<br>종합 '+overall(p)+'</span><span class="gm-special-card-skills">특수능력 '+specialAbilityData(p).length+'/8</span></button>').join(''):'<p class="gm-growth-empty">해당 분류의 선수가 없습니다.</p>')+'</div>'+
  (picked?'<div class="gm-special-player">'+playerPortrait(picked)+playerButton(picked)+'<span>'+g(picked)+'</span><small>전설 '+ownedTierCount('legend')+'/2 · S '+ownedTierCount('s')+'/2</small></div>':'')+
  '<div class="gm-special-work-action"><strong>5 CP / 1회</strong><small>현재 보유 '+walletCP(c.cp)+' CP</small><button type="button" id="specialDraw" class="primary" '+(!picked||owned.length>=8||trainingPool.length===0||c.cp<5?'disabled':'')+'>✦ 랜덤 특수능력 뽑기</button></div>'+
@@ -2695,7 +2695,7 @@ if(tab==='specials'){
  recommendButton?.addEventListener('click',()=>{
   // Training includes the distinct legendary variants; ordinary immortal/undying remain scout-only.
   const preferred=picked?.isPitcher?
-   ['additional_legend_p_5','additional_legend_p_23','ironman_p']:
+   ['additional_legend_p_5','additional_legend_p_23','ironman_p','phoenix_p']:
    ['additional_legend_b_6','additional_legend_b_5','ironman_b','phoenix'];
   const allowed=preferred.filter(id=>trainingPool.some(skill=>skill.id===id));
   autoSelectors.forEach((sel,i)=>{sel.value=allowed[i]||'';});
@@ -2950,7 +2950,7 @@ function openRosterManage(p){
   if(!await gmConfirm(p.name+' 선수 계약을 7일 연장하시겠습니까? '+nextFlightCost+' CP가 사용됩니다.'))return;
   act({type:'renewFlyingCoach',id:p.id});
  });
- overlay.querySelector('#gmRosterUpgrade').onclick=()=>{if(p.flyingCoach){toast('플레잉코치 적용 선수는 등급이 고정됩니다');return}if(['A','S'].includes(p.grade)){toast('최고 성장등급이어서 더 승급할 수 없습니다');return}if((state.club?.cp||0)<1){toast('승급 도전에 CP 1개가 필요합니다');return}act({type:'upgrade',id:p.id})};
+ overlay.querySelector('#gmRosterUpgrade').onclick=()=>{if(p.flyingCoach){toast('플레잉코치 적용 선수는 등급이 고정됩니다');return}if(['A','S'].includes(p.grade)){toast('최고 성장등급이어서 더 승급할 수 없습니다');return}if((state.club?.cp||0)<2){toast('승급 도전에 CP 2개가 필요합니다');return}act({type:'upgrade',id:p.id,currency:'cp'})};
 
  overlay.querySelector('.gm-roster-dialog-close')?.focus({preventScroll:true});
 }
