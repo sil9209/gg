@@ -32,18 +32,18 @@ function simulateGame({home,away,seed,stats}){
    const starter=pitcherIndex===0;
    // Individual target varies by game and pitcher. Stronger stamina allows longer outings.
    if(!pitcher.hookAt){
-    const variation=(rnd()-.5)*(starter?40:26);
-    pitcher.hookAt=Math.round((starter?34:12)+effectiveStamina*(starter?.90:.46)+variation);
+    const variation=(rnd()-.5)*(starter ? 40 : 26);
+    pitcher.hookAt=Math.round((starter ? 34 : 12)+effectiveStamina*(starter ? .90 : .46)+variation);
    }
    const load=pitcher.pitches;
    const threshold=pitcher.hookAt;
-   const overload=clamp((load-threshold+20)/(starter?85:53),0,.80);
-   const poorOuting=clamp(pitcher.er*(starter?.045:.07),0,.27);
+   const overload=clamp((load-threshold+20)/(starter ? 85 : 53),0,.80);
+   const poorOuting=clamp(pitcher.er*(starter ? .045 : .07),0,.27);
    const highLeverage=inning>=7&&Math.abs(def.runs-off.runs)<=3;
-   const tactical=starter&&inning>=5?.035:!starter&&highLeverage?.035:0;
+   const tactical=starter && inning>=5 ? .035 : (!starter && highLeverage ? .035 : 0);
    const chance=clamp(overload+poorOuting+tactical,0,.88);
    // Even a strong starter may leave early; keep maximums to avoid unrealistically high counts.
-   const hardLimit=(starter?122:58)+Math.round(effectiveStamina*(starter?.28:.14));
+   const hardLimit=(starter ? 122 : 58)+Math.round(effectiveStamina*(starter ? .28 : .14));
    if(load<hardLimit&&rnd()>=chance)return false;
    pitcherIndex++;
    def.activePitcherIndex=pitcherIndex;
@@ -175,7 +175,7 @@ function simulateGame({home,away,seed,stats}){
    if(pitcher!==winningPitcher&&pitcher!==savePitcher&&pitcher.enteredLeading&&pitcher.outs>=3&&pitcher.er===0)pitcher.hld=1;
   }
  }
- const box=t=>({name:t.name,runs:t.runs,hits:t.hits,errors:t.errors,walks:t.walks,innings:t.innings,batters:t.hitters.map(({p,i,history,...b})=>({...b,activatedAbilities:[...(triggered.get(p.id)||new Map()).values()]})),pitchers:t.pitchers.filter(p=>p.pitches>0).map(({p,lastStrikeout,scorelessInnings,enteredLeading,...x})=>({...x,activatedAbilities:[...(triggered.get(p.id)||new Map()).values()],ip:Math.floor(x.outs/3)+'.'+x.outs%3,era:x.outs?Number((x.er*27/x.outs).toFixed(2)):0}))});
+ const box=t=>({name:t.name,runs:t.runs,hits:t.hits,errors:t.errors,walks:t.walks,innings:t.innings,batters:t.hitters.map(({p,i,history,...b})=>({...b,activatedAbilities:[...(triggered.get(p.id)||new Map()).values()]})),pitchers:t.pitchers.filter(p=>p.pitches>0).map(({p,lastStrikeout,scorelessInnings,enteredLeading,hookAt,...x})=>({...x,activatedAbilities:[...(triggered.get(p.id)||new Map()).values()],ip:Math.floor(x.outs/3)+'.'+x.outs%3,era:x.outs?Number((x.er*27/x.outs).toFixed(2)):0}))});
  const result={home:box(H),away:box(A),events,innings:completedInnings,draw:H.runs===A.runs};
  const bat=[...H.hitters,...A.hitters].sort((x,y)=>(y.h*2+y.hr*3+y.rbi)-(x.h*2+x.hr*3+x.rbi))[0];result.mvp=bat?{name:bat.name,team:H.hitters.includes(bat)?H.name:A.name}:null;
  return result;
