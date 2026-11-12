@@ -67,6 +67,11 @@ function awardBaseStats(p,center,spread){
  }
  return true;
 }
+function awardCardLevel(variant,ordinaryLevel){
+ if(variant==='M')return 10;
+ if(variant==='G')return [8,9,10][crypto.randomInt(3)];
+ return ordinaryLevel;
+}
 function awardBonus(p){
  const bonus=p.awardVariant==='M'?3:p.awardVariant==='G'?1:0;
  if(bonus)for(const key of statKeys(p))p[key]=statValue((Number(p[key])||0)+bonus);
@@ -86,7 +91,8 @@ function player(owner,opts={}){
   p.velocity=p.speed;p.stuff=p.power;p.control=p.contact;p.break=p.eye;
  }
  chooseAwardPlayer(p);
- awardBaseStats(p,58,36);
+ if(p.awardVariant)p.level=awardCardLevel(p.awardVariant,p.level);
+ awardBaseStats(p,p.awardVariant?30+p.level*5.8:58,p.awardVariant?13:36);
  awardBonus(p);
  if(p.awardVariant)p.specialAbilities=awardStartingSkill(p);
  assignAvatarDNA(p);
@@ -758,9 +764,11 @@ const SPECIAL_DRAW_COST_CP=5;
 function makeScoutPlayer(owner,kind,currency,era){
  const roll=Math.random(),level=currency==='cash'?(roll<.50?5:roll<.80?6:roll<.95?7:8):(roll<.50?7:roll<.80?8:roll<.95?9:10);
  const p=player(owner,{year:kind==='era'?era:undefined,pitcher:kind==='pitcher'?true:kind==='hitter'?false:undefined});
- p.level=level;
+ // Award level overrides ordinary cash/CP scouting distributions.
+ // G: Lv8/9/10, M: guaranteed Lv10; normal cards retain the original roll.
+ p.level=p.awardVariant?awardCardLevel(p.awardVariant,level):level;
  ensurePlayer(p);
- const center=30+level*5.8;
+ const center=30+p.level*5.8;
  if(!awardBaseStats(p,center,13))for(const key of statKeys(p))p[key]=statValue(center+(Math.random()-.5)*13);
  awardBonus(p);
  if(!p.originTeam)p.originTeam=TEAMS[rand(0,TEAMS.length-1)].id;
