@@ -1656,6 +1656,14 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-community-comment-form input{width:100%;min-width:0;flex:1;border:1px solid #c9ddec;border-radius:7px;padding:9px;font-size:12px;background:white;color:#254663}
 .gm-community-comment-form button{flex:0 0 54px;border-radius:7px!important;background:var(--team-accent,#2e71b8)!important;color:white!important;font-size:11px!important;font-weight:800!important}
 @media(max-width:550px){.gm-community-tabs{gap:4px}.gm-community-tabs button{font-size:10px!important;padding:9px 3px!important}}
+/* Responsive banner: separate from game actions, without CP rewards. */
+.gm-header-ad{flex:1 1 468px;min-width:0;max-width:728px;min-height:60px;display:flex;align-items:center;justify-content:center;margin:0 auto;position:relative}
+.gm-header-ad-label{position:absolute;top:0;left:4px;font-size:9px;line-height:1.1;color:#94a3b8;z-index:1;pointer-events:none}
+.gm-header-ad-body{width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;border-radius:5px}
+.gm-header-ad.is-placeholder .gm-header-ad-body{border:1px dashed #d8e2ed;background:#f9fbfe;color:#a3afbd;font-size:11px}
+.gm-header-ad ins.adsbygoogle{display:block;width:100%;min-height:48px}
+@media(max-width:1150px){.gm-header-ad{flex-basis:320px;max-width:468px}}
+@media(max-width:800px){.gm-header-ad{order:3;flex-basis:100%;max-width:100%;min-height:52px;margin:0}.gm-header-ad-body{min-height:48px}.gm-header-ad ins.adsbygoogle{min-height:48px}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1934,6 +1942,20 @@ function login(){
   api({type:signup?'register':'login',teamId:t.id,username,password,ownerName:signup?document.getElementById('ownerNameInput').value.trim():undefined});
  };
 }
+function mountHeaderAd(){
+ const conf=state?.headerAd,slot=document.getElementById('gmHeaderAdBody');
+ if(!slot||!conf?.enabled)return;
+ if(!/^ca-pub-\d{16}$/.test(conf.client||'')||!/^\d{8,20}$/.test(conf.slot||''))return;
+ const ins=document.createElement('ins');ins.className='adsbygoogle';ins.style.display='block';
+ ins.dataset.adClient=conf.client;ins.dataset.adSlot=conf.slot;ins.dataset.adFormat='horizontal';ins.dataset.fullWidthResponsive='true';slot.appendChild(ins);
+ const load=()=>{if(!ins.isConnected)return;try{(window.adsbygoogle=window.adsbygoogle||[]).push({})}catch(e){console.warn('Header ad unavailable',e)}};
+ const existing=document.querySelector('script[data-gm-adsense-loader]');
+ if(existing){if(existing.dataset.loaded==='yes')load();else existing.addEventListener('load',load,{once:true});return}
+ const script=document.createElement('script');script.async=true;script.crossOrigin='anonymous';script.dataset.gmAdsenseLoader='true';
+ script.src='https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client='+encodeURIComponent(conf.client);
+ script.addEventListener('load',()=>{script.dataset.loaded='yes';load()},{once:true});
+ script.addEventListener('error',()=>console.warn('Google ad script not loaded'),{once:true});document.head.appendChild(script);
+}
 function create(){const t=chosenTeam();theme();app.innerHTML='<header class="top"><div class="shell head">'+logo+'<button onclick="api({type:\'logout\'})">로그아웃</button></div></header>'+
 '<main class="shell"><div class="panel auth"><div style="text-align:center">'+(t?teamBadge(t):'')+'<h1>'+esc(t?.name||'새 구단')+' 창단</h1></div><p>가입하신 구단의 시즌을 시작합니다.</p><div class="grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="metric"><b>5억원</b><div>초기 자금</div></div><div class="metric"><b>300 CP</b><div>성장 포인트</div></div><div class="metric"><b>25명</b><div>창단 선수</div></div></div><button id="createClubNow" class="primary" style="width:100%;margin-top:20px">구단 창단하고 시작하기</button></div></main>';document.getElementById('createClubNow').onclick=()=>api({type:'createClub'});}
 const tabs=[['home','🏠 홈'],['league','🏆 리그진행'],['lineup','🧢 라인업'],['scout','🔭 스카우트'],['friendly','⚾ 친선경기'],['market','🔄 이적시장'],['shop','🛒 상점'],['mail','📬 우편함'],['manage','⚙️ 구단관리']];
@@ -1962,7 +1984,9 @@ function root(){
   '<div class="gm-nav-panel" id="gmNavPanel" hidden><div class="gm-nav-head"><strong>빠른 메뉴</strong><small>DIAMOND GM</small></div>'+
    tabs.map(t=>'<button type="button" class="gm-nav-option '+(t[0]===activeTab?'active':'')+'" data-tab="'+t[0]+'" '+(t[0]===activeTab?'aria-current="page"':'')+'>'+esc(t[1])+'<span>›</span></button>').join('')+'</div>'+
   '<button type="button" class="gm-nav-toggle" id="gmNavToggle" aria-expanded="false" aria-controls="gmNavPanel"><span class="gm-nav-hamburger">☰</span><span class="gm-nav-toggle-text"><b>빠른 메뉴</b><small>'+esc(tabs.find(t=>t[0]===activeTab)?.[1]||'🏠 홈')+'</small></span></button></aside>';
- app.innerHTML='<header class="top"><div class="shell head">'+logo+'<div class="stats">'+
+ app.innerHTML='<header class="top"><div class="shell head">'+logo+
+  '<aside class="gm-header-ad '+(state.headerAd?.enabled?'is-live':'is-placeholder')+'" aria-label="광고 영역"><span class="gm-header-ad-label">광고</span><div class="gm-header-ad-body" id="gmHeaderAdBody">'+(state.headerAd?.enabled?'':'광고 준비 중')+'</div></aside>'+
+  '<div class="stats">'+
   (t?'<span class="header-team">'+teamBadge(t,true)+'<b>'+esc(t.name)+'</b></span>':'')+
   '<button type="button" class="gm-header-shop" id="gmOpenShop" title="상점으로 이동">🛒 <span>상점</span></button><button type="button" class="gm-header-mail" id="gmOpenMail" title="우편함">📬 우편함 '+(state.mailUnread?'<b class="gm-mail-badge">'+state.mailUnread+'</b>':'')+'</button>'+
   (state.user?.isAdmin?'<span class="admin-mode-tag">🔐 관리자</span>':'')+
@@ -1971,6 +1995,7 @@ function root(){
   '<main class="shell layout"><div class="gm-main-content">'+
   (inManage?'<div class="manage-breadcrumb"><button type="button" id="manageBack">← 구단관리</button><span> / '+(tab==='roster'?'선수단 관리':tab==='specials'?'특수능력':tab==='finance'?'자금관리':'선수 육성')+'</span></div>':'')+
   '<section id="content"></section></div></main>'+dock;
+ mountHeaderAd();
  if(inManage)document.getElementById('manageBack').onclick=()=>{tab='manage';root()};
  document.querySelector('[data-home-logo]')?.addEventListener('click',()=>{tab='home';root();window.scrollTo(0,0)});
  document.getElementById('gmOpenShop')?.addEventListener('click',()=>{if(tab!=='shop'){tab='shop';root()}});
