@@ -681,12 +681,18 @@ function leagueInfo(c,now=Date.now()){
  const byHighest=(items,key,tiebreak='h')=>[...items].filter(p=>p[key]!==null&&Number.isFinite(Number(p[key]))).sort((a,b)=>b[key]-a[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
  const byLowest=(items,key,tiebreak='outs')=>[...items].sort((a,b)=>a[key]-b[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
  const qualifiedBatters=allBatterStats.filter(p=>p.qualified);
+ // Rate-category pitcher awards require 0.75 innings per team game to prevent
+ // a 0.1 IP reliever taking the ERA/WHIP crown with an accidental zero.
+ const qualifiedPitchers=allPitcherStats.filter(p=>{
+  const teamGames=standings.find(team=>team.teamId===p.teamId)?.played||0;
+  return p.outs>=Math.max(3,Math.floor(teamGames*2.25));
+ });
  const leagueLeaders={
   batting:{war:byHighest(allBatterStats,'war'),average:byHighest(qualifiedBatters,'avg'),homeRuns:byHighest(allBatterStats,'hr'),rbi:byHighest(allBatterStats,'rbi'),
    stolenBases:byHighest(allBatterStats,'sb'),runs:byHighest(allBatterStats,'r'),hits:byHighest(allBatterStats,'h'),
    onBase:byHighest(qualifiedBatters,'obp'),slugging:byHighest(qualifiedBatters,'slg')},
-  pitching:{war:byHighest(allPitcherStats,'war','outs'),era:byLowest(allPitcherStats,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),
-   innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(allPitcherStats,'whip'),
+  pitching:{war:byHighest(allPitcherStats,'war','outs'),era:byLowest(qualifiedPitchers,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),
+   innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(qualifiedPitchers,'whip'),
    wins:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.wins>0),'wins','outs'),
    losses:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.losses>0),'losses','outs'),
    saves:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.saves>0),'saves','outs'),
@@ -1001,8 +1007,8 @@ function ensureDailyAttendanceMail(c){
  if(changed)save();
 }
 // League standings can inspect all clubs without accessing their private wallets.
-function leagueWithTeamRosters(c){
- const lg=leagueInfo(c),tier=lg.tier,start=lg.start;
+function leagueWithTeamRosters(c,now=Date.now()){
+ const lg=leagueInfo(c,now),tier=lg.tier,start=lg.start;
  const group=leagueMembers(c),pool=group.pool;
  const fields=['id','personId','name','age','pos','year','awardVariant','awardSourceYear','awardKey','grade','level','isPitcher','foreign','condition','originTeam','avatarDNA','avatarSeed','avatarVersion','growthFocus','growthFocusSelected','specialAbilities','contact','power','eye','speed','mental','defense','velocity','stuff','control','break','stamina'];
  const safePlayer=(p,squad)=>{const out={squad};for(const key of fields)if(p[key]!==undefined)out[key]=p[key];return out};
