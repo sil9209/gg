@@ -679,7 +679,7 @@ function leagueInfo(c,now=Date.now()){
  const lgEra=totalOuts?totalER*27/totalOuts:4.5;
  const replacementEra=lgEra+1.5;
  for(const p of allPitcherStats){
-  p.war=Number((((replacementEra-p.er*27/p.outs)*(p.outs/27))/10).toFixed(2));
+  p.war=Number((((replacementEra*p.outs/27)-p.er)/10).toFixed(2));
   p.warEstimated=true;
  }
  const byHighest=(items,key,tiebreak='h')=>[...items].filter(p=>p[key]!==null&&Number.isFinite(Number(p[key]))).sort((a,b)=>b[key]-a[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
@@ -719,7 +719,7 @@ function leagueInfo(c,now=Date.now()){
   const semifinals=[[top[0],top[3]],[top[1],top[2]]].map(([h,a],index)=>{
    const time=semifinalTimes[index],key=[start,tier,pool,'postseason',index,h.id,a.id].join('|');
    const hMember=members.find(m=>m.id===h.id),aMember=members.find(m=>m.id===a.id);
-   const box=runGame(gameTeam(hMember.club,LEAGUE_TIERS[tier].average,h.name,key+':home',145+index),gameTeam(aMember.club,LEAGUE_TIERS[tier].average,a.name,key+':away',145+index),key);
+   const box=runGame({...gameTeam(hMember.club,LEAGUE_TIERS[tier].average,h.name,key+':home',145+index),postseason:true},{...gameTeam(aMember.club,LEAGUE_TIERS[tier].average,a.name,key+':away',145+index),postseason:true},key);
    const winner=box.home.runs===box.away.runs?(h.wins>=a.wins?h:a):box.home.runs>box.away.runs?h:a;
    return {label:'준플레이오프 '+(index+1),home:h.name,away:a.name,homeTeamId:h.teamId,awayTeamId:a.teamId,
     homeOwnerName:h.ownerName,awayOwnerName:a.ownerName,time,score:now>=time?box.home.runs+' : '+box.away.runs:null,
@@ -730,7 +730,7 @@ function leagueInfo(c,now=Date.now()){
    const h=semifinals[0].winningTeam,a=semifinals[1].winningTeam;
    const key=[start,tier,pool,'postseason','final',h.id,a.id].join('|');
    const hm=members.find(m=>m.id===h.id),am=members.find(m=>m.id===a.id);
-   const box=runGame(gameTeam(hm.club,LEAGUE_TIERS[tier].average,h.name,key+':home',147),gameTeam(am.club,LEAGUE_TIERS[tier].average,a.name,key+':away',147),key);
+   const box=runGame({...gameTeam(hm.club,LEAGUE_TIERS[tier].average,h.name,key+':home',147),postseason:true},{...gameTeam(am.club,LEAGUE_TIERS[tier].average,a.name,key+':away',147),postseason:true},key);
    const winner=box.home.runs===box.away.runs?(h.wins>=a.wins?h:a):box.home.runs>box.away.runs?h:a;
    postseason.push({label:'챔피언 결정전',home:h.name,away:a.name,homeTeamId:h.teamId,awayTeamId:a.teamId,
     homeOwnerName:h.ownerName,awayOwnerName:a.ownerName,time:finalTime,
