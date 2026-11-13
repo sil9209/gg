@@ -2820,8 +2820,8 @@ if(leagueSection==='batters'||leagueSection==='pitchers'){
  const ownPlayers=new Set((state.club?.players||[]).map(p=>String(p.id)));
  const ownRank=p=>p.teamId===state.club?.teamId&&ownPlayers.has(String(p.id));
  const leaderSource=isBat?lg.leagueLeaders?.batting:lg.leagueLeaders?.pitching;
- const categories=isBat?[['war','WAR','war',2],['average','타율','avg',3],['homeRuns','홈런','hr',0],['rbi','타점','rbi',0],['stolenBases','도루','sb',0],['runs','득점','r',0],['hits','안타','h',0],['onBase','출루율','obp',3],['slugging','장타율','slg',3]]:
-  [['war','WAR','war',2],['wins','승','wins',0],['losses','패','losses',0],['saves','세이브','saves',0],['holds','홀드','holds',0],['innings','이닝','outs',-1],['strikeouts','탈삼진','so',0],['era','평균자책','era',2],['whip','WHIP','whip',2]];
+ const categories=isBat?[['average','타율','avg',3],['homeRuns','홈런','hr',0],['rbi','타점','rbi',0],['stolenBases','도루','sb',0],['runs','득점','r',0],['hits','안타','h',0],['onBase','출루율','obp',3],['slugging','장타율','slg',3]]:
+  [['wins','승','wins',0],['losses','패','losses',0],['saves','세이브','saves',0],['holds','홀드','holds',0],['innings','이닝','outs',-1],['strikeouts','탈삼진','so',0],['era','평균자책','era',2],['whip','WHIP','whip',2]];
  const topRank=(key,ascending)=>{
   const decision=['wins','losses','saves','holds'].includes(key);
   const rate=['avg','obp','slg'].includes(key);
