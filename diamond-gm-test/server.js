@@ -1,7 +1,12 @@
-const http=require('http'),fs=require('fs'),crypto=require('crypto');
+const http=require('http'),fs=require('fs'),crypto=require('crypto'),path=require('path');
 const {simulateGame}=require('./game-engine');
 const {awardPool}=require('./award-catalog');
-const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
+// A live deployment MUST point GM_DATA_PATH to a persistent mounted volume.
+// The legacy relative path remains only for the test server.
+const PATH=process.env.GM_DATA_PATH||'diamond-gm-test-data.json';
+if(process.env.GM_PRODUCTION==='true'&&!process.env.GM_DATA_PATH?.startsWith('/'))throw Error('Production requires an absolute GM_DATA_PATH on persistent storage');
+let db={users:[],clubs:[],listings:[]};
+try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){if(e.code!=='ENOENT')throw e}
 // Paid rewarded ads require a verified advertiser event; browser events alone never issue currency.
 const AD_REWARD_CP=500; // Verified ads have no daily view limit.
 const GAM_REWARDED_UNIT=String(process.env.GM_REWARDED_AD_UNIT||'').trim();
@@ -459,7 +464,12 @@ function fix(c){
  c.pitcher=newRotation.starter1||assignments.starter||c.pitcher;
  c.pitcherAssignments={starter:c.pitcher,relief:newRotation.relief1||null,closer:newRotation.closer||null};
 }
-function save(){fs.writeFileSync(PATH,JSON.stringify(db))}
+function save(){
+ fs.mkdirSync(path.dirname(path.resolve(PATH)),{recursive:true});
+ const tmp=PATH+'.tmp.'+process.pid;
+ fs.writeFileSync(tmp,JSON.stringify(db),'utf8');
+ fs.renameSync(tmp,PATH);
+}
 function send(res,status,obj,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(obj))}
 function getCookie(req){return (req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('sid='))?.slice(4)}
 
@@ -512,7 +522,7 @@ function leagueMembers(c){
    procedurally generated player rosters each season without cloning user players. */
 const leagueGameCache=new Map(),aiRosterCache=new Map();
 // Increment when the scoring probability model changes. Old current-season box scores are recalculated.
-const GAME_ENGINE_VERSION=4; // Refresh current-season matches and club labels after the ten-franchise rebrand.
+const GAME_ENGINE_VERSION=5; // Refresh current-season matches and club labels after the ten-franchise rebrand.
 const AI_OWNER_TITLES=['야구왕','홈런장인','불꽃감독','그라운드지휘관','다이아감독','투수조련사','승리의전략가','명장','타격박사','승부사','야구연구소','끝내기장인','구단운영자','스카우트마스터','전설의감독'];
 const AI_OWNER_NAMES=['민준','도현','성준','재원','지훈','태영','현우','주원','승민','태준','지성','건우','정민','윤호','재민'];
 function aiOwnerName(seed){
