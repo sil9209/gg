@@ -1194,7 +1194,7 @@ if(a.type==='register'||a.type==='login'){const name=String(a.username||'').trim
   if(found&&!found.isAdmin)throw Error('관리자 아이디가 이미 사용 중입니다');
   if(!found){
    const salt=crypto.randomBytes(16).toString('hex');
-   found={id:uid(),username:ADMIN_USERNAME,salt,hash:pwd(pass,salt),teamId:'bears',ownerName:'게임 관리자',isAdmin:true};
+   found={id:uid(),username:ADMIN_USERNAME,salt,hash:pwd(pass,salt),teamId:'lions',ownerName:'게임 관리자',isAdmin:true};
    db.users.push(found);
   }else{found.hash=pwd(pass,found.salt)}
   if(!db.clubs.some(c=>c.owner===found.id)){const initial=club(found,canonicalFranchiseName(found.teamId,TEAMS[0].name));fix(initial);db.clubs.push(initial)}
@@ -1681,6 +1681,18 @@ async function boot(){
  if(neonStore){
   const stored=await neonStore.load();
   if(stored)db=stored;
+  if(ADMIN_USERNAME&&ADMIN_PASSWORD.length>=16){
+   let admin=db.users.find(u=>String(u.username||'').toLowerCase()===ADMIN_USERNAME);
+   if(admin&&!admin.isAdmin)throw Error('Admin username already occupied by regular account');
+   if(!admin){
+    const salt=crypto.randomBytes(16).toString('hex');
+    admin={id:uid(),username:ADMIN_USERNAME,salt,hash:pwd(ADMIN_PASSWORD,salt),teamId:'lions',ownerName:'게임 관리자',isAdmin:true};
+    db.users.push(admin);
+    const initial=club(admin,canonicalFranchiseName('lions','대구 늑대즈'));
+    fix(initial);db.clubs.push(initial);
+    console.log('Dedicated Daegu administrator club initialized');
+   }
+  }
   for(const c of db.clubs||[]){for(const player of c.players||[])ensurePlayer(player);fix(c)}
   for(const listing of db.listings||[])ensurePlayer(listing.player);
   neonReady=true;
