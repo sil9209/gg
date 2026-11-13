@@ -21,17 +21,31 @@ async function query(text,params=[]){
  }
  return value.rows;
 }
+// Optimistic locking: every writer must hold the revision it last read.
 async function load(){
- const rows=await query('SELECT data::text AS payload FROM game_state WHERE id = 1');
- if(rows.length===0)return null;
+ const rows=await query('SELECT data::text AS payload, revision::text AS revision FROM game_state WHERE id = 1');
+ if(rows.length===0)return {data:null,revision:0};
  const raw=rows[0].payload;
  if(typeof raw!=='string')throw Error('Expected text payload from database');
  const data=JSON.parse(raw);
  if(!data||!Array.isArray(data.users)||!Array.isArray(data.clubs)||!Array.isArray(data.listings))throw Error('Invalid game database snapshot');
- return data;
+ const revision=Number(rows[0].revision);
+ if(!Number.isSafeInteger(revision)||revision<1)throw Error('Invalid database revision');
+ return {data,revision};
 }
-async function store(snapshot){
+async function store(snapshot,expectedRevision){
+ if(!Number.isSafeInteger(expectedRevision)||expectedRevision<0)throw Error('Missing expected database revision');
  const payload=typeof snapshot==='string'?snapshot:JSON.stringify(snapshot);
- await query('INSERT INTO game_state (id,data,revision,updated_at) VALUES (1,$1::jsonb,1,now()) ON CONFLICT (id) DO UPDATE SET data=EXCLUDED.data, revision=game_state.revision+1,updated_at=now()',[payload]);
+ const rows=expectedRevision===0
+  ?await query('INSERT INTO game_state (id,data,revision,updated_at) VALUES (1,$1::jsonb,1,now()) ON CONFLICT (id) DO NOTHING RETURNING revision::text AS revision',[payload])
+  :await query('UPDATE game_state SET data=$1::jsonb, revision=revision+1,updated_at=now() WHERE id=1 AND revision=$2::bigint RETURNING revision::text AS revision',[payload,String(expectedRevision)]);
+ if(rows.length!==1){
+  const error=Error('Concurrent game-state update detected; writes halted until restart');
+  error.code='PERSISTENCE_CONFLICT';
+  throw error;
+ }
+ const revision=Number(rows[0].revision);
+ if(!Number.isSafeInteger(revision)||revision!==expectedRevision+1)throw Error('Unexpected database revision');
+ return revision;
 }
 module.exports={load,store};
