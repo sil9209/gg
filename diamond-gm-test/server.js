@@ -692,28 +692,50 @@ function leagueInfo(c,now=Date.now()){
    saves:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.saves>0),'saves','outs'),
    holds:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.holds>0),'holds','outs')}
  };
- const batterRanking=[...allBatterStats].sort((a,b)=>Number(b.qualified)-Number(a.qualified)||b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,100);
- const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,100);
+ const batterRanking=[...allBatterStats].sort((a,b)=>Number(b.qualified)-Number(a.qualified)||b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,250);
+ const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,250);
  const next=games.find(g=>slotTime(g.slot)>now);
  const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
  const allSchedule=games.filter(g=>g.home===c.id||g.away===c.id).map(g=>({...decorate(g),played:isEligibleGame(g),score:isEligibleGame(g)?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null,
   preJoin:slotTime(g.slot)<=now&&!isEligibleGame(g)}));
  const recent=completed.filter(g=>g.home===c.id||g.away===c.id).slice(-8).reverse().map(g=>{const box=result(g);return {...decorate(g),score:box.home.runs+' : '+box.away.runs,detail:box}});
  const upcoming=games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).slice(0,6).map(decorate);
- let postseason=[];
- if(now>=start+6*86400000){
-  let top=standings.slice(0,4),semi=[[top[0],top[3]],[top[1],top[2]]].map((x,i)=>({label:'준플레이오프 '+(i+1),home:x[0].name,away:x[1].name,homeTeamId:x[0].teamId,awayTeamId:x[1].teamId,homeOwnerName:x[0].ownerName,awayOwnerName:x[1].ownerName,score:null,time:start+6*86400000+(12+i*3)*3600000}));
-  postseason=semi;
-  if(now>=semi[0].time)semi[0].score='3 : '+Math.floor(seedNum(start+'semi0')*4);
-  if(now>=semi[1].time)semi[1].score='4 : '+Math.floor(seedNum(start+'semi1')*4);
-  if(now>=start+6*86400000+20*3600000)postseason.push({label:'챔피언 결정전',home:top[0].name,away:top[1].name,homeTeamId:top[0].teamId,awayTeamId:top[1].teamId,homeOwnerName:top[0].ownerName,awayOwnerName:top[1].ownerName,score:'5 : 3',time:start+6*86400000+20*3600000});
+ let postseason=[],postseasonChampion=null;
+ const saturday=start+6*86400000;
+ const semifinalTimes=[saturday+12*3600000,saturday+15*3600000];
+ const finalTime=saturday+20*3600000;
+ if(now>=saturday){
+  const top=standings.slice(0,4);
+  const semifinals=[[top[0],top[3]],[top[1],top[2]]].map(([h,a],index)=>{
+   const time=semifinalTimes[index],key=[start,tier,pool,'postseason',index,h.id,a.id].join('|');
+   const hMember=members.find(m=>m.id===h.id),aMember=members.find(m=>m.id===a.id);
+   const box=runGame(gameTeam(hMember.club,LEAGUE_TIERS[tier].average,h.name,key+':home',145+index),gameTeam(aMember.club,LEAGUE_TIERS[tier].average,a.name,key+':away',145+index),key);
+   const winner=box.home.runs===box.away.runs?(h.wins>=a.wins?h:a):box.home.runs>box.away.runs?h:a;
+   return {label:'준플레이오프 '+(index+1),home:h.name,away:a.name,homeTeamId:h.teamId,awayTeamId:a.teamId,
+    homeOwnerName:h.ownerName,awayOwnerName:a.ownerName,time,score:now>=time?box.home.runs+' : '+box.away.runs:null,
+    played:now>=time,winnerId:now>=time?winner.id:null,winningTeam:winner};
+  });
+  postseason=semifinals.map(({winningTeam,...rest})=>rest);
+  if(now>=semifinalTimes[1]){
+   const h=semifinals[0].winningTeam,a=semifinals[1].winningTeam;
+   const key=[start,tier,pool,'postseason','final',h.id,a.id].join('|');
+   const hm=members.find(m=>m.id===h.id),am=members.find(m=>m.id===a.id);
+   const box=runGame(gameTeam(hm.club,LEAGUE_TIERS[tier].average,h.name,key+':home',147),gameTeam(am.club,LEAGUE_TIERS[tier].average,a.name,key+':away',147),key);
+   const winner=box.home.runs===box.away.runs?(h.wins>=a.wins?h:a):box.home.runs>box.away.runs?h:a;
+   postseason.push({label:'챔피언 결정전',home:h.name,away:a.name,homeTeamId:h.teamId,awayTeamId:a.teamId,
+    homeOwnerName:h.ownerName,awayOwnerName:a.ownerName,time:finalTime,
+    score:now>=finalTime?box.home.runs+' : '+box.away.runs:null,played:now>=finalTime,
+    winnerId:now>=finalTime?winner.id:null});
+   if(now>=finalTime)postseasonChampion=winner.id;
+  }
  }
+
  if(newLeagueResults){
   const floor=weekStart()-604800000;
   for(const k of Object.keys(db.leagueGames||{}))if(Number(k.split('|')[0])<floor)delete db.leagueGames[k];
   save();
  }
- return {tier,tierName:LEAGUE_TIERS[tier].name,allSchedule,batterRanking,pitcherRanking,leagueLeaders,weeklyPlayerStats:{batters:allBatterStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id))),pitchers:allPitcherStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id)))},rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~금 144경기/구단 · 매시간 경기 결과 · 토요일 가을야구',maxGames:144,completedRounds:completed.filter(g=>g.home===c.id||g.away===c.id).length,
+ return {tier,tierName:LEAGUE_TIERS[tier].name,postseasonChampion,allSchedule,batterRanking,pitcherRanking,leagueLeaders,weeklyPlayerStats:{batters:allBatterStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id))),pitchers:allPitcherStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id)))},rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~금 144경기/구단 · 매시간 경기 결과 · 토요일 가을야구',maxGames:144,completedRounds:completed.filter(g=>g.home===c.id||g.away===c.id).length,
  remainingRounds:games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).length,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
