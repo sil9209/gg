@@ -4,7 +4,7 @@ const {awardPool}=require('./award-catalog');
 // A live deployment MUST point GM_DATA_PATH to a persistent mounted volume.
 // The legacy relative path remains only for the test server.
 const PATH=process.env.GM_DATA_PATH||'diamond-gm-test-data.json';
-if(process.env.GM_PRODUCTION==='true'&&!process.env.GM_DATA_PATH?.startsWith('/'))throw Error('Production requires an absolute GM_DATA_PATH on persistent storage');
+if(process.env.GM_PRODUCTION==='true'&&!process.env.DATABASE_URL&&!process.env.GM_DATA_PATH?.startsWith('/'))throw Error('Production requires an absolute GM_DATA_PATH on persistent storage');
 let db={users:[],clubs:[],listings:[]};
 try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){if(e.code!=='ENOENT')throw e}
 // Paid rewarded ads require a verified advertiser event; browser events alone never issue currency.
@@ -43,7 +43,7 @@ async function verifiedAdWebhook(req,res){
  c.rewardedAdPending=null;
  db.rewardedAdTransactions.push(eventId);
  db.rewardedAdTransactions=db.rewardedAdTransactions.slice(-20000);
- save();
+ await save();
  return send(res,200,{ok:true,rewardCP:AD_REWARD_CP});
 }
 const sessions=new Map();let lock=Promise.resolve();const uid=()=>crypto.randomUUID();const rand=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
@@ -464,11 +464,23 @@ function fix(c){
  c.pitcher=newRotation.starter1||assignments.starter||c.pitcher;
  c.pitcherAssignments={starter:c.pitcher,relief:newRotation.relief1||null,closer:newRotation.closer||null};
 }
+const neonStore=process.env.DATABASE_URL?require('./neon-store'):null;
+let neonReady=false,neonWriteQueue=Promise.resolve();
 function save(){
+ if(neonStore){
+  if(!neonReady)return Promise.resolve();
+  const snapshot=JSON.stringify(db);
+  neonWriteQueue=neonWriteQueue.catch(previous=>{
+   console.error('Previous Neon persistence failure:',String(previous.message||previous).slice(0,200));
+  }).then(()=>neonStore.store(snapshot));
+  neonWriteQueue.catch(error=>console.error('Neon persistence failure:',String(error.message||error).slice(0,240)));
+  return neonWriteQueue;
+ }
  fs.mkdirSync(path.dirname(path.resolve(PATH)),{recursive:true});
  const tmp=PATH+'.tmp.'+process.pid;
  fs.writeFileSync(tmp,JSON.stringify(db),'utf8');
  fs.renameSync(tmp,PATH);
+ return Promise.resolve();
 }
 function send(res,status,obj,headers={}){res.writeHead(status,{'Content-Type':'application/json; charset=utf-8',...headers});res.end(JSON.stringify(obj))}
 function getCookie(req){return (req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith('sid='))?.slice(4)}
@@ -1155,7 +1167,7 @@ if(a.type==='register'||a.type==='login'){const name=String(a.username||'').trim
   }else{found.hash=pwd(pass,found.salt)}
   if(!db.clubs.some(c=>c.owner===found.id))db.clubs.push(club(found,canonicalFranchiseName(found.teamId,TEAMS[0].name)));
  }
- if(a.type==='register'){if(found)throw Error('이미 존재하는 아이디');const ownerName=String(a.ownerName||'').trim();if(ownerName.length<2||ownerName.length>16||/[<>]/.test(ownerName))throw Error('구단주명은 2~16자로 입력해 주세요');const salt=crypto.randomBytes(12).toString('hex');found={id:uid(),username:name,salt,hash:pwd(pass,salt),teamId:team.id,ownerName};db.users.push(found)}else if(!found||found.hash!==pwd(pass,found.salt))throw Error('아이디 또는 비밀번호 오류');if(found.teamId&&found.teamId!==team.id)throw Error('가입 당시 선택한 구단으로 로그인하세요');if(!found.teamId){found.teamId=team.id;const old=db.clubs.find(x=>x.owner===found.id);if(old){old.teamId=team.id;old.name=team.name}}const token=crypto.randomBytes(24).toString('hex');sessions.set(token,found.id);save();return send(res,200,view(found),{'Set-Cookie':'sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'})}
+ if(a.type==='register'){if(found)throw Error('이미 존재하는 아이디');const ownerName=String(a.ownerName||'').trim();if(ownerName.length<2||ownerName.length>16||/[<>]/.test(ownerName))throw Error('구단주명은 2~16자로 입력해 주세요');const salt=crypto.randomBytes(12).toString('hex');found={id:uid(),username:name,salt,hash:pwd(pass,salt),teamId:team.id,ownerName};db.users.push(found)}else if(!found||found.hash!==pwd(pass,found.salt))throw Error('아이디 또는 비밀번호 오류');if(found.teamId&&found.teamId!==team.id)throw Error('가입 당시 선택한 구단으로 로그인하세요');if(!found.teamId){found.teamId=team.id;const old=db.clubs.find(x=>x.owner===found.id);if(old){old.teamId=team.id;old.name=team.name}}const token=crypto.randomBytes(24).toString('hex');sessions.set(token,found.id);const loginPayload=view(found);await save();return send(res,200,loginPayload,{'Set-Cookie':'sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'})}
 if(a.type==='logout'){sessions.delete(getCookie(req));return send(res,200,{user:null},{'Set-Cookie':'sid=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'})}
 if(!u)throw Error('로그인이 필요합니다');let c=db.clubs.find(x=>x.owner===u.id),result=null;topUpAdminWallet(u,c);
 if(a.type==='communityWrite'){
@@ -1613,7 +1625,7 @@ else if(a.type==='play'){
  result={message:'경기 결과 '+c.name+' '+ours+' : '+theirs+' AI 구단',ours,theirs,detail:game};
 }
 else throw Error('알 수 없는 동작');}
-topUpAdminWallet(u,c);save();return send(res,200,{...view(u),result})}catch(e){return send(res,400,{error:e.message})}}
+topUpAdminWallet(u,c);const actionPayload={...view(u),result};await save();return send(res,200,actionPayload)}catch(e){return send(res,400,{error:e.message})}}
 // Run the weekly settlement at the actual Korean Sunday 00:00 boundary, even without page visits.
 // The persisted salaryPaidSeasonStart marker prevents duplicate deductions after restarts.
 function scheduleNextSeasonSettlement(){
@@ -1632,5 +1644,18 @@ const inventoryClock=setInterval(()=>{try{if(expireAllPurchasedItems())save()}ca
 if(typeof inventoryClock.unref==='function')inventoryClock.unref();
 const awardClock=setInterval(()=>{try{settleSeasonAwards(Date.now())}catch(e){console.error('Award settlement failed:',e)}},60000);
 if(typeof awardClock.unref==='function')awardClock.unref();
-let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(url.pathname==='/api/rewarded-verify'&&req.method==='POST'){queue=queue.then(()=>verifiedAdWebhook(req,res)).catch(()=>send(res,500,{error:'광고 확인 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
+let queue=Promise.resolve();
+async function boot(){
+ if(neonStore){
+  const stored=await neonStore.load();
+  if(stored)db=stored;
+  for(const c of db.clubs||[])for(const player of c.players||[])ensurePlayer(player);
+  for(const listing of db.listings||[])ensurePlayer(listing.player);
+  neonReady=true;
+  await save();
+  console.log('Neon persistence loaded and verified');
+ }
+ http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return Promise.resolve().then(async()=>{const snapshot=view(db.users.find(x=>x.id===sessions.get(getCookie(req))));await save();send(res,200,snapshot)}).catch(err=>{console.error('State request failed:',err);if(!res.headersSent)send(res,500,{error:'데이터베이스 응답 오류'})});if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(url.pathname==='/api/rewarded-verify'&&req.method==='POST'){queue=queue.then(()=>verifiedAdWebhook(req,res)).catch(()=>send(res,500,{error:'광고 확인 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
 if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
+}
+boot().catch(error=>{console.error('Fatal Neon initialization failure:',String(error.message||error).slice(0,250));process.exitCode=1});
