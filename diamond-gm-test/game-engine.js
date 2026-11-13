@@ -12,7 +12,7 @@ function simulateGame({home,away,seed,stats}){
  };
  const H=build(home,true),A=build(away,false),events=[];
  const triggered=new Map();
- const values=(p,ctx)=>{const info=stats(p,ctx)||{},v=info.values||info;if(info.activated?.length){let all=triggered.get(p.id);if(!all){all=new Map();triggered.set(p.id,all)}for(const skill of info.activated)all.set(skill.id,skill.name)}const m=clamp((Number(p.condition)||3)*.05+.8,.85,1.05);const out={};for(const k of ['contact','power','eye','speed','defense','velocity','stuff','control','break','stamina','mental'])out[k]=clamp((Number(v[k]??p[k])||50)*m,10,100);return out};
+ const values=(p,ctx)=>{const info=stats(p,ctx)||{},v=info.values||info;if(info.activated?.length){let all=triggered.get(p.id);if(!all){all=new Map();triggered.set(p.id,all)}for(const skill of info.activated)all.set(skill.id,skill.name)}const m=clamp((Number(p.condition)||3)*.05+.8,.85,1.05);const out={};for(const k of ['contact','power','eye','speed','defense','velocity','stuff','control','break','stamina','mental'])out[k]=Math.max(10,(Number(v[k]??p[k])||50)*m);return out};
  let inning=1;
  function half(off,def,upper){
   let outs=0,runs=0,bases=[null,null,null],pa=0;
