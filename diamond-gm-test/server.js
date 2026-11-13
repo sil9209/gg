@@ -1533,17 +1533,21 @@ else if(a.type==='useDrink'){
  c.sportsDrinks--;consumePurchasedItem(c,'sportsDrinks');p.condition++;
  result={message:p.name+' 선수의 컨디션이 한 단계 상승했습니다'};
 }
-else if(a.type==='friendly'){
+else if(a.type==='friendly'||a.type==='friendlyBatch'){
  fix(c);
  const day=new Date(Date.now()+32400000).toISOString().slice(0,10);
  if(!c.friendlyDaily||c.friendlyDaily.day!==day)c.friendlyDaily={day,used:0};
  if(c.friendlyDaily.used>=10)throw Error('오늘의 친선경기 10회를 모두 사용했습니다');
+ const gameCount=a.type==='friendlyBatch'?10:1;
+ if(c.friendlyDaily.used+gameCount>10)throw Error('10경기 연속 도전은 오늘 남은 경기가 10회일 때만 이용할 수 있습니다');
  const tier=Math.max(0,Math.min(LEAGUE_TIERS.length-1,Math.trunc(Number(a.tier)||0)));
  const rewardType=String(a.reward||'cash');if(!['cash','cp'].includes(rewardType))throw Error('보상 종류가 잘못되었습니다');
  // Friendly difficulty rises deliberately from tier 1 to 8; the competitive league tiers are unchanged.
  const friendlyStrength=[42,50,58,66,74,82,90,98];
+ const results=[];
+ for(let batchIndex=0;batchIndex<gameCount;batchIndex++){
  const opponent=LEAGUE_TIERS[tier],enemyStrength=Math.max(20,Math.min(99.99,friendlyStrength[tier]+(Math.random()-.5)*3));
- const time=Date.now(),game=runGame(gameTeam(c,0,c.name,'friendly-home-'+time,1),gameTeam(null,enemyStrength,opponent.name,'friendly-away-'+time,1),'friendly-'+c.id+'-'+time+'-'+c.friendlyDaily.used);
+ const time=Date.now()+batchIndex,game=runGame(gameTeam(c,0,c.name,'friendly-home-'+time,1),gameTeam(null,enemyStrength,opponent.name,'friendly-away-'+time,1),'friendly-'+c.id+'-'+time+'-'+c.friendlyDaily.used);
  const ours=game.home.runs,theirs=game.away.runs,outcome=ours>theirs?'win':ours<theirs?'loss':'draw';
  c.friendlyDaily.used++;
  if(outcome==='win'){c.winStreak=(Number(c.winStreak)||0)+1;c.lossStreak=0}
@@ -1580,7 +1584,14 @@ else if(a.type==='friendly'){
  applyTeamGameGrowth(c,1,participating.map(p=>p.id));
  const entry={time,tier,opponent:opponent.name,enemyStrength:Number(enemyStrength.toFixed(2)),ours,theirs,outcome,cash,cp,drinks,playerStats,detail:game};
  c.friendlyHistory=Array.isArray(c.friendlyHistory)?c.friendlyHistory:[];c.friendlyHistory.unshift(entry);c.friendlyHistory=c.friendlyHistory.slice(0,20);
- result={message:'친선경기 '+(outcome==='win'?'승리':outcome==='loss'?'패배':'무승부'),friendly:entry};
+ results.push(entry);
+ }
+ if(gameCount===1){const entry=results[0];result={message:'친선경기 '+(entry.outcome==='win'?'승리':entry.outcome==='loss'?'패배':'무승부'),friendly:entry}}
+ else{
+  const totals={games:results.length,wins:0,losses:0,draws:0,cash:0,cp:0,drinks:0};
+  for(const entry of results){totals[entry.outcome==='win'?'wins':entry.outcome==='loss'?'losses':'draws']++;totals.cash+=entry.cash;totals.cp+=entry.cp;totals.drinks+=entry.drinks}
+  result={message:'친선경기 10경기 연속 도전 완료',friendlyBatch:{games:results.map(({detail,playerStats,...row})=>row),totals}};
+ }
 }
 else if(a.type==='play'){
  fix(c);
