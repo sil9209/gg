@@ -683,6 +683,10 @@ function leagueInfo(c,now=Date.now()){
  // Before joining, a human club has NO played matches or accrued player statistics.
  // Its opponents nevertheless keep their normal results against the pre-join AI team.
  const completed=games.filter(isEligibleGame);
+ // The season total for a late joiner is the number of unplayed hourly slots after joining.
+ const joinedAt=Number(c.leagueJoinedAt);
+ const initialSlot=Number.isFinite(joinedAt)?Math.max(0,Math.min(144,Math.ceil((joinedAt-start)/3600000))):0;
+ const seasonGameLimit=144-initialSlot;
  const playedFor=(id,g)=>isEligibleGame(g)&&joinedForGame(id,g);
  const batterStats=new Map(),pitcherStats=new Map();
  const ensureStat=(map,player,team)=>{const key=team.id+':'+String(player.id||player.name);
@@ -803,7 +807,7 @@ function leagueInfo(c,now=Date.now()){
   for(const k of Object.keys(db.leagueGames||{}))if(Number(k.split('|')[0])<floor)delete db.leagueGames[k];
   save();
  }
- return {tier,tierName:LEAGUE_TIERS[tier].name,postseasonChampion,allSchedule,batterRanking,pitcherRanking,leagueLeaders,weeklyPlayerStats:{batters:allBatterStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id))),pitchers:allPitcherStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id)))},rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~금 144경기/구단 · 매시간 경기 결과 · 토요일 가을야구',maxGames:144,completedRounds:completed.filter(g=>(g.home===c.id||g.away===c.id)&&joinedForGame(c.id,g)).length,
+ return {tier,tierName:LEAGUE_TIERS[tier].name,postseasonChampion,allSchedule,batterRanking,pitcherRanking,leagueLeaders,weeklyPlayerStats:{batters:allBatterStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id))),pitchers:allPitcherStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id)))},rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~금 144경기/구단 · 매시간 경기 결과 · 토요일 가을야구',maxGames:seasonGameLimit,completedRounds:completed.filter(g=>(g.home===c.id||g.away===c.id)&&joinedForGame(c.id,g)).length,
  remainingRounds:games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now&&joinedForGame(c.id,g)).length,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
