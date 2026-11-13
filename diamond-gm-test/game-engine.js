@@ -5,14 +5,16 @@ function simulateGame({home,away,seed,stats}){
  const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
  const build=(team,homeFlag)=>{
   const hitters=(team.hitters||[]).slice(0,9).map((p,i)=>({p,i,id:p.id||'bot-b-'+i,name:p.name||'AI 타자 '+(i+1),ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,cs:0,history:[]}));
-  const pitchers=(team.pitchers||[]).slice(0,11).map((p,i)=>({p,id:p.id||'bot-p-'+i,name:p.name||'AI 투수 '+(i+1),outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0,enteredLeading:false,used:i===0,battersFaced:0,w:0,l:0,sv:0,hld:0}));
+  const pitchers=(team.pitchers||[]).slice(0,16).map((p,i)=>({p,id:p.id||'bot-p-'+i,name:p.name||'AI 투수 '+(i+1),outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0,enteredLeading:false,used:i===0,battersFaced:0,w:0,l:0,sv:0,hld:0}));
   while(hitters.length<9){let i=hitters.length,p={id:'replacement-'+i,name:'대체 타자',contact:40,power:40,eye:40,speed:40,defense:40,condition:3};hitters.push({p,i,id:p.id,name:p.name,ab:0,h:0,h2:0,h3:0,tb:0,hr:0,rbi:0,r:0,bb:0,so:0,sb:0,cs:0,history:[]})}
   if(!pitchers.length)pitchers.push({p:{name:'대체 투수',velocity:40,stuff:40,control:40,break:40,stamina:40,condition:3},name:'대체 투수',outs:0,h:0,r:0,er:0,bb:0,so:0,hr:0,pitches:0,scorelessInnings:0,enteredLeading:false,used:true,battersFaced:0,w:0,l:0,sv:0,hld:0});
   return {name:team.name,home:homeFlag,hitters,pitchers,pointer:0,runs:0,hits:0,errors:0,walks:0,innings:[],activePitcherIndex:0,team};
  };
  const H=build(home,true),A=build(away,false),events=[];
  const triggered=new Map();
- const values=(p,ctx)=>{const info=stats(p,ctx)||{},v=info.values||info;if(info.activated?.length){let all=triggered.get(p.id);if(!all){all=new Map();triggered.set(p.id,all)}for(const skill of info.activated)all.set(skill.id,skill.name)}const m=clamp((Number(p.condition)||3)*.05+.8,.85,1.05);const out={};for(const k of ['contact','power','eye','speed','defense','velocity','stuff','control','break','stamina','mental'])out[k]=Math.max(10,(Number(v[k]??p[k])||50)*m);return out};
+ const values=(p,ctx)=>{const info=stats(p,ctx)||{},v=info.values||info;if(info.activated?.length){let all=triggered.get(p.id);if(!all){all=new Map();triggered.set(p.id,all)}for(const skill of info.activated)all.set(skill.id,skill.name)}const m=clamp((Number(p.condition)||3)*.05+.8,.85,1.05);const out={};for(const k of ['contact','power','eye','speed','defense','velocity','stuff','control','break','stamina','mental']){
+ const base=Number(v[k]??p[k]);out[k]=base===1&&(k==='defense'||k==='stamina')?1:Math.max(10,(Number.isFinite(base)?base:50)*m);
+ }return out};
  let inning=1;
  function half(off,def,upper){
   let outs=0,runs=0,bases=[null,null,null],pa=0;
@@ -20,7 +22,7 @@ function simulateGame({home,away,seed,stats}){
   // Persist the actual pitcher across innings; no 5/3/1 innings restriction.
   let pitcherIndex=def.activePitcherIndex||0;
   let pitcher=def.pitchers[pitcherIndex];
-  let pitcherRole=pitcherIndex===0?'starter':pitcher.p.pos==='마무리'?'closer':'relief';
+  let pitcherRole=pitcherIndex===0?'starter':pitcher.p.assignedPitcherRole||(pitcher.p.pos==='마무리'?'closer':'relief');
   let startingRuns=pitcher.r;
   const selectBullpenPitcher=()=>{
    const available=def.pitchers.map((candidate,index)=>({candidate,index})).filter(x=>!x.candidate.used);
@@ -40,7 +42,7 @@ function simulateGame({home,away,seed,stats}){
   };
   const bullpenDecision=()=>{
    if(!def.pitchers.some(p=>!p.used)||pitcher.pitches===0)return false;
-   const stamina=clamp(Number(pitcher.p.stamina)||55,20,100);
+   const stamina=clamp(Number(values(pitcher.p,{pitcherRole}).stamina)||1,1,100);
    const condition=clamp(Number(pitcher.p.condition)||3,1,5);
    const effectiveStamina=stamina*(.82+condition*.06);
    const starter=pitcherIndex===0;
@@ -69,7 +71,7 @@ function simulateGame({home,away,seed,stats}){
    def.activePitcherIndex=pitcherIndex;
    pitcher=next.candidate;
    pitcher.used=true;
-   pitcherRole=pitcher.p.pos==='마무리'?'closer':'relief';
+   pitcherRole=pitcher.p.assignedPitcherRole||(pitcher.p.pos==='마무리'?'closer':'relief');
    startingRuns=pitcher.r;
    pitcher.enteredLeading=def.runs>off.runs;
    events.push({inning,half:upper?'초':'말',team:def.name,text:(pitcherRole==='closer'?'마무리 ':'구원 ')+pitcher.name+' 등판',type:'pitchingChange'});
