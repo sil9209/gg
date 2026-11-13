@@ -99,7 +99,7 @@ function simulateGame({home,away,seed,stats}){
     if(attempts>=2)continue;
     const rv=values(runner.p,{inning,outs,isHome:off.home,fieldPosition:off.team.positions?.[runner.id]});
     const speed=rv.speed;
-    const effectiveCatcherDefense=clamp(catcherDefense+(catcherAssigned?0:-15),10,100);
+    const effectiveCatcherDefense=clamp(catcherDefense+(catcherAssigned?0:-15),1,100);
     const opportunity=clamp((from===0?.055:.018)+(speed-55)*.0012+
       (55-effectiveCatcherDefense)*.00035-(outs===2?.01:0),.004,.135);
     if(rnd()>=opportunity)continue;
