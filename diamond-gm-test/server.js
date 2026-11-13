@@ -490,15 +490,22 @@ function fix(c){
  c.pitcherAssignments={starter:c.pitcher,relief:newRotation.relief1||null,closer:newRotation.closer||null};
 }
 const neonStore=process.env.DATABASE_URL?require('./neon-store'):null;
-let neonReady=false,neonWriteQueue=Promise.resolve();
+let neonReady=false,neonWriteQueue=Promise.resolve(),neonRevision=0,neonFault=null;
 function save(){
  if(neonStore){
   if(!neonReady)return Promise.resolve();
+  if(neonFault)return Promise.reject(neonFault);
   const snapshot=JSON.stringify(db);
-  neonWriteQueue=neonWriteQueue.catch(previous=>{
-   console.error('Previous Neon persistence failure:',String(previous.message||previous).slice(0,200));
-  }).then(()=>neonStore.store(snapshot));
-  neonWriteQueue.catch(error=>console.error('Neon persistence failure:',String(error.message||error).slice(0,240)));
+  neonWriteQueue=neonWriteQueue.then(async()=>{
+   if(neonFault)throw neonFault;
+   neonRevision=await neonStore.store(snapshot,neonRevision);
+  }).catch(error=>{
+   neonFault=error;
+   console.error('Neon writes halted to prevent data loss:',String(error.message||error).slice(0,240));
+   throw error;
+  });
+  // Some background jobs do not await save(); prevent unhandled rejections.
+  neonWriteQueue.catch(()=>{});
   return neonWriteQueue;
  }
  fs.mkdirSync(path.dirname(path.resolve(PATH)),{recursive:true});
@@ -1688,14 +1695,15 @@ let queue=Promise.resolve();
 async function boot(){
  if(neonStore){
   const stored=await neonStore.load();
-  if(stored)db=stored;
+  neonRevision=stored.revision;
+  if(stored.data)db=stored.data;
   for(const c of db.clubs||[]){for(const player of c.players||[])ensurePlayer(player);fix(c)}
   for(const listing of db.listings||[])ensurePlayer(listing.player);
   neonReady=true;
   await save();
   console.log('Neon persistence loaded and verified');
  }
- http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return Promise.resolve().then(async()=>{const snapshot=view(db.users.find(x=>x.id===sessions.get(getCookie(req))));await save();send(res,200,snapshot)}).catch(err=>{console.error('State request failed:',err);if(!res.headersSent)send(res,500,{error:'데이터베이스 응답 오류'})});if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(url.pathname==='/api/rewarded-verify'&&req.method==='POST'){queue=queue.then(()=>verifiedAdWebhook(req,res)).catch(()=>send(res,500,{error:'광고 확인 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
+ http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(neonFault&&url.pathname.startsWith('/api/'))return send(res,503,{error:'데이터 저장 충돌이 감지되어 안전을 위해 일시 중단되었습니다. 서버 관리자에게 문의해 주세요.'});if(url.pathname==='/api/state')return Promise.resolve().then(async()=>{const snapshot=view(db.users.find(x=>x.id===sessions.get(getCookie(req))));await save();send(res,200,snapshot)}).catch(err=>{console.error('State request failed:',err);if(!res.headersSent)send(res,500,{error:'데이터베이스 응답 오류'})});if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(url.pathname==='/api/rewarded-verify'&&req.method==='POST'){queue=queue.then(()=>verifiedAdWebhook(req,res)).catch(()=>send(res,500,{error:'광고 확인 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
 if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
 }
 boot().catch(error=>{console.error('Fatal Neon initialization failure:',String(error.message||error).slice(0,250));process.exitCode=1});
