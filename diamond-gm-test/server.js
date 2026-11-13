@@ -434,7 +434,9 @@ for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
 function initialClubPlayers(owner){
- const players=Array.from({length:14},()=>player(owner,{pitcher:false}));
+ const battingPositions=['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수','지명타자'];
+ const players=battingPositions.map(pos=>{const p=player(owner,{pitcher:false});p.pos=pos;return p});
+ while(players.length<14)players.push(player(owner,{pitcher:false}));
  for(const [pos,count] of [['선발',6],['중계',8],['마무리',2]])for(let i=0;i<count;i++){
   const p=player(owner,{pitcher:true});p.pos=pos;players.push(p);
  }
@@ -1193,7 +1195,7 @@ if(a.type==='register'||a.type==='login'){const name=String(a.username||'').trim
    found={id:uid(),username:ADMIN_USERNAME,salt,hash:pwd(pass,salt),teamId:'bears',ownerName:'게임 관리자',isAdmin:true};
    db.users.push(found);
   }else{found.hash=pwd(pass,found.salt)}
-  if(!db.clubs.some(c=>c.owner===found.id))db.clubs.push(club(found,canonicalFranchiseName(found.teamId,TEAMS[0].name)));
+  if(!db.clubs.some(c=>c.owner===found.id)){const initial=club(found,canonicalFranchiseName(found.teamId,TEAMS[0].name));fix(initial);db.clubs.push(initial)}
  }
  if(a.type==='register'){if(found)throw Error('이미 존재하는 아이디');const ownerName=String(a.ownerName||'').trim();if(ownerName.length<2||ownerName.length>16||/[<>]/.test(ownerName))throw Error('구단주명은 2~16자로 입력해 주세요');const salt=crypto.randomBytes(12).toString('hex');found={id:uid(),username:name,salt,hash:pwd(pass,salt),teamId:team.id,ownerName};db.users.push(found)}else if(!found||found.hash!==pwd(pass,found.salt))throw Error('아이디 또는 비밀번호 오류');if(found.teamId&&found.teamId!==team.id)throw Error('가입 당시 선택한 구단으로 로그인하세요');if(!found.teamId){found.teamId=team.id;const old=db.clubs.find(x=>x.owner===found.id);if(old){old.teamId=team.id;old.name=team.name}}const token=crypto.randomBytes(24).toString('hex');sessions.set(token,found.id);const loginPayload=view(found);await save();return send(res,200,loginPayload,{'Set-Cookie':'sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'})}
 if(a.type==='logout'){sessions.delete(getCookie(req));return send(res,200,{user:null},{'Set-Cookie':'sid=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'})}
@@ -1294,7 +1296,7 @@ else if(a.type==='claimGmMail'){
  result={message:mail.item==='cp'?quantity.toLocaleString('ko-KR')+' CP 수령 완료':gift.name+' '+quantity+'개 수령 완료'};
  }
 }
-else if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);db.clubs.push(c)}
+else if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);fix(c);db.clubs.push(c)}
 else{if(!c)throw Error('구단을 먼저 창단하세요');
 if(a.type==='setGrowthFocus'){
  const p=c.players.find(x=>x.id===a.id);
@@ -1677,7 +1679,7 @@ async function boot(){
  if(neonStore){
   const stored=await neonStore.load();
   if(stored)db=stored;
-  for(const c of db.clubs||[])for(const player of c.players||[])ensurePlayer(player);
+  for(const c of db.clubs||[]){for(const player of c.players||[])ensurePlayer(player);fix(c)}
   for(const listing of db.listings||[])ensurePlayer(listing.player);
   neonReady=true;
   await save();
