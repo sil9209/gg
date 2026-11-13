@@ -657,14 +657,35 @@ function leagueInfo(c,now=Date.now()){
   ip:Math.floor(row.outs/3)+'.'+row.outs%3,
   era:Number((row.er*27/row.outs).toFixed(2)),
   whip:Number(((row.h+row.bb)*3/row.outs).toFixed(2))}));
+ // In-game estimated WAR; not official KBO WAR. Fielding, positional and park
+ // adjustments are not modeled, so compare within this simulation only.
+ const batValue=p=>{
+  const singles=Math.max(0,p.h-p.h2-p.h3-p.hr);
+  return .69*p.bb+.89*singles+1.27*p.h2+1.62*p.h3+2.10*p.hr;
+ };
+ const lgPa=allBatterStats.reduce((v,p)=>v+p.pa,0);
+ const lgBatRate=lgPa?allBatterStats.reduce((v,p)=>v+batValue(p),0)/lgPa:.32;
+ for(const p of allBatterStats){
+  const aboveAverageRuns=(batValue(p)-lgBatRate*p.pa)/1.17;
+  p.war=Number(((aboveAverageRuns+p.pa*.035)/10).toFixed(2));
+  p.warEstimated=true;
+ }
+ const totalOuts=allPitcherStats.reduce((v,p)=>v+p.outs,0);
+ const totalER=allPitcherStats.reduce((v,p)=>v+p.er,0);
+ const lgEra=totalOuts?totalER*27/totalOuts:4.5;
+ const replacementEra=lgEra+1.5;
+ for(const p of allPitcherStats){
+  p.war=Number((((replacementEra-p.er*27/p.outs)*(p.outs/27))/10).toFixed(2));
+  p.warEstimated=true;
+ }
  const byHighest=(items,key,tiebreak='h')=>[...items].filter(p=>p[key]!==null&&Number.isFinite(Number(p[key]))).sort((a,b)=>b[key]-a[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
  const byLowest=(items,key,tiebreak='outs')=>[...items].sort((a,b)=>a[key]-b[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
  const qualifiedBatters=allBatterStats.filter(p=>p.qualified);
  const leagueLeaders={
-  batting:{average:byHighest(qualifiedBatters,'avg'),homeRuns:byHighest(allBatterStats,'hr'),rbi:byHighest(allBatterStats,'rbi'),
+  batting:{war:byHighest(allBatterStats,'war'),average:byHighest(qualifiedBatters,'avg'),homeRuns:byHighest(allBatterStats,'hr'),rbi:byHighest(allBatterStats,'rbi'),
    stolenBases:byHighest(allBatterStats,'sb'),runs:byHighest(allBatterStats,'r'),hits:byHighest(allBatterStats,'h'),
    onBase:byHighest(qualifiedBatters,'obp'),slugging:byHighest(qualifiedBatters,'slg')},
-  pitching:{era:byLowest(allPitcherStats,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),
+  pitching:{war:byHighest(allPitcherStats,'war','outs'),era:byLowest(allPitcherStats,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),
    innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(allPitcherStats,'whip'),
    wins:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.wins>0),'wins','outs'),
    losses:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.losses>0),'losses','outs'),
