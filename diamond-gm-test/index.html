@@ -1664,6 +1664,18 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-header-ad ins.adsbygoogle{display:block;width:100%;min-height:48px}
 @media(max-width:1150px){.gm-header-ad{flex-basis:320px;max-width:468px}}
 @media(max-width:800px){.gm-header-ad{order:3;flex-basis:100%;max-width:100%;min-height:52px;margin:0}.gm-header-ad-body{min-height:48px}.gm-header-ad ins.adsbygoogle{min-height:48px}}
+/* Ten-game challenge result layout */
+.gm-friendly-batch-modal{width:min(100%,660px);text-align:left}
+.gm-friendly-batch-modal h2{text-align:center;color:#234b74;margin:0 0 8px}
+.gm-friendly-batch-modal>p{text-align:center}
+.gm-friendly-batch-results{max-height:47vh;overflow:auto;border:1px solid #e2eaf3;border-radius:9px}
+.gm-friendly-batch-row{display:grid;grid-template-columns:58px 52px 64px minmax(0,1fr);align-items:center;gap:8px;padding:9px 11px;border-bottom:1px solid #e7edf3;font-size:12px}
+.gm-friendly-batch-row:last-child{border-bottom:0}
+.gm-friendly-batch-row small{text-align:right;color:#3c5d80;font-size:11px}
+.gm-friendly-batch-total{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:15px 12px;background:#ecf6ff;border-radius:9px;margin-top:12px}
+.gm-friendly-batch-total small{color:#536f89;font-size:12px}
+.gm-friendly-batch-total strong{color:#1d5d9d;font-size:14px}
+@media(max-width:480px){.gm-friendly-batch-row{grid-template-columns:44px 45px 42px minmax(0,1fr);padding:8px 5px;gap:4px;font-size:10px}.gm-friendly-batch-row small{font-size:9px}.gm-friendly-batch-total{flex-direction:column;align-items:flex-start}}
 </style></head><body><div id="app"></div><script>
 const app=document.getElementById('app');let state={user:null,teams:[]},tab='home',filter='',marketPos='전체',grade='전체',sort='overall',rosterSortDirection='desc',rosterView='batter',selectedTeam=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));const money=n=>state.user?.isAdmin&&Number(n)===1000000000000?'∞ 무제한':Number(n||0).toLocaleString('ko-KR')+'원';const walletCP=n=>state.user?.isAdmin&&Number(n)===1000000000?'∞':n;const overall=p=>statNum((p.isPitcher?['velocity','stuff','control','break','mental','stamina']:['contact','power','eye','speed','mental','defense']).reduce((n,k)=>n+(Number(p[k])||0),0)/6);
@@ -1774,6 +1786,22 @@ function friendlyResultModal(r){
  overlay.querySelector('#closeFriendlyResult').focus();
 }
 
+function friendlyBatchResultModal(batch){
+ document.querySelector('.friendly-result-overlay')?.remove();
+ const t=batch?.totals||{},games=Array.isArray(batch?.games)?batch.games:[];
+ const cash=Number(t.cash)||0,cp=Number(t.cp)||0,drinks=Number(t.drinks)||0;
+ const rewards=[cash?'💰 '+money(cash):'',cp?'💎 '+cp.toLocaleString('ko-KR')+' CP':'',drinks?'🥤 스포츠음료 '+drinks+'개':''].filter(Boolean).join(' · ')||'보상 없음';
+ const perGame=r=>[r.cash?'💰 '+money(r.cash):'',r.cp?'💎 '+r.cp+' CP':'',r.drinks?'🥤 '+r.drinks+'개':''].filter(Boolean).join(' · ')||'보상 없음';
+ const overlay=document.createElement('div');overlay.className='friendly-result-overlay';
+ overlay.innerHTML='<div class="friendly-result-card gm-friendly-batch-modal" role="dialog" aria-modal="true" aria-label="10경기 연속 도전 결과">'+
+ '<h2>⚾ 10경기 연속 도전 결과</h2><p><strong>'+Number(t.wins||0)+'승 · '+Number(t.losses||0)+'패 · '+Number(t.draws||0)+'무</strong></p>'+
+ '<div class="gm-friendly-batch-results">'+games.map((r,i)=>'<div class="gm-friendly-batch-row"><b>'+(i+1)+'경기</b><span class="gm-score-outcome gm-score-'+(r.outcome==='win'?'win':r.outcome==='loss'?'lose':'draw')+'">'+(r.outcome==='win'?'WIN':r.outcome==='loss'?'LOSE':'DRAW')+'</span><span>'+Number(r.ours||0)+' : '+Number(r.theirs||0)+'</span><small>'+perGame(r)+'</small></div>').join('')+'</div>'+
+ '<div class="gm-friendly-batch-total"><small>10경기 전체 지급 보상</small><strong>'+rewards+'</strong></div>'+
+ '<button class="primary" id="closeFriendlyBatchResult">확인</button></div>';
+ document.body.appendChild(overlay);
+ const close=()=>overlay.remove();overlay.querySelector('#closeFriendlyBatchResult').onclick=close;
+ overlay.onclick=e=>{if(e.target===overlay)close()};overlay.querySelector('#closeFriendlyBatchResult').focus();
+}
 const fieldNames={contact:'정확',power:'파워',eye:'선구',speed:'주력',mental:'정신',defense:'수비'};
 const pitcherFieldNames={velocity:'구속',stuff:'구위',control:'제구',break:'변화',mental:'정신',stamina:'체력'};
 const playerFieldNames=p=>p.isPitcher?pitcherFieldNames:fieldNames;
@@ -1814,7 +1842,7 @@ const specialAbilityDetails=p=>'<section class="gm-special-section"><div class="
  (specialAbilityData(p).length?'<div class="gm-special-detail-grid">'+specialAbilityData(p).map(x=>'<div class="gm-special-detail"><b>✦ '+esc(x.name)+'</b><span>'+esc(x.desc)+'</span></div>').join('')+'</div>':'<div class="gm-special-absent">보유한 특수능력이 없습니다.</div>')+'</section>';
 
 function toast(txt){document.querySelector('.msg')?.remove();let x=document.createElement('div');x.className='msg';x.textContent=txt;document.body.append(x);setTimeout(()=>x.remove(),3500)}
-async function api(body,options={}){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout'){selectedTeam=null;lastRenderedTab=null;}if(x.result?.message&&!['scout','friendly'].includes(body.type))toast(x.result.message);if(!options.skipRender)render();else document.querySelectorAll('.stats .pill').forEach(el=>{if(el.textContent.includes('💰'))el.textContent='💰 '+money(state.club?.cash);if(el.textContent.includes('💎'))el.textContent='💎 '+walletCP(state.club?.cp)+' CP'});if(body.type==='scout'&&x.result?.scouted)showScoutResult(x.result.scouted);if(body.type==='scoutBatch'&&x.result?.scoutBatch)showScoutBatchResult();if(body.type==='scoutBatchDecision')closeScoutPopup();if(body.type==='scoutDecision')closeScoutPopup();if(body.type==='friendly'&&x.result?.friendly)friendlyResultModal(x.result.friendly);if(body.type==='play'&&x.result?.detail)openGameBoxScore(x.result.detail,'경기 상세정보');return x}catch(e){toast(e.message);return null}}
+async function api(body,options={}){try{const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const x=await r.json();if(!r.ok)throw Error(x.error||'오류');const currentTeams=state.teams||[];state=x;if(!state.teams)state.teams=currentTeams;if(body.type==='logout'){selectedTeam=null;lastRenderedTab=null;}if(x.result?.message&&!['scout','friendly'].includes(body.type))toast(x.result.message);if(!options.skipRender)render();else document.querySelectorAll('.stats .pill').forEach(el=>{if(el.textContent.includes('💰'))el.textContent='💰 '+money(state.club?.cash);if(el.textContent.includes('💎'))el.textContent='💎 '+walletCP(state.club?.cp)+' CP'});if(body.type==='scout'&&x.result?.scouted)showScoutResult(x.result.scouted);if(body.type==='scoutBatch'&&x.result?.scoutBatch)showScoutBatchResult();if(body.type==='scoutBatchDecision')closeScoutPopup();if(body.type==='scoutDecision')closeScoutPopup();if(body.type==='friendly'&&x.result?.friendly)friendlyResultModal(x.result.friendly);if(body.type==='friendlyBatch'&&x.result?.friendlyBatch)friendlyBatchResultModal(x.result.friendlyBatch);if(body.type==='play'&&x.result?.detail)openGameBoxScore(x.result.detail,'경기 상세정보');return x}catch(e){toast(e.message);return null}}
 
 async function start(){try{state=await(await fetch('/api/state')).json()}catch(e){toast('서버에 연결할 수 없습니다')}render()}
 
@@ -2681,10 +2709,11 @@ if(tab==='friendly'){
  const today=new Date(Date.now()+32400000).toISOString().slice(0,10),used=c.friendlyDaily?.day===today?c.friendlyDaily.used:0;
  const tiers=state.league?.tiers||[{name:'루키리그',average:45},{name:'아마추어리그',average:52},{name:'세미프로리그',average:59},{name:'프로리그',average:66},{name:'내셔널리그',average:73},{name:'엘리트리그',average:80},{name:'마스터리그',average:87},{name:'챔피언리그',average:94}];
  el.innerHTML='<div class="friendly-title"><div><h2 class="sectiontitle">⚾ 친선경기</h2><p class="muted">승리 시 게임머니 또는 CP 보상 50% 상향 · 무승부 시 일부 지급 · 패배 시 스포츠음료 10개</p></div><div class="friendly-counter">남은 경기 <strong>'+(10-used)+'/10</strong></div></div>'+
- '<div class="panel friendly-form"><h3>상대 구단 선택</h3><p class="muted">교체 출전 선수는 경기 성장량의 50%가 적용됩니다.</p><p class="muted">난이도 1~8단계 · 상위 리그일수록 AI 타격·투구 능력 상승 · 표시 보상은 예상치입니다.</p><label>상대 리그<select id="friendlyTier">'+tiers.map((t,i)=>'<option value="'+i+'" '+(i===(state.league?.tier||0)?'selected':'')+'>'+esc(t.name)+' · 난이도 '+(i+1)+'/8 · AI 전력 '+[42,50,58,66,74,82,90,98][i]+' · 승리 약 '+money(Math.round((Math.round((1000000+i*1200000+t.average*45000)/100000)*100000)*1.5/100000)*100000)+' / '+Math.max(1,Math.round(Math.max(1,Math.round(2+i*1.6+t.average/25))*1.5))+' CP</option>').join('')+'</select></label><div class="friendly-rewards"><label><input type="radio" name="friendlyReward" value="cash" checked> 💰 자금 보상</label><label><input type="radio" name="friendlyReward" value="cp"> 💎 CP 보상</label></div><button id="friendlyPlay" class="primary" '+(used>=10?'disabled':'')+'>⚾ 친선경기 시작</button><p class="muted">한국시간 자정에 10회 초기화 · 무승부 보상은 승리 기준의 약 25% · 리그 순위 영향 없음</p></div>'+
+ '<div class="panel friendly-form"><h3>상대 구단 선택</h3><p class="muted">교체 출전 선수는 경기 성장량의 50%가 적용됩니다.</p><p class="muted">난이도 1~8단계 · 상위 리그일수록 AI 타격·투구 능력 상승 · 표시 보상은 예상치입니다.</p><label>상대 리그<select id="friendlyTier">'+tiers.map((t,i)=>'<option value="'+i+'" '+(i===(state.league?.tier||0)?'selected':'')+'>'+esc(t.name)+' · 난이도 '+(i+1)+'/8 · AI 전력 '+[42,50,58,66,74,82,90,98][i]+' · 승리 약 '+money(Math.round((Math.round((1000000+i*1200000+t.average*45000)/100000)*100000)*1.5/100000)*100000)+' / '+Math.max(1,Math.round(Math.max(1,Math.round(2+i*1.6+t.average/25))*1.5))+' CP</option>').join('')+'</select></label><div class="friendly-rewards"><label><input type="radio" name="friendlyReward" value="cash" checked> 💰 자금 보상</label><label><input type="radio" name="friendlyReward" value="cp"> 💎 CP 보상</label></div><button id="friendlyPlay" class="primary" '+(used>=10?'disabled':'')+'>⚾ 1경기 도전</button><button id="friendlyBatchPlay" class="primary" '+(used!==0?'disabled':'')+'>⚾ 10경기 연속 도전</button><p class="muted">10경기 연속 도전은 일일 경기 횟수가 10회 남았을 때 이용 가능합니다. 한국시간 자정에 10회 초기화 · 무승부 보상은 승리 기준의 약 25% · 리그 순위 영향 없음</p></div>'+
  '<div class="gm-friendly-item-note">🥤 스포츠음료와 🚀 성장부스터는 <button type="button" id="gmFriendlyToLineup">라인업에서 사용</button>할 수 있습니다.</div>'+
  '<div class="panel"><h3>📋 연습경기 결과 및 보상 내역</h3>'+(c.friendlyHistory?.length?c.friendlyHistory.slice(0,20).map(r=>{const outcome=r.ours>r.theirs?'WIN':r.ours<r.theirs?'LOSE':'DRAW';const reward=Number(r.cash)>0?'💰 '+money(Number(r.cash)):Number(r.cp)>0?'💎 '+Number(r.cp).toLocaleString('ko-KR')+' CP':Number(r.drinks)>0?'🥤 스포츠음료 '+Number(r.drinks)+'개':'보상 없음';const when=r.time?new Date(r.time).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'}):'';return '<div class="item"><div><b>'+esc(r.opponent||'상대 구단')+' <span class="gm-score-outcome gm-score-'+outcome.toLowerCase()+'">'+outcome+'</span></b><div class="muted">'+esc(when)+' · '+Number(r.ours||0)+' : '+Number(r.theirs||0)+'</div></div><div style="text-align:right"><b>'+reward+'</b><div class="muted">실제 지급 보상</div></div></div>'}).join(''):'<p class="muted">기록이 없습니다.</p>')+'</div>';
  document.getElementById('friendlyPlay').onclick=()=>{{const tier=Number(document.getElementById('friendlyTier').value),reward=document.querySelector('input[name="friendlyReward"]:checked')?.value||'cash';gmConfirm('친선경기 1회를 사용하여 경기를 진행하시겠습니까?').then(ok=>{if(ok)api({type:'friendly',tier,reward})})}};
+ document.getElementById('friendlyBatchPlay').onclick=()=>{const tier=Number(document.getElementById('friendlyTier').value),reward=document.querySelector('input[name="friendlyReward"]:checked')?.value||'cash';gmConfirm('친선경기 10회를 연속 진행하고 오늘의 경기 횟수 10회를 모두 사용하시겠습니까? 10경기 결과와 전체 보상을 한 번에 표시합니다.').then(ok=>{if(ok)api({type:'friendlyBatch',tier,reward})})};
  document.getElementById('gmFriendlyToLineup').onclick=()=>{tab='lineup';lineupMode='batter';root()};
  return}
 if(tab==='specials'){
