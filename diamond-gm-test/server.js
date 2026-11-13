@@ -555,11 +555,8 @@ function aiRoster(seed,average){
 function gameTeam(c,average,name,seed,round=1){
  if(!c){
   const roster=aiRoster(seed,average);
-  // Rotate which of the club's pitchers takes the starter role during the season.
-  const pitching=roster.pitchers.length?[
-   roster.pitchers[(Math.max(1,round)-1)%5],
-   roster.pitchers[5+(Math.max(1,round)-1)%5],
-   roster.pitchers[10]]:[];
+  // Five-man starting rotation, with all six AI relievers eligible to enter.
+  const pitching=[roster.pitchers[(Math.max(1,round)-1)%5],...roster.pitchers.slice(5,11)].filter(Boolean);
   return {name,hitters:roster.hitters.slice(0,9),pitchers:pitching,defense:average,round};
  }
  const eligible=p=>flyingCoachActive(p);
@@ -577,12 +574,11 @@ function gameTeam(c,average,name,seed,round=1){
   if(replacement){rotationSlots[i]=replacement;usedStarters.add(replacement.id)}
  }
  const currentStarter=rotationSlots[(Math.max(1,round)-1)%5]||all[(Math.max(1,round)-1)%Math.max(1,all.length)];
- const reliever=findPitcher(rotation.relief1||c.pitcherAssignments?.relief)||
-  all.find(p=>p.id!==currentStarter?.id&&p.pos==='중계')||all.find(p=>p.id!==currentStarter?.id);
- const closer=findPitcher(rotation.closer||c.pitcherAssignments?.closer)||
-  all.find(p=>p.id!==currentStarter?.id&&p.id!==reliever?.id&&p.pos==='마무리')||
-  all.find(p=>p.id!==currentStarter?.id&&p.id!==reliever?.id);
- const pitchers=[...new Map([currentStarter,reliever,closer].filter(Boolean).map(p=>[p.id,p])).values()];
+ // Use all nominated bullpen pitchers, followed by additional available relievers.
+ const assigned=['relief1','relief2','relief3','relief4','setup','closer']
+  .map(role=>findPitcher(rotation[role]||(role==='relief1'?c.pitcherAssignments?.relief:role==='closer'?c.pitcherAssignments?.closer:null)));
+ const depth=all.filter(p=>p.id!==currentStarter?.id&&!assigned.some(x=>x?.id===p.id));
+ const pitchers=[...new Map([currentStarter,...assigned,...depth].filter(Boolean).map(p=>[p.id,p])).values()].slice(0,11);
  const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(Number(p.defense)||50)*(pos==='DH'||DEFENSE_NATIVE[p.pos]===pos?1:.84)},0)/Math.max(1,hitters.length);
  const positions=Object.fromEntries(hitters.map(p=>[p.id,matchFieldPosition(c,p)]));
  return {name,hitters,pitchers,defense,positions,round,winStreak:Math.max(0,Number(c.winStreak)||0),lossStreak:Math.max(0,Number(c.lossStreak)||0)};
