@@ -935,7 +935,7 @@ function shopCatalog(){
   }
   db.shopCatalogVersion=4;
  }
- // Item price and currency are fixed at 100 CP for all existing shop catalogs.
+ // One-time legacy default migration; prices saved by admins after version 5 are retained.
  if((Number(db.shopCatalogVersion)||0)<5){
   for(const item of db.shopCatalog)if(item.kind==='flyingCoach'){item.price=100;item.name='플레잉코치권';item.icon='📋'}
   db.shopCatalogVersion=5;
@@ -1398,9 +1398,10 @@ else if(a.type==='shopSave'){
   const kind=String(a.kind||current.kind||'sportsDrink');
   if(!['sportsDrink','growthBooster','flyingCoach'].includes(kind))throw Error('등록할 수 없는 상품 종류입니다');
   const name=cleanShopText(a.name,40,active),desc=cleanShopText(a.desc,160),icon=cleanShopText(a.icon,5,active);
-  const price=kind==='flyingCoach'?100:Number(a.price),quantity=Number(a.quantity);
-  const minPrice=kind==='growthBooster'?1:1000,maxPrice=kind==='growthBooster'?100000:1000000000;
-  if(kind!=='flyingCoach'&&(!Number.isSafeInteger(price)||price<minPrice||price>maxPrice))throw Error('가격 범위: 성장부스터 1~100,000 CP / 스포츠음료 1,000~10억원');
+  const price=Number(a.price),quantity=Number(a.quantity);
+  const cpItem=kind==='growthBooster'||kind==='flyingCoach';
+   const minPrice=cpItem?1:1000,maxPrice=cpItem?100000:1000000000;
+  if(!Number.isSafeInteger(price)||price<minPrice||price>maxPrice)throw Error('가격 범위: CP 상품 1~100,000 CP / 게임머니 상품 1,000~10억원');
   if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000)throw Error('수량은 1~10,000개 사이의 정수로 입력하세요');
   db.shopCatalog[slot-1]={id:current.id,active,kind,name:kind==='flyingCoach'?'플레잉코치권':name,desc,icon:kind==='flyingCoach'?'📋':icon,quantity,price};
  }
