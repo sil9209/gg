@@ -675,7 +675,7 @@ function leagueInfo(c,now=Date.now()){
  const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,100);
  const next=games.find(g=>slotTime(g.slot)>now);
  const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
- const allSchedule=games.map(g=>({...decorate(g),played:isEligibleGame(g),score:isEligibleGame(g)?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null,
+ const allSchedule=games.filter(g=>g.home===c.id||g.away===c.id).map(g=>({...decorate(g),played:isEligibleGame(g),score:isEligibleGame(g)?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null,
   preJoin:slotTime(g.slot)<=now&&!isEligibleGame(g)}));
  const recent=completed.filter(g=>g.home===c.id||g.away===c.id).slice(-8).reverse().map(g=>{const box=result(g);return {...decorate(g),score:box.home.runs+' : '+box.away.runs,detail:box}});
  const upcoming=games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).slice(0,6).map(decorate);
