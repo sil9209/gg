@@ -494,7 +494,7 @@ let neonReady=false,neonWriteQueue=Promise.resolve(),neonRevision=0,neonFault=nu
 function save(){
  if(neonStore){
   if(!neonReady)return Promise.resolve();
-  if(neonFault)return Promise.reject(neonFault);
+  if(neonFault)return neonWriteQueue;
   const snapshot=JSON.stringify(db);
   neonWriteQueue=neonWriteQueue.then(async()=>{
    if(neonFault)throw neonFault;
