@@ -2306,11 +2306,11 @@ function openShopEditor(item){
  overlay.className='gm-shop-editor-backdrop';overlay.id='gmShopEditor';
  const kind=['growthBooster','flyingCoach'].includes(item.kind)?item.kind:'sportsDrink';
  const name=item.name||'',desc=item.desc||'',icon=item.icon||'🥤';
- const price=kind==='flyingCoach'?100:Number(item.price)||1000000,quantity=Number(item.quantity)||10;
+ const price=Number.isSafeInteger(Number(item.price))&&Number(item.price)>0?Number(item.price):(kind==='flyingCoach'?100:kind==='growthBooster'?20:1000000),quantity=Number(item.quantity)||10;
  const cpKind=kind==='growthBooster'||kind==='flyingCoach';
  overlay.innerHTML='<section class="gm-shop-editor-dialog" role="dialog" aria-modal="true" aria-labelledby="gmShopEditorTitle"><div class="gm-shop-editor-heading"><div><small>ADMIN / SHOP EDITOR</small><h2 id="gmShopEditorTitle">'+slot+'번 상품 관리</h2><p>상품 정보를 수정하고 판매 여부를 선택하세요.</p></div><button type="button" class="gm-shop-editor-close" aria-label="닫기">✕</button></div><form id="gmShopEditorForm"><div class="gm-shop-editor-fields">'+
  '<label>판매 상태<select name="active"><option value="active" '+(item.active?'selected':'')+'>판매 중</option><option value="coming" '+(!item.active?'selected':'')+'>입고중</option></select></label>'+
- '<label>아이템 종류<select name="kind" id="gmShopItemKind"><option value="sportsDrink" '+(kind==='sportsDrink'?'selected':'')+'>🥤 스포츠음료 (게임머니)</option><option value="growthBooster" '+(cpKind?'selected':'')+'>🚀 성장부스터 (CP)</option><option value="flyingCoach" '+(kind==='flyingCoach'?'selected':'')+'>📋 플레잉코치권 (100 CP)</option></select></label>'+
+ '<label>아이템 종류<select name="kind" id="gmShopItemKind"><option value="sportsDrink" '+(kind==='sportsDrink'?'selected':'')+'>🥤 스포츠음료 (게임머니)</option><option value="growthBooster" '+(cpKind?'selected':'')+'>🚀 성장부스터 (CP)</option><option value="flyingCoach" '+(kind==='flyingCoach'?'selected':'')+'>📋 플레잉코치권 (CP)</option></select></label>'+
  '<label>상품명<input name="productName" maxlength="40" required value="'+esc(name)+'" placeholder="예: 스포츠음료 20개"></label>'+
  '<label>상품 설명<textarea name="description" maxlength="160" rows="2" placeholder="상품 안내">'+esc(desc)+'</textarea></label>'+
  '<div class="gm-shop-editor-dual"><label>상품 아이콘<input name="icon" maxlength="10" required value="'+esc(icon)+'" placeholder="🥤"></label><label>지급 수량 (개)<input name="quantity" type="number" min="1" max="10000" step="1" value="'+quantity+'" required></label></div>'+
@@ -2322,14 +2322,12 @@ function openShopEditor(item){
  overlay.addEventListener('click',event=>{if(event.target===overlay)closeShopEditor()});
  const form=overlay.querySelector('#gmShopEditorForm');
  const kindSelect=form.elements.namedItem('kind'),priceInput=form.elements.namedItem('price');
- priceInput.readOnly=kind==='flyingCoach';
  kindSelect.onchange=()=>{
   const boost=kindSelect.value==='growthBooster',coach=kindSelect.value==='flyingCoach';
   const wasBoost=!boost;
-  priceInput.min=boost?'1':coach?'100':'1000';
-  priceInput.max=boost?'100000':coach?'100':'1000000000';
-  priceInput.readOnly=coach;
-  priceInput.value=boost?'20':kindSelect.value==='flyingCoach'?'100':'1000000';
+  priceInput.min=boost||coach?'1':'1000';
+  priceInput.max=boost||coach?'100000':'1000000000';
+  priceInput.value=boost?'20':coach?'100':'1000000';
   form.querySelector('#gmShopPriceLabel').textContent='판매 가격 ('+(boost||coach?'CP':'게임머니')+')';
   if(!form.elements.namedItem('productName').value.trim())form.elements.namedItem('productName').value=boost?'성장부스터':kindSelect.value==='flyingCoach'?'플레잉코치권':'스포츠음료';
   if(['🥤','🚀','📋'].includes(form.elements.namedItem('icon').value))form.elements.namedItem('icon').value=boost?'🚀':kindSelect.value==='flyingCoach'?'📋':'🥤';
@@ -2591,7 +2589,7 @@ if(tab==='shop'){
  const canBuy=item=>(['growthBooster','flyingCoach'].includes(item.kind)?c.cp:c.cash)>=Number(item.price||0);
  el.innerHTML='<div class="gm-shop-header"><div><span class="gm-shop-eyebrow">DIAMOND GM / TEAM STORE</span><h2>🛒 구단 상점</h2><p>게임머니와 CP로 아이템을 구매하고 라인업에서 사용하세요.</p></div><div class="gm-shop-wallet"><small>보유 게임머니</small><strong>'+money(c.cash)+'</strong><span>🥤 스포츠음료 '+(c.sportsDrinks||0)+'개 · 🚀 성장부스터 '+(c.growthBoosters||0)+'개 · 📋 코치권 '+(c.flyingCoachTickets||0)+'개</span></div></div>'+
  '<div class="gm-shop-tip"><span>ⓘ</span> 스포츠음료·성장부스터·📋 플레잉코치권은 라인업의 ‘선수 아이템 사용’에서 적용합니다. 코치권 적용 시 나이·능력치 고정, 성장·거래 불가 및 7일 단위 CP 계약이 적용됩니다.</div>'+
- (admin?'<div class="gm-shop-admin-help"><b>⚙️ 관리자 상품 편집</b><span>각 상품의 수정 버튼을 누르거나 ‘입고중’ 칸을 클릭해 상품을 등록하세요. 설정한 상품은 모든 회원에게 적용됩니다.</span></div>':'')+
+ (admin?'<div class="gm-shop-admin-help"><b>⚙️ 관리자 상품·가격 편집</b><span>상품별 ‘✎ 수정’을 눌러 판매 가격·수량·상품 정보를 변경하세요. 저장한 가격은 모든 회원의 구매 금액에 적용됩니다.</span></div>':'')+
  '<section class="gm-rewarded-panel"><div><span class="gm-rewarded-symbol">🎬</span><h3>추가지원 · 500 CP</h3><p>보상형 광고 1회 시청 완료 시 500 CP · 하루 시청 횟수 제한 없음</p><small class="gm-rewarded-status">오늘 누적 '+(state.rewardedAd?.used||0)+'회 · 무제한 시청 가능 · 광고 연동 및 시청 완료 검증 준비 중 · 현재 지급 불가</small></div><button type="button" class="gm-rewarded-btn" disabled aria-disabled="true">광고 연결 후 이용 가능</button></section>'+
  '<div class="gm-shop-grid">'+offers.map(item=>item.active?
  '<article class="gm-shop-card"><div class="gm-shop-art">'+(admin?'<button type="button" class="gm-shop-edit" data-shop-edit="'+item.id+'">✎ 수정</button>':'')+'<span class="gm-shop-product-icon">'+esc(item.icon||'🥤')+'</span><span>'+Number(item.quantity||0)+'개</span></div><div class="gm-shop-body"><h3>'+esc(item.name||'상품')+'</h3><p>'+esc(item.desc||'')+'</p><div class="gm-shop-check"><span>구매 가격</span><b>'+shopPrice(item)+'</b></div><button type="button" class="gm-shop-buy" data-shop-buy="'+item.id+'" '+(!canBuy(item)?'disabled':'')+'>'+(!canBuy(item)?(item.kind==='growthBooster'?'CP 부족':'게임머니 부족'):'구매하기')+'</button></div></article>':
