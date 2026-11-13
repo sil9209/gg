@@ -1485,10 +1485,10 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
  #playerProfileOverlay .player-profile-bottom{padding:12px 16px!important}
 }
 
-/* Team-colored TOP 5 ranking cards — scoped to batter/pitcher leader summaries. */
+/* Uniform navy TOP 5 ranking cards for every team and both leaderboards. */
 .gm-league-stat-page .gm-league-leader .gm-colored-rank,
 .gm-league-stat-page .gm-league-leader .gm-colored-rank.is-mine{
- background:var(--rank-club-color,#304f77)!important;
+ background:#244f7d!important;
  border-color:transparent!important;
  box-shadow:none!important;
  color:#fff!important;
@@ -1508,10 +1508,10 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-league-stat-page .gm-league-leader .gm-colored-rank.is-mine .gm-own-check{display:inline-flex!important;flex:none!important;background:#fff!important;color:var(--rank-club-color,#304f77)!important;border:0!important}
 .gm-league-stat-page .gm-league-leader .gm-colored-rank:focus-within{outline:2px solid #84b9ef;outline-offset:1px}
 
-/* The entire 1–5 ranking panel has one club-color background, without nested color tiles. */
+/* Each 1–5 ranking panel uses one consistent navy background. */
 .gm-league-stat-page .gm-league-leader.gm-unified-leader{
- background:var(--team-accent,#304f77)!important;
- border:1px solid var(--team-accent,#304f77)!important;
+ background:#244f7d!important;
+ border:1px solid #244f7d!important;
  box-shadow:none!important;
  color:#fff!important;
  gap:5px!important;
@@ -1536,7 +1536,7 @@ button:focus:not(:focus-visible),a:focus:not(:focus-visible),[role="button"]:foc
 .gm-league-stat-page .gm-unified-leader .gm-leader-first.is-mine>strong,
 .gm-league-stat-page .gm-unified-leader .gm-leader-first.is-mine>button,
 .gm-league-stat-page .gm-unified-leader .gm-leader-entry.is-mine>button{color:#fff!important}
-.gm-league-stat-page .gm-unified-leader .gm-own-check{background:#fff!important;color:var(--team-accent,#304f77)!important}
+.gm-league-stat-page .gm-unified-leader .gm-own-check{background:#fff!important;color:#244f7d!important}
 .gm-league-stat-page .gm-league-schedule-match{grid-template-columns:66px minmax(0,1fr) 68px!important;column-gap:15px!important}
 .gm-league-stat-page .gm-league-schedule-match>div{padding-left:5px!important}
 @media(max-width:520px){.gm-league-stat-page .gm-league-schedule-match{grid-template-columns:52px minmax(0,1fr) 62px!important;column-gap:10px!important}}
