@@ -761,6 +761,92 @@ function settleSeasonSalaries(activeStart){
  }
  if(changed)save();
 }
+/* Two-stage Saturday awards. Current system starts on 2026-11-08 Korean week.
+   Each club/week/stage has its own durable marker and cannot pay twice. */
+const AWARD_SYSTEM_FIRST_WEEK=Date.UTC(2026,10,8)-32400000;
+const SATURDAY_REGULAR_END=6*86400000;
+const SATURDAY_POSTSEASON_END=6*86400000+22*3600000;
+const REGULAR_TITLES=[
+ ['타격왕','batting','average'],['홈런왕','batting','homeRuns'],['타점왕','batting','rbi'],
+ ['도루왕','batting','stolenBases'],['득점왕','batting','runs'],['최다안타왕','batting','hits'],
+ ['출루율왕','batting','onBase'],['장타율왕','batting','slugging'],
+ ['다승왕','pitching','wins'],['세이브왕','pitching','saves'],['홀드왕','pitching','holds'],
+ ['이닝왕','pitching','innings'],['탈삼진왕','pitching','strikeouts'],
+ ['평균자책점왕','pitching','era'],['WHIP왕','pitching','whip']
+];
+const GG_POSITIONS=[['포수','포수'],['1루수','1루수'],['2루수','2루수'],['3루수','3루수'],
+ ['유격수','유격수'],['좌익수','좌익수'],['중견수','중견수'],['우익수','우익수'],
+ ['지명타자','지명타자'],['투수','투수']];
+function recordSeasonAward(club,week,stage,title,player,cash,cp){
+ club.cash=(Number(club.cash)||0)+cash;
+ club.cp=(Number(club.cp)||0)+cp;
+ club.seasonAwards=Array.isArray(club.seasonAwards)?club.seasonAwards:[];
+ club.seasonAwards.unshift({week,stage,title,playerId:player?.id||null,playerName:player?.name||null,cash,cp,at:Date.now()});
+ club.seasonAwards=club.seasonAwards.slice(0,140);
+ club.transactions=Array.isArray(club.transactions)?club.transactions:[];
+ club.transactions.unshift({type:'리그시상',name:title+(player?' · '+player.name:''),price:cash,cp,time:Date.now()});
+ club.transactions=club.transactions.slice(0,100);
+}
+function settleSeasonAwards(now=Date.now()){
+ const current=weekStart(now);
+ let changed=false;
+ for(const w of [current-604800000,current]){
+  if(w<AWARD_SYSTEM_FIRST_WEEK)continue;
+  const stage=now>=w+SATURDAY_POSTSEASON_END?'postseason':now>=w+SATURDAY_REGULAR_END?'regular':null;
+  if(!stage)continue;
+  for(const c of db.clubs||[]){
+   // A club formed after the regular season cannot receive that season's prizes.
+   if((Number(c.leagueJoinedAt)||now)>w+SATURDAY_REGULAR_END)continue;
+   c.awardSettled=Array.isArray(c.awardSettled)?c.awardSettled:[];
+   const regularKey=w+':regular',postseasonKey=w+':postseason';
+   if(!c.awardSettled.includes(regularKey)){
+    const lg=leagueInfo(c,w+SATURDAY_REGULAR_END+1000);
+    const rank=lg.standings.findIndex(x=>x.id===c.id)+1;
+    const tier=tierNum(c),rankReward=LEAGUE_REWARDS[tier][rank-1]||LEAGUE_REWARDS[tier][9];
+    recordSeasonAward(c,w,'regular','정규시즌 '+rank+'위 순위 보상',null,rankReward.cash,rankReward.cp);
+    if(rank===1)recordSeasonAward(c,w,'regular','정규시즌 리그 1위',null,50000000,100);
+    const ownId=new Set((c.players||[]).map(p=>String(p.id)));
+    for(const [title,kind,key] of REGULAR_TITLES){
+     const winner=lg.leagueLeaders?.[kind]?.[key];
+     if(winner&&winner.teamId===c.teamId&&ownId.has(String(winner.id))){
+      recordSeasonAward(c,w,'regular',title,winner,5000000,10);
+     }
+    }
+    c.awardSettled.push(regularKey);
+    changed=true;
+   }
+   if(stage==='postseason'&&!c.awardSettled.includes(postseasonKey)){
+    const lg=leagueWithTeamRosters(c,w+SATURDAY_POSTSEASON_END+1000);
+    if(lg.postseasonChampion===c.id)recordSeasonAward(c,w,'postseason','포스트시즌 최종 우승',null,100000000,200);
+    const roster=new Map();
+    for(const team of lg.standings||[])for(const player of team.roster||[])roster.set(String(team.teamId)+':'+String(player.id),player);
+    const batters=lg.batterRanking||[],pitchers=lg.pitcherRanking||[];
+    const uniqueWinners=[];
+    for(const [label,position] of GG_POSITIONS){
+     const candidates=position==='투수'?pitchers:batters.filter(p=>{
+      const player=roster.get(String(p.teamId)+':'+String(p.id));
+      return player?.pos===position;
+     });
+     const winner=[...candidates].sort((a,b)=>Number(b.war||0)-Number(a.war||0)||b.games-a.games)[0];
+     if(!winner)continue;
+     uniqueWinners.push({label,winner});
+     if(winner.teamId===c.teamId&&(c.players||[]).some(p=>String(p.id)===String(winner.id))){
+      recordSeasonAward(c,w,'postseason','골든글러브 '+label,winner,20000000,40);
+     }
+    }
+    // MVP is awarded to the highest WAR across all batters and pitchers.
+    const mvp=[...batters,...pitchers].sort((a,b)=>Number(b.war||0)-Number(a.war||0)||b.games-a.games)[0];
+    if(mvp&&mvp.teamId===c.teamId&&(c.players||[]).some(p=>String(p.id)===String(mvp.id))){
+     recordSeasonAward(c,w,'postseason','시즌 MVP',mvp,50000000,100);
+    }
+    c.awardSettled.push(postseasonKey);
+    changed=true;
+   }
+  }
+ }
+ if(changed)save();
+}
+
 function settleSeasons(now=Date.now()){
  const activeStart=weekStart(now),previous=activeStart-604800000;
  if(!db.clubs?.length)return;
@@ -782,7 +868,7 @@ function settleSeasons(now=Date.now()){
   });
   for(const o of outcomes){
    const {c,rank,tier,reward,promoted,week}=o;
-   c.cash+=reward.cash;c.cp+=reward.cp;
+   if(week<AWARD_SYSTEM_FIRST_WEEK){c.cash+=reward.cash;c.cp+=reward.cp}
    c.leagueHistory.unshift({week,league:LEAGUE_TIERS[tier].name,rank,cash:reward.cash,cp:reward.cp,promoted,to:promoted?LEAGUE_TIERS[tier+1].name:null});
    c.leagueHistory=c.leagueHistory.slice(0,20);
    if(promoted)c.leagueTier=tier+1;
@@ -986,7 +1072,7 @@ function communityFeed(user){
    teamId:post.teamId,teamName:team?.name||'미소속',comments};
  });
 }
-const view=(u)=>{if(syncFranchiseNames())save();syncGrowth();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{if(syncFranchiseNames())save();syncGrowth();settleSeasonAwards();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -1451,12 +1537,15 @@ function scheduleNextSeasonSettlement(){
  const now=Date.now(),next=weekStart(now)+604800000;
  const delay=Math.max(1000,next-now);
  const timer=setTimeout(()=>{
-  try{settleSeasons(Date.now());creditLeagueGames(Date.now())}
+  try{settleSeasonAwards(Date.now());settleSeasons(Date.now());creditLeagueGames(Date.now())}
   catch(e){console.error('Season settlement failed:',e)}
   finally{scheduleNextSeasonSettlement()}
  },delay);
  if(typeof timer.unref==='function')timer.unref();
 }
 scheduleNextSeasonSettlement();
+// Saturday awards are evaluated even if nobody opens the site at the deadline.
+const awardClock=setInterval(()=>{try{settleSeasonAwards(Date.now())}catch(e){console.error('Award settlement failed:',e)}},60000);
+if(typeof awardClock.unref==='function')awardClock.unref();
 let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(url.pathname==='/api/rewarded-verify'&&req.method==='POST'){queue=queue.then(()=>verifiedAdWebhook(req,res)).catch(()=>send(res,500,{error:'광고 확인 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
 if(url.pathname!=='/'&&url.pathname!=='/index.html')return send(res,404,{error:'페이지 없음'});fs.readFile(__dirname+'/index.html',(err,data)=>{if(err)return send(res,500,{error:'게임 화면 없음'});res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store'});res.end(data)})}).listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('Diamond GM test server running'));
