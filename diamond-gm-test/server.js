@@ -942,8 +942,50 @@ function shopCatalog(){
  }
  return db.shopCatalog;
 }
+// A limited offer quota counts purchases of the product bundle.
+function shopSale(item){
+ const remaining=Math.max(0,(Number(item.saleLimit)||0)-(Number(item.saleUsed)||0));
+ const percent=Number(item.salePercent)||0;
+ const active=!!item.active&&remaining>0&&percent>=1&&percent<=99;
+ return {active,remaining,percent:active?percent:0,price:active?Math.max(1,Math.ceil(item.price*(100-percent)/100)):item.price};
+}
+// Bought goods expire one calendar month after the purchase in Korean local time.
+function monthAfterKorea(time){
+ const d=new Date(time+32400000),y=d.getUTCFullYear(),m=d.getUTCMonth(),day=d.getUTCDate();
+ const maxDay=new Date(Date.UTC(y,m+2,0)).getUTCDate();
+ d.setUTCDate(1);d.setUTCMonth(m+1);d.setUTCDate(Math.min(day,maxDay));
+ return d.getTime()-32400000;
+}
+function expirePurchasedItems(c,now=Date.now()){
+ if(!c)return false;
+ c.shopItemBatches=Array.isArray(c.shopItemBatches)?c.shopItemBatches:[];
+ let changed=false;const kept=[];
+ for(const batch of c.shopItemBatches){
+  if(!batch||!['sportsDrinks','growthBoosters','flyingCoachTickets'].includes(batch.field))continue;
+  const n=Math.max(0,Math.trunc(Number(batch.remaining)||0));if(!n)continue;
+  if(Number(batch.expiresAt)<=now){c[batch.field]=Math.max(0,(Number(c[batch.field])||0)-n);changed=true}
+  else kept.push(batch);
+ }
+ if(kept.length!==c.shopItemBatches.length){c.shopItemBatches=kept;changed=true}
+ return changed;
+}
+function expireAllPurchasedItems(now=Date.now()){
+ let changed=false;for(const c of db.clubs||[])if(expirePurchasedItems(c,now))changed=true;
+ return changed;
+}
+function consumePurchasedItem(c,field){
+ const batches=Array.isArray(c.shopItemBatches)?c.shopItemBatches.filter(b=>b.field===field).sort((a,b)=>a.expiresAt-b.expiresAt):[];
+ for(const b of batches)if(Number(b.remaining)>0){b.remaining--;break}
+ if(Array.isArray(c.shopItemBatches))c.shopItemBatches=c.shopItemBatches.filter(b=>Number(b.remaining)>0);
+}
+function trackPurchasedItems(c,field,quantity,now=Date.now()){
+ c.shopItemBatches=Array.isArray(c.shopItemBatches)?c.shopItemBatches:[];
+ const expiresAt=monthAfterKorea(now);
+ c.shopItemBatches.push({id:uid(),field,remaining:quantity,purchasedAt:now,expiresAt});
+ return expiresAt;
+}
 function shopPublicCatalog(user){
- return shopCatalog().map(item=>(isAdminUser(user)||item.active)?{...item}:{id:item.id,active:false});
+ return shopCatalog().map(item=>(isAdminUser(user)||item.active)?{...item,sale:shopSale(item)}:{id:item.id,active:false});
 }
 function cleanShopText(value,length,required=false){
  const text=String(value??'').trim().replace(/[\u0000-\u001F\u007F]/g,' ');
@@ -1077,7 +1119,7 @@ function communityFeed(user){
    teamId:post.teamId,teamName:team?.name||'미소속',comments};
  });
 }
-const view=(u)=>{if(syncFranchiseNames())save();syncGrowth();settleSeasonAwards();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:null,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{if(syncFranchiseNames())save();if(expireAllPurchasedItems())save();syncGrowth();settleSeasonAwards();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:null,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -1393,7 +1435,7 @@ else if(a.type==='shopSave'){
  const current=shopCatalog()[slot-1];
  const reset=a.reset===true;
  if(reset){
-  db.shopCatalog[slot-1]={id:current.id,active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000};
+  db.shopCatalog[slot-1]={id:current.id,active:false,kind:'sportsDrink',name:'',desc:'',icon:'',quantity:1,price:1000000,salePercent:0,saleLimit:0,saleUsed:0};
  }else{
   const kind=String(a.kind||current.kind||'sportsDrink');
   if(!['sportsDrink','growthBooster','flyingCoach'].includes(kind))throw Error('등록할 수 없는 상품 종류입니다');
@@ -1403,7 +1445,12 @@ else if(a.type==='shopSave'){
    const minPrice=cpItem?1:1000,maxPrice=cpItem?100000:1000000000;
   if(!Number.isSafeInteger(price)||price<minPrice||price>maxPrice)throw Error('가격 범위: CP 상품 1~100,000 CP / 게임머니 상품 1,000~10억원');
   if(!Number.isSafeInteger(quantity)||quantity<1||quantity>10000)throw Error('수량은 1~10,000개 사이의 정수로 입력하세요');
-  db.shopCatalog[slot-1]={id:current.id,active,kind,name:kind==='flyingCoach'?'플레잉코치권':name,desc,icon:kind==='flyingCoach'?'📋':icon,quantity,price};
+  const saleEnabled=a.saleEnabled===true;
+  const salePercent=saleEnabled?Number(a.salePercent):0,saleLimit=saleEnabled?Number(a.saleLimit):0;
+  if(saleEnabled&&(!Number.isInteger(salePercent)||salePercent<1||salePercent>99||!Number.isInteger(saleLimit)||saleLimit<1||saleLimit>1000000))throw Error('할인율은 1~99%, 한정 수량은 1~1,000,000개로 입력하세요');
+  const unchanged=current.kind===kind&&Number(current.salePercent||0)===salePercent&&Number(current.saleLimit||0)===saleLimit;
+  const saleUsed=unchanged?Math.min(saleLimit,Number(current.saleUsed)||0):0;
+  db.shopCatalog[slot-1]={id:current.id,active,kind,name:kind==='flyingCoach'?'플레잉코치권':name,desc,icon:kind==='flyingCoach'?'📋':icon,quantity,price,salePercent,saleLimit,saleUsed};
  }
  result={message:slot+'번 상품이 '+(db.shopCatalog[slot-1].active?'판매 중으로 저장':'입고중으로 저장')+'되었습니다'};
 }
@@ -1414,27 +1461,32 @@ else if(a.type==='rewardAdStart'){
  result={message:'광고 요청 준비 완료',adNonce:c.rewardedAdPending.nonce};
 }
 else if(a.type==='shopBuy'){
+ expirePurchasedItems(c);
  const offer=shopCatalog().find(x=>x.id===String(a.item||'')&&x.active===true);
  if(!offer||!['sportsDrink','growthBooster','flyingCoach'].includes(offer.kind))throw Error('판매 중인 상품이 아닙니다');
  const cpItem=offer.kind==='growthBooster'||offer.kind==='flyingCoach';
+ const sale=shopSale(offer),chargedPrice=sale.price;
  if(!Number.isSafeInteger(offer.price)||offer.price<(cpItem?1:1000))throw Error('상품 가격이 올바르지 않습니다');
  if(!Number.isSafeInteger(offer.quantity)||offer.quantity<1)throw Error('상품 수량이 올바르지 않습니다');
  if(cpItem){
-  if(!Number.isFinite(c.cp)||c.cp<offer.price)throw Error('보유 CP가 부족합니다');
+  if(!Number.isFinite(c.cp)||c.cp<chargedPrice)throw Error('보유 CP가 부족합니다');
   const field=offer.kind==='flyingCoach'?'flyingCoachTickets':'growthBoosters';
   if(!Number.isSafeInteger(c[field]||0)||c[field]<0)throw Error('보유 아이템 정보가 올바르지 않습니다');
   if((c[field]||0)+offer.quantity>999999)throw Error('아이템 보관 한도를 초과했습니다');
-  c.cp-=offer.price;
+  c.cp-=chargedPrice;
   c[field]=(c[field]||0)+offer.quantity;
  }else{
-  if(!Number.isFinite(c.cash)||c.cash<offer.price)throw Error('보유 게임머니가 부족합니다');
+  if(!Number.isFinite(c.cash)||c.cash<chargedPrice)throw Error('보유 게임머니가 부족합니다');
   if(!Number.isSafeInteger(c.sportsDrinks||0)||c.sportsDrinks<0)throw Error('보유 음료 정보가 올바르지 않습니다');
   const field='sportsDrinks';
   if((Number(c[field])||0)+offer.quantity>999999)throw Error('아이템 보관 한도를 초과했습니다');
-  c.cash-=offer.price;
+  c.cash-=chargedPrice;
   c[field]=(Number(c[field])||0)+offer.quantity;
  }
- result={message:offer.name+' 구매 완료',purchasedItem:offer.id,quantity:offer.quantity};
+ if(sale.active)offer.saleUsed=(Number(offer.saleUsed)||0)+1;
+ const field=offer.kind==='sportsDrink'?'sportsDrinks':offer.kind==='growthBooster'?'growthBoosters':'flyingCoachTickets';
+ const expiresAt=trackPurchasedItems(c,field,offer.quantity);
+ result={message:offer.name+' 구매 완료 · 구매일로부터 1개월 후 소멸',purchasedItem:offer.id,quantity:offer.quantity,paid:chargedPrice,expiresAt};
 }
 else if(a.type==='useFlyingCoach'){
  const p=c.players.find(x=>x.id===String(a.id||''));
@@ -1442,7 +1494,7 @@ else if(a.type==='useFlyingCoach'){
  ensurePlayer(p);
  if(p.flyingCoach)throw Error('이미 플레잉코치가 적용된 선수입니다');
  if((Number(c.flyingCoachTickets)||0)<1)throw Error('플레잉코치권을 보유하고 있지 않습니다');
- c.flyingCoachTickets--;
+ c.flyingCoachTickets--;consumePurchasedItem(c,'flyingCoachTickets');
  p.flyingCoach={lockedAge:p.age,contracts:0,until:0,activatedAt:Date.now()};
  result={message:p.name+' 선수 플레잉코치 적용 완료 · 나이·능력치 고정 / 성장 불가 / 거래 불가 · 첫 주 계약 10 CP'};
 }
@@ -1465,7 +1517,7 @@ else if(a.type==='useGrowthBooster'){
  if(p.flyingCoach)throw Error('플레잉코치의 성장등급은 고정되어 있습니다');
  if(p.grade==='S')throw Error('이미 성장타입 S인 선수입니다');
  if(!Number.isSafeInteger(c.growthBoosters||0)||(c.growthBoosters||0)<1)throw Error('성장부스터가 부족합니다');
- c.growthBoosters--;
+ c.growthBoosters--;consumePurchasedItem(c,'growthBoosters');
  p.grade='S';
  result={message:p.name+' 선수 성장타입 S 달성! A타입 대비 2배 성장'};
 }
@@ -1473,7 +1525,7 @@ else if(a.type==='useDrink'){
  const p=c.players.find(p=>p.id===a.id);if(!p)throw Error('선수가 없습니다');
  ensurePlayer(p);if((c.sportsDrinks||0)<1)throw Error('스포츠음료가 부족합니다');
  if(p.condition>=5)throw Error('이미 최강 컨디션입니다');
- c.sportsDrinks--;p.condition++;
+ c.sportsDrinks--;consumePurchasedItem(c,'sportsDrinks');p.condition++;
  result={message:p.name+' 선수의 컨디션이 한 단계 상승했습니다'};
 }
 else if(a.type==='friendly'){
@@ -1550,6 +1602,8 @@ function scheduleNextSeasonSettlement(){
 }
 scheduleNextSeasonSettlement();
 // Saturday awards are evaluated even if nobody opens the site at the deadline.
+const inventoryClock=setInterval(()=>{try{if(expireAllPurchasedItems())save()}catch(e){console.error('Item expiry failed:',e)}},60000);
+if(typeof inventoryClock.unref==='function')inventoryClock.unref();
 const awardClock=setInterval(()=>{try{settleSeasonAwards(Date.now())}catch(e){console.error('Award settlement failed:',e)}},60000);
 if(typeof awardClock.unref==='function')awardClock.unref();
 let queue=Promise.resolve();http.createServer((req,res)=>{const url=new URL(req.url,'http://localhost');if(url.pathname==='/api/state')return send(res,200,view(db.users.find(x=>x.id===sessions.get(getCookie(req)))));if(url.pathname==='/api/action'&&req.method==='POST'){queue=queue.then(()=>act(req,res)).catch(()=>send(res,500,{error:'서버 오류'}));return}if(url.pathname==='/api/rewarded-verify'&&req.method==='POST'){queue=queue.then(()=>verifiedAdWebhook(req,res)).catch(()=>send(res,500,{error:'광고 확인 오류'}));return}if(req.method!=='GET')return send(res,405,{error:'허용되지 않음'});if(url.pathname==='/avatar3d.js')return fs.readFile(__dirname+'/avatar3d.js',(err,data)=>{if(err)return send(res,404,{error:'3D 캐릭터 파일 없음'});res.writeHead(200,{'Content-Type':'application/javascript; charset=utf-8','Cache-Control':'no-store, must-revalidate'});res.end(data)});
