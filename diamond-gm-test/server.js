@@ -304,7 +304,7 @@ function effectivePlayerStrength(p,ctx={}){
  for(const id of p.specialAbilities||[]){
   const trait=SPECIAL_BY_ID.get(id);
   if(!trait||trait.type!==(p.isPitcher?'pitcher':'batter')||!specialCondition(p,trait.when,ctx))continue;
-  for(const [stat,boost] of Object.entries(trait.boost))if(stat in values)values[stat]=Math.min(CAP,values[stat]+boost);
+  for(const [stat,boost] of Object.entries(trait.boost))if(stat in values)values[stat]+=Number(boost)||0; // Temporary in-game boost is not subject to permanent-stat cap.
   activated.push({id:trait.id,name:trait.name});
  }
  return {strength:Object.values(values).reduce((a,b)=>a+b,0)/6,values,activated};
