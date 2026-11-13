@@ -652,7 +652,8 @@ function leagueInfo(c,now=Date.now()){
   for(let j=0;j<5;j++){let a=order[j],b=order[9-j];if(r%2===1)[a,b]=[b,a];games.push({round:r+1,slot:r,home:members[a].id,away:members[b].id})}
   order=[order[0],order[9],...order.slice(1,9)];
  }
- function slotTime(slot){return start+Math.floor(slot/24)*86400000+(slot%24)*3600000}
+ // 144 consecutive hourly slots: Sunday 00:00 through Friday 23:00 (Asia/Seoul).
+ function slotTime(slot){return start+slot*3600000}
  function result(g){
   const key=[start,tier,pool,g.round,g.home,g.away].join('|');
   const cached=leagueGameCache.get(key);
@@ -660,10 +661,13 @@ function leagueInfo(c,now=Date.now()){
   const stored=db.leagueGames&&db.leagueGames[key];
   if(stored?.engineVersion===GAME_ENGINE_VERSION){leagueGameCache.set(key,stored);return stored}
   const h=members.find(m=>m.id===g.home),a=members.find(m=>m.id===g.away);
-  const strength=LEAGUE_TIERS[tier].average;
+  const strength=LEAGUE_TIERS[tier].average,time=slotTime(g.slot);
+  // Before a late-joining club existed, the corresponding local team played as AI.
+  const homeClub=h.club&&time>=Number(h.club.leagueJoinedAt||0)?h.club:null;
+  const awayClub=a.club&&time>=Number(a.club.leagueJoinedAt||0)?a.club:null;
   const simulated=runGame(
-   gameTeam(h.club,strength,h.name,h.club?key+':home':start+':'+tier+':'+pool+':'+h.teamId,g.round),
-   gameTeam(a.club,strength,a.name,a.club?key+':away':start+':'+tier+':'+pool+':'+a.teamId,g.round),key);
+   gameTeam(homeClub,strength,h.name,homeClub?key+':home':start+':'+tier+':'+pool+':'+h.teamId,g.round),
+   gameTeam(awayClub,strength,a.name,awayClub?key+':away':start+':'+tier+':'+pool+':'+a.teamId,g.round),key);
   const box=simulated;
   box.engineVersion=GAME_ENGINE_VERSION;
   leagueGameCache.set(key,box);
@@ -671,30 +675,32 @@ function leagueInfo(c,now=Date.now()){
   if(start>=weekStart()-604800000){if(!db.leagueGames)db.leagueGames={};db.leagueGames[key]=box;newLeagueResults++}
   return box;
  }
- const isEligibleGame=g=>{
-  if(slotTime(g.slot)>now)return false;
-  // Only matches occurring AFTER a club was created can count for that club.
-  for(const id of [g.home,g.away]){
-   const member=byId[id];
-   if(!member?.real)continue;
-   const club=members.find(x=>x.id===id)?.club;
-   if(club&&Number.isFinite(Number(club.leagueJoinedAt))&&slotTime(g.slot)<Number(club.leagueJoinedAt))return false;
-  }
-  return true;
+ const joinedForGame=(id,g)=>{
+  const m=members.find(member=>member.id===id);
+  return !m?.club||!Number.isFinite(Number(m.club.leagueJoinedAt))||slotTime(g.slot)>=Number(m.club.leagueJoinedAt);
  };
+ const isEligibleGame=g=>slotTime(g.slot)<=now;
+ // Before joining, a human club has NO played matches or accrued player statistics.
+ // Its opponents nevertheless keep their normal results against the pre-join AI team.
  const completed=games.filter(isEligibleGame);
+ const playedFor=(id,g)=>isEligibleGame(g)&&joinedForGame(id,g);
  const batterStats=new Map(),pitcherStats=new Map();
  const ensureStat=(map,player,team)=>{const key=team.id+':'+String(player.id||player.name);
   if(!map.has(key))map.set(key,{id:String(player.id||''),name:String(player.name||'선수'),teamId:team.teamId,teamName:team.name,ownerName:team.ownerName,ab:0,h:0,h2:0,h3:0,tb:0,r:0,hr:0,rbi:0,bb:0,sb:0,so:0,outs:0,er:0,wins:0,losses:0,saves:0,holds:0,decisionsAvailable:false,games:0,basesComplete:true});
   return map.get(key)};
  for(const g of completed){const box=result(g),h=box.home.runs,a=box.away.runs,t1=byId[g.home],t2=byId[g.away];for(const [side,clubId] of [['home',g.home],['away',g.away]]){
+   if(!joinedForGame(clubId,g))continue;
    const club=byId[clubId],details=box[side];
    if(!details)continue;
    for(const b of details.batters||[]){const row=ensureStat(batterStats,b,club);row.ab+=Number(b.ab)||0;row.h+=Number(b.h)||0;row.h2+=Number(b.h2)||0;row.h3+=Number(b.h3)||0;row.tb+=Number(b.tb)||0;row.r+=Number(b.r)||0;row.hr+=Number(b.hr)||0;row.rbi+=Number(b.rbi)||0;row.bb+=Number(b.bb)||0;row.sb+=Number(b.sb)||0;row.so+=Number(b.so)||0;row.basesComplete=row.basesComplete&&Number.isFinite(Number(b.tb))&&b.tb!=null;row.games++}
    for(const p of details.pitchers||[]){const row=ensureStat(pitcherStats,p,club);row.outs+=Number(p.outs)||0;row.er+=Number(p.er)||0;row.h+=Number(p.h)||0;row.bb+=Number(p.bb)||0;row.so+=Number(p.so)||0;
     if(Number.isFinite(Number(p.w))&&p.w!==undefined){row.decisionsAvailable=true;row.wins+=Number(p.w)||0;row.losses+=Number(p.l)||0;row.saves+=Number(p.sv)||0;row.holds+=Number(p.hld)||0}row.games++}
   }
-  t1.played++;t2.played++;t1.scored+=h;t1.allowed+=a;t2.scored+=a;t2.allowed+=h;if(h>a){t1.wins++;t2.losses++}else if(h<a){t2.wins++;t1.losses++}else{t1.draws++;t2.draws++}}
+  for(const [id,pointsFor,pointsAgainst] of [[g.home,h,a],[g.away,a,h]]){
+   if(!joinedForGame(id,g))continue;
+   const entry=byId[id];entry.played++;entry.scored+=pointsFor;entry.allowed+=pointsAgainst;
+   if(pointsFor>pointsAgainst)entry.wins++;else if(pointsFor<pointsAgainst)entry.losses++;else entry.draws++;
+  }}
  standings.sort((a,b)=>((b.wins+b.draws*.5)/Math.max(1,b.played))-((a.wins+a.draws*.5)/Math.max(1,a.played))||b.wins-a.wins||(b.scored-b.allowed)-(a.scored-a.allowed));
  const allBatterStats=[...batterStats.values()].filter(row=>row.ab+row.bb>0).map(row=>{
   // Qualification is based on the player's own club games, not other clubs' schedules.
@@ -758,9 +764,9 @@ function leagueInfo(c,now=Date.now()){
  const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,250);
  const next=games.find(g=>slotTime(g.slot)>now);
  const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
- const allSchedule=games.filter(g=>g.home===c.id||g.away===c.id).map(g=>({...decorate(g),played:isEligibleGame(g),score:isEligibleGame(g)?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null,
-  preJoin:slotTime(g.slot)<=now&&!isEligibleGame(g)}));
- const recent=completed.filter(g=>g.home===c.id||g.away===c.id).slice(-8).reverse().map(g=>{const box=result(g);return {...decorate(g),score:box.home.runs+' : '+box.away.runs,detail:box}});
+ const allSchedule=games.filter(g=>g.home===c.id||g.away===c.id).map(g=>({...decorate(g),played:playedFor(c.id,g),score:playedFor(c.id,g)?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null,
+  preJoin:slotTime(g.slot)<=now&&!joinedForGame(c.id,g)}));
+ const recent=completed.filter(g=>(g.home===c.id||g.away===c.id)&&joinedForGame(c.id,g)).slice(-8).reverse().map(g=>{const box=result(g);return {...decorate(g),score:box.home.runs+' : '+box.away.runs,detail:box}});
  const upcoming=games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).slice(0,6).map(decorate);
  let postseason=[],postseasonChampion=null;
  const saturday=start+6*86400000;
@@ -797,8 +803,8 @@ function leagueInfo(c,now=Date.now()){
   for(const k of Object.keys(db.leagueGames||{}))if(Number(k.split('|')[0])<floor)delete db.leagueGames[k];
   save();
  }
- return {tier,tierName:LEAGUE_TIERS[tier].name,postseasonChampion,allSchedule,batterRanking,pitcherRanking,leagueLeaders,weeklyPlayerStats:{batters:allBatterStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id))),pitchers:allPitcherStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id)))},rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~금 144경기/구단 · 매시간 경기 결과 · 토요일 가을야구',maxGames:144,completedRounds:completed.filter(g=>g.home===c.id||g.away===c.id).length,
- remainingRounds:games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now).length,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
+ return {tier,tierName:LEAGUE_TIERS[tier].name,postseasonChampion,allSchedule,batterRanking,pitcherRanking,leagueLeaders,weeklyPlayerStats:{batters:allBatterStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id))),pitchers:allPitcherStats.filter(p=>p.teamId===c.teamId&&c.players.some(x=>String(x.id)===String(p.id)))},rewards:LEAGUE_REWARDS[tier],promotionPlaces:tier<LEAGUE_TIERS.length-1?2:0,tiers:LEAGUE_TIERS,aiAverage:LEAGUE_TIERS[tier].average,leagueHistory:(c.leagueHistory||[]).slice(0,6),start,end:start+7*86400000,format:'10개 구단 · 일~금 144경기/구단 · 매시간 경기 결과 · 토요일 가을야구',maxGames:144,completedRounds:completed.filter(g=>(g.home===c.id||g.away===c.id)&&joinedForGame(c.id,g)).length,
+ remainingRounds:games.filter(g=>(g.home===c.id||g.away===c.id)&&slotTime(g.slot)>now&&joinedForGame(c.id,g)).length,nextTime:next?slotTime(next.slot):null,standings:standings.map(x=>x),recent,upcoming,postseason,memberCount:real.length,botCount:10-real.length};
 }
 
 // Salary is collected once at the start of each new Korean-time Sunday season.
