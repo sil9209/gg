@@ -2772,7 +2772,7 @@ const lg=state.league||{tier:0,tierName:'루키리그',standings:[],recent:[],up
 const fmt=t=>new Date(t).toLocaleString('ko-KR',{timeZone:'Asia/Seoul',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 const tiers=(lg.tiers||[]).map(t=>t.name),tier=Number(lg.tier)||0;
 const recentSeason=(lg.leagueHistory||[])[0];
-const sections=[['standings','🏆 순위표'],['schedule','📅 전체일정'],['batters','🏏 타자순위'],['pitchers','⚾ 투수순위']];
+const sections=[['standings','🏆 순위표'],['schedule','📅 내 경기일정'],['batters','🏏 타자순위'],['pitchers','⚾ 투수순위']];
 const leagueNav='<nav class="gm-league-switch" aria-label="리그 통계 메뉴">'+sections.map(([id,name])=>'<button type="button" data-league-section="'+id+'" class="'+(leagueSection===id?'selected':'')+'" aria-pressed="'+(leagueSection===id)+'">'+name+'</button>').join('')+'</nav>';
 const bindLeagueNav=()=>document.querySelectorAll('[data-league-section]').forEach(btn=>btn.onclick=()=>{leagueSection=btn.dataset.leagueSection;content()});
 function scheduleResultMarkup(g){
@@ -2797,7 +2797,7 @@ if(leagueSection==='schedule'){
  if(leagueScheduleDate==='today'&&!days.includes(todayKey))leagueScheduleDate=days[0]||'all';
  const date=leagueScheduleDate==='today'?todayKey:leagueScheduleDate;
  const selected=date==='all'?schedule:schedule.filter(g=>dayKey(g.time)===date);
- el.innerHTML=leagueNav+'<section class="panel gm-league-stat-page"><div class="gm-league-stat-header"><div><h2>📅 전체 경기 일정</h2><p>리그 전체 10개 구단의 144라운드 일정 · 총 '+schedule.length+'경기</p></div><label>날짜 선택<select id="gmLeagueDate"><option value="all" '+(date==='all'?'selected':'')+'>전체 날짜</option>'+days.map(d=>'<option value="'+esc(d)+'" '+(date===d?'selected':'')+'>'+esc(d)+'</option>').join('')+'</select></label></div><div class="gm-league-schedule-list">'+(selected.length?selected.map(g=>'<div class="gm-league-schedule-match"><span class="gm-league-round">'+g.round+'R</span><div>'+leagueMatch(g,true)+'</div><time>'+fmt(g.time)+'</time><b class="gm-schedule-result '+(g.played?'done':'upcoming')+'">'+scheduleResultMarkup(g)+'</b></div>').join(''):'<p class="muted">해당 날짜에 편성된 경기가 없습니다.</p>')+'</div></section>';
+ el.innerHTML=leagueNav+'<section class="panel gm-league-stat-page"><div class="gm-league-stat-header"><div><h2>📅 내 경기일정</h2><p>우리 구단의 정규시즌 경기만 표시 · 총 '+schedule.length+'경기</p></div><label>날짜 선택<select id="gmLeagueDate"><option value="all" '+(date==='all'?'selected':'')+'>전체 날짜</option>'+days.map(d=>'<option value="'+esc(d)+'" '+(date===d?'selected':'')+'>'+esc(d)+'</option>').join('')+'</select></label></div><div class="gm-league-schedule-list">'+(selected.length?selected.map(g=>'<div class="gm-league-schedule-match"><span class="gm-league-round">'+g.round+'R</span><div>'+leagueMatch(g,true)+'</div><time>'+fmt(g.time)+'</time><b class="gm-schedule-result '+(g.played?'done':'upcoming')+'">'+scheduleResultMarkup(g)+'</b></div>').join(''):'<p class="muted">해당 날짜에 편성된 경기가 없습니다.</p>')+'</div></section>';
  bindLeagueNav();
  document.getElementById('gmLeagueDate').onchange=e=>{leagueScheduleDate=e.target.value;content()};
  document.querySelectorAll('[data-schedule-team]').forEach(btn=>btn.onclick=()=>{
