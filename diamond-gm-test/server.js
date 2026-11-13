@@ -221,7 +221,7 @@ function teamMatchStrength(c,ctx={}){
  const lineup=[...bats,...(pitcher?[pitcher]:[])];
  if(!lineup.length)return c.players.reduce((sum,p)=>sum+playerStrength(p),0)/Math.max(1,c.players.length);
  return lineup.reduce((sum,p,index)=>{
-  const role=p.isPitcher?(p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'):null;
+  const role=p.isPitcher?(c.pitcherRotation?.starter1===p.id?'starter':Object.entries(c.pitcherRotation||{}).some(([key,id])=>key.startsWith('closer')&&id===p.id)?'closer':Object.values(c.pitcherRotation||{}).includes(p.id)?'relief':p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'):null;
   const effect=effectivePlayerStrength(p,{...ctx,battingIndex:p.isPitcher?null:index,pitcherRole:role,fieldPosition:p.isPitcher?null:matchFieldPosition(c,p)});
   return sum+effect.strength*(.8+(p.condition||3)*.05);
  },0)/lineup.length;
