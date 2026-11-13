@@ -221,7 +221,7 @@ function teamMatchStrength(c,ctx={}){
  const lineup=[...bats,...(pitcher?[pitcher]:[])];
  if(!lineup.length)return c.players.reduce((sum,p)=>sum+playerStrength(p),0)/Math.max(1,c.players.length);
  return lineup.reduce((sum,p,index)=>{
-  const role=p.isPitcher?(p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'):null;
+  const role=p.isPitcher?(c.pitcherRotation?.starter1===p.id?'starter':Object.entries(c.pitcherRotation||{}).some(([key,id])=>key.startsWith('closer')&&id===p.id)?'closer':Object.values(c.pitcherRotation||{}).includes(p.id)?'relief':p.pos==='마무리'?'closer':p.pos==='중계'?'relief':'starter'):null;
   const effect=effectivePlayerStrength(p,{...ctx,battingIndex:p.isPitcher?null:index,pitcherRole:role,fieldPosition:p.isPitcher?null:matchFieldPosition(c,p)});
   return sum+effect.strength*(.8+(p.condition||3)*.05);
  },0)/lineup.length;
@@ -317,7 +317,14 @@ function effectivePlayerStrength(p,ctx={}){
   for(const [stat,boost] of Object.entries(trait.boost))if(stat in values)values[stat]+=Number(boost)||0; // Temporary in-game boost is not subject to permanent-stat cap.
   activated.push({id:trait.id,name:trait.name});
  }
+ // Off-position penalties are game-only; permanent player attributes remain intact.
+ if(!p.isPitcher&&ctx.fieldPosition&&ctx.fieldPosition!=='DH'&&DEFENSE_NATIVE[p.pos]!==ctx.fieldPosition)values.defense=1;
+ if(p.isPitcher&&ctx.pitcherRole){
+  const natural=p.pos==='선발'?'starter':p.pos==='마무리'?'closer':'relief';
+  if(natural!==ctx.pitcherRole)values.stamina=1;
+ }
  return {strength:Object.values(values).reduce((a,b)=>a+b,0)/6,values,activated};
+
 }
 
 const playerStrength=p=>statKeys(p).reduce((total,key)=>total+(Number(p[key])||0),0)/6;
@@ -427,10 +434,29 @@ initializeAvatarRegistry();
 for(const c of db.clubs||[])for(const p of c.players||[])ensurePlayer(p);
 for(const l of db.listings||[])ensurePlayer(l.player);
 if((db.clubs||[]).length||(db.listings||[]).length)save();
-function club(user,name){const players=Array.from({length:25},()=>player(user.id));return {id:uid(),owner:user.id,name:canonicalFranchiseName(user.teamId,name),teamId:user.teamId,leagueJoinedAt:Date.now(),leagueTier:0,lastSettledWeek:weekStart()-604800000,salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:1000000000,cp:500,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
+function initialClubPlayers(owner){
+ const battingPositions=['포수','1루수','2루수','3루수','유격수','좌익수','중견수','우익수','지명타자'];
+ const players=battingPositions.map(pos=>{const p=player(owner,{pitcher:false});p.pos=pos;return p});
+ while(players.length<14)players.push(player(owner,{pitcher:false}));
+ for(const [pos,count] of [['선발',6],['중계',8],['마무리',2]])for(let i=0;i<count;i++){
+  const p=player(owner,{pitcher:true});p.pos=pos;players.push(p);
+ }
+ return players;
+}
+function ensureMandatoryRoster(c){
+ if(!Array.isArray(c.players))c.players=[];
+ const counts={batter:c.players.filter(p=>!p.isPitcher).length,'선발':0,'중계':0,'마무리':0};
+ for(const p of c.players)if(p.isPitcher){const role=p.pos==='마무리'?'마무리':p.pos==='선발'?'선발':'중계';counts[role]++}
+ for(let i=counts.batter;i<14;i++)c.players.push(player(c.owner,{pitcher:false}));
+ for(const [pos,min] of [['선발',6],['중계',8],['마무리',2]])for(let i=counts[pos];i<min;i++){
+  const p=player(c.owner,{pitcher:true});p.pos=pos;c.players.push(p);
+ }
+}
+function club(user,name){const players=initialClubPlayers(user.id);return {id:uid(),owner:user.id,name:canonicalFranchiseName(user.teamId,name),teamId:user.teamId,leagueJoinedAt:Date.now(),leagueTier:0,lastSettledWeek:weekStart()-604800000,salaryPaidSeasonStart:weekStart(),leagueHistory:[],sportsDrinks:0,growthBoosters:0,friendlyDaily:{day:'',used:0},friendlyHistory:[],retiredPlayers:[],cash:1000000000,cp:500,players,lineup:players.filter(p=>!p.isPitcher).slice(0,9).map(p=>p.id),pitcher:players.find(p=>p.isPitcher).id,wins:0,losses:0,draws:0,season:1,transactions:[]}}
 const DEFENSE_POS=['C','1B','2B','3B','SS','LF','CF','RF','DH'];
 const DEFENSE_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
 function fix(c){
+ ensureMandatoryRoster(c);
  const bats=c.players.filter(p=>!p.isPitcher),pitchers=c.players.filter(p=>p.isPitcher);
  c.lineup=[...new Set((c.lineup||[]).filter(id=>bats.some(p=>p.id===id)))];
  for(const p of bats)if(c.lineup.length<9&&!c.lineup.includes(p.id))c.lineup.push(p.id);
@@ -455,11 +481,11 @@ function fix(c){
  }
  for(const role of ['starter','relief','closer'])if(!assignments[role]){const p=pitchers.find(p=>!chosen.has(p.id));if(p){assignments[role]=p.id;chosen.add(p.id)}}
  c.pitcherAssignments=assignments;
- const rotationRoles=['starter1','starter2','starter3','starter4','starter5','relief1','relief2','relief3','relief4','setup','closer'];
+ const rotationRoles=[...Array.from({length:6},(_,i)=>'starter'+(i+1)),...Array.from({length:8},(_,i)=>'relief'+(i+1)),'closer','closer2'];
  const rotation=c.pitcherRotation&&typeof c.pitcherRotation==='object'?c.pitcherRotation:{};
  const seenPitchers=new Set(),newRotation={};
  for(const role of rotationRoles){const id=rotation[role]||(role==='starter1'?assignments.starter:role==='relief1'?assignments.relief:role==='closer'?assignments.closer:null);if(id&&pitchers.some(p=>p.id===id)&&!seenPitchers.has(id)){newRotation[role]=id;seenPitchers.add(id)}}
- for(const role of rotationRoles)if(!newRotation[role]){const p=pitchers.find(p=>!seenPitchers.has(p.id));if(p){newRotation[role]=p.id;seenPitchers.add(p.id)}}
+ for(const role of rotationRoles)if(!newRotation[role]){const target=role.startsWith('starter')?'선발':role.startsWith('closer')?'마무리':'중계';const p=pitchers.find(p=>!seenPitchers.has(p.id)&&p.pos===target)||pitchers.find(p=>!seenPitchers.has(p.id));if(p){newRotation[role]=p.id;seenPitchers.add(p.id)}}
  c.pitcherRotation=newRotation;
  c.pitcher=newRotation.starter1||assignments.starter||c.pitcher;
  c.pitcherAssignments={starter:c.pitcher,relief:newRotation.relief1||null,closer:newRotation.closer||null};
@@ -591,21 +617,27 @@ function gameTeam(c,average,name,seed,round=1){
  const rotation=c.pitcherRotation||{},all=c.players.filter(p=>p.isPitcher&&eligible(p));
  // Five distinct starters rotate by game round; a missing starter slot is filled automatically.
  const findPitcher=id=>all.find(p=>p.id===id);
- const rotationSlots=Array.from({length:5},(_,i)=>findPitcher(rotation['starter'+(i+1)]));
+ const rotationSlots=Array.from({length:6},(_,i)=>findPitcher(rotation['starter'+(i+1)]));
  const usedStarters=new Set(rotationSlots.filter(Boolean).map(p=>p.id));
  const standby=all.filter(p=>!usedStarters.has(p.id)&&p.pos==='선발');
  const other=all.filter(p=>!usedStarters.has(p.id)&&p.pos!=='선발');
- for(let i=0;i<5;i++)if(!rotationSlots[i]){
+ for(let i=0;i<6;i++)if(!rotationSlots[i]){
   const replacement=standby.shift()||other.shift();
   if(replacement){rotationSlots[i]=replacement;usedStarters.add(replacement.id)}
  }
- const currentStarter=rotationSlots[(Math.max(1,round)-1)%5]||all[(Math.max(1,round)-1)%Math.max(1,all.length)];
+ const currentStarter=rotationSlots[(Math.max(1,round)-1)%6]||all[(Math.max(1,round)-1)%Math.max(1,all.length)];
  // Use all nominated bullpen pitchers, followed by additional available relievers.
- const assigned=['relief1','relief2','relief3','relief4','setup','closer']
+ const assigned=[...Array.from({length:8},(_,i)=>'relief'+(i+1)),'closer','closer2']
   .map(role=>findPitcher(rotation[role]||(role==='relief1'?c.pitcherAssignments?.relief:role==='closer'?c.pitcherAssignments?.closer:null)));
  const depth=all.filter(p=>p.id!==currentStarter?.id&&!assigned.some(x=>x?.id===p.id));
- const pitchers=[...new Map([currentStarter,...assigned,...depth].filter(Boolean).map(p=>[p.id,p])).values()].slice(0,11);
- const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(Number(p.defense)||50)*(pos==='DH'||DEFENSE_NATIVE[p.pos]===pos?1:.84)},0)/Math.max(1,hitters.length);
+ const chosen=[...new Map([currentStarter,...assigned,...depth].filter(Boolean).map(p=>[p.id,p])).values()].slice(0,16);
+ const pitchers=chosen.map((p,i)=>{
+  const roleKey=i===0?'starter':Object.entries(rotation).find(([role,id])=>id===p.id)?.[0];
+  const assignedPitcherRole=i===0?'starter':roleKey?.startsWith('closer')?'closer':'relief';
+  return {...p,assignedPitcherRole};
+ });
+ 
+ const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(pos&&pos!=='DH'&&DEFENSE_NATIVE[p.pos]!==pos?1:Number(p.defense)||50)},0)/Math.max(1,hitters.length);
  const positions=Object.fromEntries(hitters.map(p=>[p.id,matchFieldPosition(c,p)]));
  return {name,hitters,pitchers,defense,positions,round,winStreak:Math.max(0,Number(c.winStreak)||0),lossStreak:Math.max(0,Number(c.lossStreak)||0)};
 }
@@ -1165,7 +1197,7 @@ if(a.type==='register'||a.type==='login'){const name=String(a.username||'').trim
    found={id:uid(),username:ADMIN_USERNAME,salt,hash:pwd(pass,salt),teamId:'bears',ownerName:'게임 관리자',isAdmin:true};
    db.users.push(found);
   }else{found.hash=pwd(pass,found.salt)}
-  if(!db.clubs.some(c=>c.owner===found.id))db.clubs.push(club(found,canonicalFranchiseName(found.teamId,TEAMS[0].name)));
+  if(!db.clubs.some(c=>c.owner===found.id)){const initial=club(found,canonicalFranchiseName(found.teamId,TEAMS[0].name));fix(initial);db.clubs.push(initial)}
  }
  if(a.type==='register'){if(found)throw Error('이미 존재하는 아이디');const ownerName=String(a.ownerName||'').trim();if(ownerName.length<2||ownerName.length>16||/[<>]/.test(ownerName))throw Error('구단주명은 2~16자로 입력해 주세요');const salt=crypto.randomBytes(12).toString('hex');found={id:uid(),username:name,salt,hash:pwd(pass,salt),teamId:team.id,ownerName};db.users.push(found)}else if(!found||found.hash!==pwd(pass,found.salt))throw Error('아이디 또는 비밀번호 오류');if(found.teamId&&found.teamId!==team.id)throw Error('가입 당시 선택한 구단으로 로그인하세요');if(!found.teamId){found.teamId=team.id;const old=db.clubs.find(x=>x.owner===found.id);if(old){old.teamId=team.id;old.name=team.name}}const token=crypto.randomBytes(24).toString('hex');sessions.set(token,found.id);const loginPayload=view(found);await save();return send(res,200,loginPayload,{'Set-Cookie':'sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=2592000'})}
 if(a.type==='logout'){sessions.delete(getCookie(req));return send(res,200,{user:null},{'Set-Cookie':'sid=; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0'})}
@@ -1266,7 +1298,7 @@ else if(a.type==='claimGmMail'){
  result={message:mail.item==='cp'?quantity.toLocaleString('ko-KR')+' CP 수령 완료':gift.name+' '+quantity+'개 수령 완료'};
  }
 }
-else if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);db.clubs.push(c)}
+else if(a.type==='createClub'){if(c)throw Error('이미 구단 존재');const team=TEAMS.find(t=>t.id===u.teamId);if(!team)throw Error('팀을 먼저 선택하세요');c=club(u,team.name);fix(c);db.clubs.push(c)}
 else{if(!c)throw Error('구단을 먼저 창단하세요');
 if(a.type==='setGrowthFocus'){
  const p=c.players.find(x=>x.id===a.id);
@@ -1420,13 +1452,13 @@ else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.p
   if(!c.players.some(x=>x.isPitcher===isPitcher&&firstTeam.has(x.id)))
    c.players.filter(x=>x.isPitcher===isPitcher).slice(0,isPitcher?11:14).forEach(x=>firstTeam.add(x.id));
  }
- if(firstTeam.has(p.id))throw Error('1군 선수는 판매 등록할 수 없습니다. 2군 선수만 판매 가능합니다');if(!Number.isSafeInteger(price)||price<100000||price>100000000000)throw Error('가격은 10만원 이상');if(c.players.length<=15)throw Error('선수단 최소 15명 유지');c.players=c.players.filter(x=>x.id!==p.id);db.listings.push({id:uid(),seller:u.id,player:p,price,date:Date.now()});fix(c);result={message:'판매 등록 완료'}}
+ if(firstTeam.has(p.id))throw Error('1군 선수는 판매 등록할 수 없습니다. 2군 선수만 판매 가능합니다');if(!Number.isSafeInteger(price)||price<100000||price>100000000000)throw Error('가격은 10만원 이상');if(c.players.filter(x=>x.isPitcher===p.isPitcher&&(p.isPitcher?x.pos===p.pos:true)).length<=(p.isPitcher?(p.pos==='선발'?6:p.pos==='마무리'?2:8):14))throw Error('필수 라인업 인원이 부족해 이적시장에 등록할 수 없습니다');c.players=c.players.filter(x=>x.id!==p.id);db.listings.push({id:uid(),seller:u.id,player:p,price,date:Date.now()});fix(c);result={message:'판매 등록 완료'}}
 else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.seller===u.id);if(i<0)throw Error('판매글 없음');if(c.players.length>=80)throw Error('선수단이 가득 참');c.players.push(db.listings.splice(i,1)[0].player);fix(c)}
 else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.player?.flyingCoach)throw Error('플레잉코치 적용 선수는 거래할 수 없습니다');if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
 else if(a.type==='saveLineup'){
  fix(c);
  const batting=Array.isArray(a.batting)?a.batting:[],defense=a.defense&&typeof a.defense==='object'?a.defense:{};
- const pitcherRoles=['starter1','starter2','starter3','starter4','starter5','relief1','relief2','relief3','relief4','setup','closer'];
+ const pitcherRoles=[...Array.from({length:6},(_,i)=>'starter'+(i+1)),...Array.from({length:8},(_,i)=>'relief'+(i+1)),'closer','closer2'];
  const rotation=a.rotation&&typeof a.rotation==='object'?a.rotation:null;
  const bench=Array.isArray(a.bench)?a.bench:null;
  const batIds=new Set(c.players.filter(p=>!p.isPitcher&&flyingCoachActive(p)).map(p=>p.id)),pitchIds=new Set(c.players.filter(p=>p.isPitcher&&flyingCoachActive(p)).map(p=>p.id));
@@ -1439,8 +1471,8 @@ else if(a.type==='saveLineup'){
   c.benchIds=[...bench];
  }
  if(rotation){
-  const values=pitcherRoles.map(role=>rotation[role]).filter(Boolean);
-  if(values.some(id=>!pitchIds.has(id))||new Set(values).size!==values.length)throw Error('투수 라인업에 같은 선수를 중복 배치할 수 없습니다');
+  const values=pitcherRoles.map(role=>rotation[role]);
+  if(values.some(id=>!pitchIds.has(id))||new Set(values).size!==pitcherRoles.length)throw Error('투수 라인업은 선발 6명, 계투 8명, 마무리 2명을 빈자리와 중복 없이 지정해야 합니다');
   c.pitcherRotation=Object.fromEntries(pitcherRoles.map(role=>[role,rotation[role]||null]));
   c.pitcher=c.pitcherRotation.starter1||c.pitcher;
   c.pitcherAssignments={starter:c.pitcher,relief:c.pitcherRotation.relief1,closer:c.pitcherRotation.closer};
@@ -1649,7 +1681,7 @@ async function boot(){
  if(neonStore){
   const stored=await neonStore.load();
   if(stored)db=stored;
-  for(const c of db.clubs||[])for(const player of c.players||[])ensurePlayer(player);
+  for(const c of db.clubs||[]){for(const player of c.players||[])ensurePlayer(player);fix(c)}
   for(const listing of db.listings||[])ensurePlayer(listing.player);
   neonReady=true;
   await save();
