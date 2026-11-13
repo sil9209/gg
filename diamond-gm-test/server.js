@@ -3,7 +3,7 @@ const {simulateGame}=require('./game-engine');
 const {awardPool}=require('./award-catalog');
 const PATH='diamond-gm-test-data.json'; let db={users:[],clubs:[],listings:[]};try{db=JSON.parse(fs.readFileSync(PATH,'utf8'))}catch(e){}
 // Paid rewarded ads require a verified advertiser event; browser events alone never issue currency.
-const AD_REWARD_CP=500,AD_DAILY_LIMIT=10;
+const AD_REWARD_CP=500; // Verified ads have no daily view limit.
 const GAM_REWARDED_UNIT=String(process.env.GM_REWARDED_AD_UNIT||'').trim();
 const AD_WEBHOOK_SECRET=String(process.env.GM_REWARDED_AD_WEBHOOK_SECRET||'');
 const AD_REWARDS_ENABLED=process.env.GM_REWARDED_AD_ENABLED==='true'&&
@@ -28,7 +28,6 @@ async function verifiedAdWebhook(req,res){
  const c=db.clubs.find(x=>x.rewardedAdPending?.nonce===nonce&&Date.now()-x.rewardedAdPending.createdAt<20*60000);
  if(!c)return send(res,404,{error:'승인 대기 광고 기록 없음'});
  const used=rewardUsage(c);
- if(used.used>=AD_DAILY_LIMIT)return send(res,409,{error:'오늘 지급 한도 초과'});
  c.cp=(Number(c.cp)||0)+AD_REWARD_CP;
  c.rewardedAdDaily={day:used.day,used:used.used+1};
  c.rewardedAdPending=null;
@@ -1078,7 +1077,7 @@ function communityFeed(user){
    teamId:post.teamId,teamName:team?.name||'미소속',comments};
  });
 }
-const view=(u)=>{if(syncFranchiseNames())save();syncGrowth();settleSeasonAwards();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:AD_DAILY_LIMIT,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{if(syncFranchiseNames())save();syncGrowth();settleSeasonAwards();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:null,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -1409,7 +1408,6 @@ else if(a.type==='shopSave'){
 }
 else if(a.type==='rewardAdStart'){
  if(!AD_REWARDS_ENABLED)throw Error('광고 수익 서비스 연결 후 이용할 수 있습니다');
- if(rewardUsage(c).used>=AD_DAILY_LIMIT)throw Error('오늘의 추가지원 광고 시청 한도를 사용했습니다');
  if(c.rewardedAdPending&&Date.now()-c.rewardedAdPending.createdAt<60000)throw Error('이전 광고 확인이 진행 중입니다');
  c.rewardedAdPending={nonce:uid(),createdAt:Date.now()};
  result={message:'광고 요청 준비 완료',adNonce:c.rewardedAdPending.nonce};
