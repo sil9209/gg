@@ -317,6 +317,12 @@ function effectivePlayerStrength(p,ctx={}){
   for(const [stat,boost] of Object.entries(trait.boost))if(stat in values)values[stat]+=Number(boost)||0; // Temporary in-game boost is not subject to permanent-stat cap.
   activated.push({id:trait.id,name:trait.name});
  }
+ // Off-position penalties are game-only; permanent player attributes remain intact.
+ if(!p.isPitcher&&ctx.fieldPosition&&ctx.fieldPosition!=='DH'&&DEFENSE_NATIVE[p.pos]!==ctx.fieldPosition)values.defense=1;
+ if(p.isPitcher&&ctx.pitcherRole){
+  const natural=p.pos==='선발'?'starter':p.pos==='마무리'?'closer':'relief';
+  if(natural!==ctx.pitcherRole)values.stamina=1;
+ }
  return {strength:Object.values(values).reduce((a,b)=>a+b,0)/6,values,activated};
 }
 
@@ -621,8 +627,13 @@ function gameTeam(c,average,name,seed,round=1){
  const assigned=[...Array.from({length:8},(_,i)=>'relief'+(i+1)),'closer','closer2']
   .map(role=>findPitcher(rotation[role]||(role==='relief1'?c.pitcherAssignments?.relief:role==='closer'?c.pitcherAssignments?.closer:null)));
  const depth=all.filter(p=>p.id!==currentStarter?.id&&!assigned.some(x=>x?.id===p.id));
- const pitchers=[...new Map([currentStarter,...assigned,...depth].filter(Boolean).map(p=>[p.id,p])).values()].slice(0,16);
- const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(Number(p.defense)||50)*(pos==='DH'||DEFENSE_NATIVE[p.pos]===pos?1:.84)},0)/Math.max(1,hitters.length);
+ const chosen=[...new Map([currentStarter,...assigned,...depth].filter(Boolean).map(p=>[p.id,p])).values()].slice(0,16);
+ const pitchers=chosen.map((p,i)=>{
+  const roleKey=i===0?'starter':Object.entries(rotation).find(([role,id])=>id===p.id)?.[0];
+  const assignedPitcherRole=i===0?'starter':roleKey?.startsWith('closer')?'closer':'relief';
+  return {...p,assignedPitcherRole};
+ });
+ const defense=hitters.reduce((acc,p)=>{const pos=matchFieldPosition(c,p);return acc+(pos&&pos!=='DH'&&DEFENSE_NATIVE[p.pos]!==pos?1:Number(p.defense)||50)},0)/Math.max(1,hitters.length);
  const positions=Object.fromEntries(hitters.map(p=>[p.id,matchFieldPosition(c,p)]));
  return {name,hitters,pitchers,defense,positions,round,winStreak:Math.max(0,Number(c.winStreak)||0),lossStreak:Math.max(0,Number(c.lossStreak)||0)};
 }
