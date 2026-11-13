@@ -122,7 +122,7 @@ function simulateGame({home,away,seed,stats}){
     teamLeading:off.runs>def.runs,opponentForeign:false,pitchCount:pitcher.pitches,
     afterStrikeout:!!pitcher.lastStrikeout,scorelessInnings:pitcher.scorelessInnings,
     opponentBattingIndex:batter.i,winStreak:off.team.winStreak||0,lossStreak:off.team.lossStreak||0,
-    teamHomeRuns:off.hitters.reduce((n,b)=>n+b.hr,0),teamComparison:null,postseason:false,opponentRank:null};
+    teamHomeRuns:off.hitters.reduce((n,b)=>n+b.hr,0),teamComparison:null,postseason:off.team.postseason===true,opponentRank:null};
    const hst=batter.history||[],recent=hst.slice(-3),previousHits=hst.length>=2&&hst.slice(-2).every(x=>x==='hit')?2:0;
    const previousStrikeouts=hst.length>=2&&hst.slice(-2).every(x=>x==='strikeout')?2:0;
    const previousHitless=recent.length===3&&recent.every(x=>x!=='hit')?3:0;
@@ -175,7 +175,7 @@ function simulateGame({home,away,seed,stats}){
   return runs;
  }
  let completedInnings=0;
- for(inning=1;inning<=11;inning++){
+ for(inning=1;inning<=12;inning++){
   A.innings.push(half(A,H,true));
   if(inning>=9&&H.runs>A.runs){H.innings.push(null);completedInnings=inning;break}
   H.innings.push(half(H,A,false));
