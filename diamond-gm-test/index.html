@@ -2453,6 +2453,19 @@ function bindDevelopmentFilters(which){
 }
 const gmUpgradeOdds=[['E','D',65],['D','C',50],['C','B',25],['B','A',10]];
 function growthRate(p){return gmUpgradeOdds.find(x=>x[0]===p.grade)?.[2]??null}
+function showAutoUpgradeReport(info){
+ document.getElementById('gmAutoUpgradeReport')?.remove();
+ const overlay=document.createElement('div');
+ overlay.id='gmAutoUpgradeReport';overlay.className='gm-confirm-backdrop';
+ const cash=n=>Number(n||0).toLocaleString('ko-KR')+'원';
+ const formatCost=n=>info.currency==='cp'?Number(n||0).toLocaleString('ko-KR')+' CP':cash(n);
+ const rows=(info.details||[]).map(x=>'<tr><td>'+esc(x.from)+' → '+esc(x.to)+'</td><td>'+Number(x.attempts||0)+'</td><td>'+Number(x.successes||0)+'</td><td>'+Number(x.failures||0)+'</td><td>'+formatCost(x.spent)+'</td></tr>').join('');
+ overlay.innerHTML='<section class="gm-confirm-dialog" role="dialog" aria-modal="true" aria-label="자동 승급 결과" style="max-width:650px;width:100%"><div class="gm-confirm-eyebrow">PLAYER DEVELOPMENT · AUTO UPGRADE</div><h3>'+esc(info.name)+' 자동 승급 결과</h3><p>'+esc(info.from)+' → <strong>'+esc(info.to)+'등급</strong> · '+esc(info.stopReason)+'</p><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:center"><thead><tr><th>단계</th><th>시도</th><th>성공</th><th>실패</th><th>사용 비용</th></tr></thead><tbody>'+rows+'</tbody></table></div><p><strong>전체 '+Number(info.totalAttempts||0)+'회 / 성공 '+Number(info.totalSuccess||0)+'회 / 실패 '+Number(info.totalFailure||0)+'회</strong></p><p><strong>총 사용: '+formatCost(info.totalSpent)+'</strong></p><div class="gm-confirm-actions"><button type="button" class="primary" id="gmAutoUpgradeClose">확인</button></div></section>';
+ document.body.appendChild(overlay);
+ const close=()=>overlay.remove();
+ overlay.querySelector('#gmAutoUpgradeClose').onclick=close;
+ overlay.onclick=e=>{if(e.target===overlay)close()};
+}
 function openGrowthChart(p){
  document.getElementById('gmGrowthChart')?.remove();
  const box=document.createElement('div');box.id='gmGrowthChart';box.className='gm-growth-modal-backdrop';
@@ -2820,10 +2833,22 @@ if(tab==='train'){
  const visible=developmentPlayers(c,growthFilterKind,growthFilterSquad);
  el.innerHTML='<h2 class="sectiontitle">선수 육성</h2><div class="panel gm-training-panel">'+developmentFilters(growthFilterKind,growthFilterSquad)+
  '<div class="gm-growth-guideline gm-training-common"><b>육성 공통 안내</b><span>균형 성장: 모든 능력치 ×1.5 · 집중 성장: 선택 능력치 ×5, 나머지 ×0.5 · 36세 이상 능력치 감소</span><span>승급은 1회 2 CP 또는 1,000만원 중 선택 · 성공 확률 E→D 65%, D→C 50%, C→B 25%, B→A 10% · 실패 시 등급 유지 · 플레잉코치 승급 불가</span></div>'+
- '<div class="gm-training-grid">'+(visible.length?visible.map(p=>'<div class="gm-training-row"><div class="gm-training-person">'+playerPortrait(p)+'<div>'+playerButton(p)+'<small>'+esc(p.pos)+' · '+p.age+'세 · 종합 '+overall(p)+'</small>'+g(p)+'</div></div><label class="gm-growth-select-label"><select data-growth-focus="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 집중 능력치 선택">'+growthOptions(p)+'</select></label><div class="gm-training-controls"><select class="gm-upgrade-currency" data-upgrade-currency="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 승급 결제 수단"><option value="cp" '+(upgradeCurrencyFor(p.id)==='cp'?'selected':'')+'>2 CP</option><option value="cash" '+(upgradeCurrencyFor(p.id)==='cash'?'selected':'')+'>1,000만원</option></select><button class="gm-training-upgrade" data-upgrade="'+esc(p.id)+'" '+(['A','S'].includes(p.grade)||p.flyingCoach||(upgradeCurrencyFor(p.id)==='cp'?c.cp<2:c.cash<10000000)?'disabled':'')+'>승급</button><span class="gm-growth-rate">'+(growthRate(p)===null?'최고 등급':'성공률 '+growthRate(p)+'%')+'</span></div></div>').join(''):'<div class="gm-growth-empty">해당 분류의 선수가 없습니다.</div>')+'</div></div>';
+ '<div class="gm-training-grid">'+(visible.length?visible.map(p=>'<div class="gm-training-row"><div class="gm-training-person">'+playerPortrait(p)+'<div>'+playerButton(p)+'<small>'+esc(p.pos)+' · '+p.age+'세 · 종합 '+overall(p)+'</small>'+g(p)+'</div></div><label class="gm-growth-select-label"><select data-growth-focus="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 집중 능력치 선택">'+growthOptions(p)+'</select></label><div class="gm-training-controls"><select class="gm-upgrade-currency" data-upgrade-currency="'+esc(p.id)+'" aria-label="'+esc(p.name)+' 승급 결제 수단"><option value="cp" '+(upgradeCurrencyFor(p.id)==='cp'?'selected':'')+'>2 CP</option><option value="cash" '+(upgradeCurrencyFor(p.id)==='cash'?'selected':'')+'>1,000만원</option></select><button class="gm-training-upgrade" data-upgrade="'+esc(p.id)+'" '+(['A','S'].includes(p.grade)||p.flyingCoach||(upgradeCurrencyFor(p.id)==='cp'?c.cp<2:c.cash<10000000)?'disabled':'')+'>승급</button><button type="button" class="gm-training-upgrade" data-auto-upgrade="'+esc(p.id)+'" '+(['A','S'].includes(p.grade)||p.flyingCoach||(upgradeCurrencyFor(p.id)==='cp'?c.cp<2:c.cash<10000000)?'disabled':'')+'>A까지 자동</button><span class="gm-growth-rate">'+(growthRate(p)===null?'최고 등급':'성공률 '+growthRate(p)+'%')+'</span></div></div>').join(''):'<div class="gm-growth-empty">해당 분류의 선수가 없습니다.</div>')+'</div></div>';
  bindDevelopmentFilters('train');
- document.querySelectorAll('[data-upgrade-currency]').forEach(sel=>sel.onchange=()=>{growthUpgradeCurrencyByPlayer[sel.dataset.upgradeCurrency]=sel.value;const btn=document.querySelector('[data-upgrade="'+sel.dataset.upgradeCurrency+'"]');if(!btn)return;const player=c.players.find(p=>p.id===sel.dataset.upgradeCurrency);btn.disabled=!player||['A','S'].includes(player.grade)||!!player.flyingCoach||(sel.value==='cp'?c.cp<2:c.cash<10000000)});
+ document.querySelectorAll('[data-upgrade-currency]').forEach(sel=>sel.onchange=()=>{growthUpgradeCurrencyByPlayer[sel.dataset.upgradeCurrency]=sel.value;const btn=document.querySelector('[data-upgrade="'+sel.dataset.upgradeCurrency+'"]');const auto=document.querySelector('[data-auto-upgrade="'+sel.dataset.upgradeCurrency+'"]');if(!btn&&!auto)return;const player=c.players.find(p=>p.id===sel.dataset.upgradeCurrency);const disabled=!player||['A','S'].includes(player.grade)||!!player.flyingCoach||(sel.value==='cp'?c.cp<2:c.cash<10000000);if(btn)btn.disabled=disabled;if(auto)auto.disabled=disabled});
  document.querySelectorAll('[data-upgrade]').forEach(btn=>btn.onclick=()=>{const sel=document.querySelector('[data-upgrade-currency="'+btn.dataset.upgrade+'"]');const currency=sel?.value||upgradeCurrencyFor(btn.dataset.upgrade);growthUpgradeCurrencyByPlayer[btn.dataset.upgrade]=currency;return api({type:'upgrade',id:btn.dataset.upgrade,currency})});
+ document.querySelectorAll('[data-auto-upgrade]').forEach(btn=>btn.onclick=async()=>{
+  const id=btn.dataset.autoUpgrade,p=c.players.find(x=>x.id===id);
+  if(!p||btn.disabled)return;
+  const sel=document.querySelector('[data-upgrade-currency="'+id+'"]');
+  const currency=sel?.value||upgradeCurrencyFor(id);
+  growthUpgradeCurrencyByPlayer[id]=currency;
+  const unit=currency==='cp'?'2 CP':'1,000만원';
+  const confirmed=await gmConfirm(p.name+' 선수를 '+p.grade+'등급부터 A등급까지 자동 승급하시겠습니까?\\n성공률 E→D 65% / D→C 50% / C→B 25% / B→A 10%\\n성공·실패 모두 시도당 '+unit+' 차감됩니다.\\n자금 부족, A등급 달성 또는 최대 1,000회 시도 시 종료됩니다.',{title:'A등급까지 자동 승급',confirmText:'자동 승급 시작'});
+  if(!confirmed)return;
+  const response=await api({type:'autoUpgradeToA',id,currency});
+  if(response?.result?.autoUpgrade)showAutoUpgradeReport(response.result.autoUpgrade);
+ });
  document.querySelectorAll('[data-growth-focus]').forEach(sel=>sel.onchange=()=>api({type:'setGrowthFocus',id:sel.dataset.growthFocus,focus:sel.value},{skipRender:true}));
  return}
 if(tab==='lineup'){renderLineup();return}
