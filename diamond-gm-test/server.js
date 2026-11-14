@@ -1322,6 +1322,38 @@ if(a.type==='setGrowthFocus'){
  result={message:p.name+' 성장 전략: '+(p.growthFocusSelected?(STAT_LABELS[p.growthFocus]+' 집중'):'균형 성장')+' 설정 완료'};
 }
 else if(a.type==='upgrade'){const p=c.players.find(x=>x.id===a.id);if(!p)throw Error('선수 없음');if(p.flyingCoach)throw Error('플레잉코치는 등급 성장을 할 수 없습니다');const next={E:['D',0.65],D:['C',.5],C:['B',.25],B:['A',.1]}[p.grade];if(!next)throw Error('최고 등급입니다');const currency=String(a.currency||'cp');if(!['cp','cash'].includes(currency))throw Error('올바른 승급 결제 수단을 선택하세요');if(currency==='cp'){if(c.cp<2)throw Error('승급에 필요한 2 CP가 부족합니다');c.cp-=2}else{if(c.cash<10000000)throw Error('승급에 필요한 게임머니 1,000만원이 부족합니다');c.cash-=10000000}let ok=Math.random()<next[1];if(ok)p.grade=next[0];result={message:ok?'등급 성장 성공! '+p.grade+'등급':'성장 실패 (등급 유지)'}}
+else if(a.type==='autoUpgradeToA'){
+ const p=c.players.find(x=>x.id===String(a.id||''));
+ if(!p)throw Error('선수가 없습니다');
+ if(p.flyingCoach)throw Error('플레잉코치는 등급 성장을 할 수 없습니다');
+ if(['A','S'].includes(p.grade))throw Error('이미 A등급 이상입니다');
+ const currency=String(a.currency||'cp');
+ if(!['cp','cash'].includes(currency))throw Error('올바른 승급 결제 수단을 선택하세요');
+ const unitCost=currency==='cp'?2:10000000;
+ const wallet=currency==='cp'?'cp':'cash';
+ if(!Number.isFinite(c[wallet])||c[wallet]<unitCost)throw Error('자동 승급에 필요한 '+(currency==='cp'?'2 CP':'1,000만원')+'가 부족합니다');
+ const stages=[['E','D',.65],['D','C',.5],['C','B',.25],['B','A',.1]];
+ const details=[],initialGrade=p.grade;
+ let totalAttempts=0,totalSuccess=0,totalFailure=0;
+ const maxAttempts=1000;
+ let stopReason='A등급 달성';
+ for(const [from,to,probability] of stages){
+  if(p.grade!==from)continue;
+  const record={from,to,probability,attempts:0,successes:0,failures:0,spent:0};
+  while(p.grade===from){
+   if(totalAttempts>=maxAttempts){stopReason='안전 제한: 최대 '+maxAttempts+'회 시도';break}
+   if(c[wallet]<unitCost){stopReason='보유 '+(currency==='cp'?'CP':'자금')+' 부족';break}
+   c[wallet]-=unitCost;
+   record.attempts++;record.spent+=unitCost;totalAttempts++;
+   if(Math.random()<probability){p.grade=to;record.successes++;totalSuccess++}
+   else{record.failures++;totalFailure++}
+  }
+  details.push(record);
+  if(p.grade===from)break;
+ }
+ const totalSpent=totalAttempts*unitCost;
+ result={message:p.name+' 자동 승급 '+(p.grade==='A'?'완료':'종료')+' · '+initialGrade+'→'+p.grade+' · '+totalAttempts+'회 시도',autoUpgrade:{name:p.name,from:initialGrade,to:p.grade,reachedA:p.grade==='A',currency,unitCost,totalAttempts,totalSuccess,totalFailure,totalSpent,stopReason,details}};
+}
 else if(a.type==='scout'||a.type==='scoutBatch'){
  const configs={basic:{label:'일반 스카우트',multiplier:1},era:{label:'연도별 스카우트',multiplier:2},hitter:{label:'타자 전용 스카우트',multiplier:2},pitcher:{label:'투수 전용 스카우트',multiplier:2}};
  const kind=String(a.kind||'basic'),currency=String(a.currency||'cash'),config=configs[kind];
