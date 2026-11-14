@@ -2116,7 +2116,7 @@ function leagueMatch(g,interactive=false){
 const LINEUP_POSITIONS=[['CF','중견수',50,13],['LF','좌익수',17,28],['RF','우익수',83,28],['SS','유격수',34,50],['2B','2루수',66,50],['3B','3루수',22,69],['1B','1루수',78,69],['C','포수',50,91],['DH','지명타자',87,91]];
 const LINEUP_ROLES=[...Array.from({length:6},(_,i)=>['starter'+(i+1),(i+1)+'선발']),...Array.from({length:8},(_,i)=>['relief'+(i+1),'계투 '+(i+1)]),['closer','마무리 1'],['closer2','마무리 2']];
 const LINEUP_NATIVE={'포수':'C','1루수':'1B','2루수':'2B','3루수':'3B','유격수':'SS','좌익수':'LF','중견수':'CF','우익수':'RF'};
-let lineupDraft=null,lineupMode='batter',dragBattingIndex=null,lineupItemPlayerId=null;
+let lineupDraft=null,lineupMode='batter',dragBattingIndex=null,lineupItemPlayerIds=null;
 function initLineupDraft(club){
  if(lineupDraft?.clubId===club.id)return;
  const bats=club.players.filter(p=>!p.isPitcher),pitch=club.players.filter(p=>p.isPitcher),batting=[...new Set((club.lineup||[]).filter(id=>bats.some(p=>p.id===id)))].slice(0,9);
@@ -2245,17 +2245,22 @@ function renderLineup(){
  const pitchGroup=(title,sub,arr,offset)=>'<section class="gm-panel gm-pitch-panel"><header class="gm-panel-head"><div><span class="gm-panel-kicker">'+sub+'</span><h3>'+title+'</h3></div><span class="gm-panel-hint">'+arr.filter(([r])=>d.rotation[r]).length+'/'+arr.length+'명</span></header><div class="gm-pitch-list">'+arr.map((item,i)=>pitcherCard(item,offset+i)).join('')+'</div></section>';
  const pitchersView='<div class="gm-pitch-columns">'+pitchGroup('선발 로테이션','STARTING ROTATION',LINEUP_ROLES.slice(0,6),0)+'<div class="gm-pitch-stack">'+pitchGroup('계투진','BULLPEN',LINEUP_ROLES.slice(6,14),6)+pitchGroup('마무리','CLOSERS',LINEUP_ROLES.slice(14),14)+'</div></div>';
  const lineupItemRoster=[...new Set([...d.batting,...d.bench,...Object.values(d.rotation)].filter(Boolean))].map(id=>byId(id)).filter(Boolean);
- if(!lineupItemRoster.some(p=>p.id===lineupItemPlayerId))lineupItemPlayerId=lineupItemRoster[0]?.id||null;
- const chosenItemPlayer=byId(lineupItemPlayerId);
- const itemPanel='<section class="gm-panel gm-lineup-items"><header class="gm-panel-head"><div><span class="gm-panel-kicker">TEAM ITEMS</span><h3>🎒 선수 아이템 사용</h3></div><span class="gm-panel-hint">타순 편성 중 선수에게 아이템 적용</span></header>'+
- '<div class="gm-lineup-item-content"><div class="gm-item-select"><div class="gm-item-selection-label">1군 선수 선택 · 좌우로 드래그</div><div class="gm-item-card-track" id="gmItemPlayerTrack" aria-label="1군 선수 선택">'+
- (lineupItemRoster.length?lineupItemRoster.map(p=>'<button type="button" class="gm-item-player-card '+(p.id===lineupItemPlayerId?'selected':'')+'" data-item-player="'+esc(p.id)+'" aria-pressed="'+(p.id===lineupItemPlayerId)+'"><div class="gm-item-card-head"><b>1군 · '+(p.isPitcher?'투수':'타자')+'</b><span class="gm-item-card-check">'+(p.id===lineupItemPlayerId?'✓':'')+'</span></div><strong>'+esc(playerLabel(p))+'</strong><span>'+esc(p.pos)+' · Lv.'+Math.max(1,Number(p.level)||1)+'</span><small>종합 '+overall(p)+' · '+esc(p.grade)+'등급</small></button>').join(''):'<p class="muted">배치된 1군 선수가 없습니다.</p>')+'</div><div id="gmItemTargetStatus">'+(chosenItemPlayer?g(chosenItemPlayer)+' '+conditionLabel(chosenItemPlayer):'선수를 선택하세요')+'</div></div>'+
- '<div class="gm-item-actions"><button type="button" id="gmItemDrink" '+(!chosenItemPlayer||(c.sportsDrinks||0)<1||chosenItemPlayer.condition>=5?'disabled':'')+'><b>🥤 스포츠음료 사용</b><small>보유 '+(c.sportsDrinks||0)+'개 · 컨디션 +1</small></button>'+
- '<button type="button" id="gmItemBoost" '+(!chosenItemPlayer||(c.growthBoosters||0)<1||chosenItemPlayer.grade==='S'||!!chosenItemPlayer.flyingCoach?'disabled':'')+'><b>🚀 성장부스터 사용</b><small>보유 '+(c.growthBoosters||0)+'개 · 성장타입 S</small></button>'+
- '<button type="button" id="gmItemFlying" '+(!chosenItemPlayer||(!chosenItemPlayer.flyingCoach&&(c.flyingCoachTickets||0)<1)||(chosenItemPlayer.flyingCoach&&c.cp<(chosenItemPlayer.flyingCoach.contracts===0?10:chosenItemPlayer.flyingCoach.contracts===1?50:100))?'disabled':'')+'><b>📋 '+(chosenItemPlayer?.flyingCoach?'계약 7일 연장':'플레잉코치권 사용')+'</b><small>'+(chosenItemPlayer?.flyingCoach?'다음 계약 '+(chosenItemPlayer.flyingCoach.contracts===0?10:chosenItemPlayer.flyingCoach.contracts===1?50:100)+' CP':'보유 '+(c.flyingCoachTickets||0)+'장 · 나이·능력치 고정')+'</small></button></div></div>'+
- '<p class="gm-item-explainer">성장부스터는 S 등급으로 변경합니다. 📋 플레잉코치권은 나이·기본 능력치를 고정하고 성장·이적시장 거래를 막으며, 7일마다 CP로 계약해야 출전할 수 있습니다.</p></section>';
+ if(!Array.isArray(lineupItemPlayerIds))lineupItemPlayerIds=lineupItemRoster[0]?[lineupItemRoster[0].id]:[];
+ lineupItemPlayerIds=lineupItemPlayerIds.filter(id=>lineupItemRoster.some(p=>p.id===id));
+ const selectedItemPlayers=lineupItemRoster.filter(p=>lineupItemPlayerIds.includes(p.id));
+ const selectedItemCount=selectedItemPlayers.length;
+ const selectedTickets=selectedItemPlayers.filter(p=>!p.flyingCoach).length;
+ const selectedContractCost=selectedItemPlayers.filter(p=>p.flyingCoach).reduce((sum,p)=>sum+(p.flyingCoach.contracts===0?10:p.flyingCoach.contracts===1?50:100),0);
+ const itemStatus=selectedItemCount?selectedItemCount+'명 선택 · '+selectedItemPlayers.slice(0,4).map(p=>esc(playerLabel(p))).join(', ')+(selectedItemCount>4?' 외 '+(selectedItemCount-4)+'명':''):'선수를 선택하세요';
+ const itemPanel='<section class="gm-panel gm-lineup-items"><header class="gm-panel-head"><div><span class="gm-panel-kicker">TEAM ITEMS</span><h3>🎒 선수 아이템 사용</h3></div><span class="gm-panel-hint">여러 명을 체크해 한 번에 적용</span></header>'+
+ '<div class="gm-lineup-item-content"><div class="gm-item-select"><div class="gm-item-selection-label">1군 선수 다중 선택 · '+selectedItemCount+'명 선택 <button type="button" id="gmItemSelectAll">전체 선택</button> <button type="button" id="gmItemClear">선택 해제</button></div><div class="gm-item-card-track" id="gmItemPlayerTrack" aria-label="1군 선수 다중 선택">'+
+ (lineupItemRoster.length?lineupItemRoster.map(p=>'<button type="button" class="gm-item-player-card '+(lineupItemPlayerIds.includes(p.id)?'selected':'')+'" data-item-player="'+esc(p.id)+'" aria-pressed="'+lineupItemPlayerIds.includes(p.id)+'"><div class="gm-item-card-head"><b>1군 · '+(p.isPitcher?'투수':'타자')+'</b><span class="gm-item-card-check">'+(lineupItemPlayerIds.includes(p.id)?'✓':'')+'</span></div><strong>'+esc(playerLabel(p))+'</strong><span>'+esc(p.pos)+' · Lv.'+Math.max(1,Number(p.level)||1)+'</span><small>종합 '+overall(p)+' · '+esc(p.grade)+'등급</small></button>').join(''):'<p class="muted">배치된 1군 선수가 없습니다.</p>')+'</div><div id="gmItemTargetStatus">'+itemStatus+'</div></div>'+
+ '<div class="gm-item-actions"><button type="button" id="gmItemDrink" '+(!selectedItemCount||selectedItemPlayers.some(p=>p.condition>=5)||(c.sportsDrinks||0)<selectedItemCount?'disabled':'')+'><b>🥤 스포츠음료 일괄 사용</b><small>보유 '+(c.sportsDrinks||0)+'개 · 필요 '+selectedItemCount+'개</small></button>'+
+ '<button type="button" id="gmItemBoost" '+(!selectedItemCount||selectedItemPlayers.some(p=>p.grade==='S'||!!p.flyingCoach)||(c.growthBoosters||0)<selectedItemCount?'disabled':'')+'><b>🚀 성장부스터 일괄 사용</b><small>보유 '+(c.growthBoosters||0)+'개 · 필요 '+selectedItemCount+'개</small></button>'+
+ '<button type="button" id="gmItemFlying" '+(!selectedItemCount||(c.flyingCoachTickets||0)<selectedTickets||(c.cp||0)<selectedContractCost?'disabled':'')+'><b>📋 플레잉코치권 일괄 적용/연장</b><small>필요 코치권 '+selectedTickets+'장 · 계약 연장 '+selectedContractCost+' CP</small></button></div></div>'+
+ '<p class="gm-item-explainer">선택한 모든 선수에게 아이템을 각각 1개씩 적용합니다. 보유 수량이 부족하거나 적용 불가한 선수가 포함되어 있으면 전체 적용이 중단됩니다. 플레잉코치권은 나이·능력치를 고정하며 성장·거래가 불가능합니다.</p></section>';
 
- el.innerHTML='<div class="gm-lineup-shell"><div class="gm-lineup-heading"><div><span class="gm-eyebrow">TEAM MANAGEMENT / LINEUP</span><h2>라인업 관리</h2><p>선수를 배치하고, 타순을 변경하고, 팀 전력을 관리하세요.</p></div><div class="gm-lineup-team"><span class="gm-team-mark">'+esc(chosenTeam()?.symbol||'⚾')+'</span><span><b>'+esc(clubDisplayName(c))+'</b><small>시즌 '+(c.season||1)+' · 구단 운영</small></span></div></div><nav class="gm-lineup-tabs" aria-label="라인업 종류"><button type="button" data-gm-mode="batter" class="'+(isB?'active':'')+'">타자 라인업 <span>9명 + 교체 5명</span></button><button type="button" data-gm-mode="pitcher" class="'+(!isB?'active':'')+'">투수 라인업 <span>선발 6 · 계투 8 · 마무리 2</span></button></nav><div class="gm-lineup-metrics"><div><small>선발 타자</small><strong>'+d.batting.length+'<span> / 9</span></strong></div><div><small>교체선수</small><strong>'+d.bench.length+'<span> / 5</span></strong></div><div><small>투수 배치</small><strong>'+filledPitch+'<span> / 16</span></strong></div><div><small>타선 평균 OVR</small><strong>'+avg(d.batting)+'</strong></div></div>'+(isB?hitters:pitchersView)+itemPanel+actionBar+'</div>';
+  el.innerHTML='<div class="gm-lineup-shell"><div class="gm-lineup-heading"><div><span class="gm-eyebrow">TEAM MANAGEMENT / LINEUP</span><h2>라인업 관리</h2><p>선수를 배치하고, 타순을 변경하고, 팀 전력을 관리하세요.</p></div><div class="gm-lineup-team"><span class="gm-team-mark">'+esc(chosenTeam()?.symbol||'⚾')+'</span><span><b>'+esc(clubDisplayName(c))+'</b><small>시즌 '+(c.season||1)+' · 구단 운영</small></span></div></div><nav class="gm-lineup-tabs" aria-label="라인업 종류"><button type="button" data-gm-mode="batter" class="'+(isB?'active':'')+'">타자 라인업 <span>9명 + 교체 5명</span></button><button type="button" data-gm-mode="pitcher" class="'+(!isB?'active':'')+'">투수 라인업 <span>선발 6 · 계투 8 · 마무리 2</span></button></nav><div class="gm-lineup-metrics"><div><small>선발 타자</small><strong>'+d.batting.length+'<span> / 9</span></strong></div><div><small>교체선수</small><strong>'+d.bench.length+'<span> / 5</span></strong></div><div><small>투수 배치</small><strong>'+filledPitch+'<span> / 16</span></strong></div><div><small>타선 평균 OVR</small><strong>'+avg(d.batting)+'</strong></div></div>'+(isB?hitters:pitchersView)+itemPanel+actionBar+'</div>';
  document.querySelectorAll('[data-gm-mode]').forEach(btn=>btn.onclick=()=>{lineupMode=btn.dataset.gmMode;renderLineup()});
  document.querySelectorAll('[data-gm-field]').forEach(btn=>btn.onclick=()=>lineupPicker(btn.dataset.gmField));
  document.querySelectorAll('[data-gm-pitch]').forEach(btn=>btn.onclick=()=>lineupPicker(btn.dataset.gmPitch,'pitcher'));
@@ -2263,24 +2268,31 @@ function renderLineup(){
  document.querySelectorAll('[data-gm-bench-edit]').forEach(btn=>btn.onclick=showBenchPicker);
  document.getElementById('gmBenchEdit')?.addEventListener('click',showBenchPicker);
  const itemTrack=document.getElementById('gmItemPlayerTrack'),drinkButton=document.getElementById('gmItemDrink'),boostButton=document.getElementById('gmItemBoost'),flyingButton=document.getElementById('gmItemFlying');
+ const itemPlayers=()=>lineupItemRoster.filter(p=>lineupItemPlayerIds.includes(p.id));
+ const refreshItemSelection=()=>{
+  const chosen=itemPlayers(),count=chosen.length,tickets=chosen.filter(p=>!p.flyingCoach).length;
+  const cost=chosen.filter(p=>p.flyingCoach).reduce((sum,p)=>sum+(p.flyingCoach.contracts===0?10:p.flyingCoach.contracts===1?50:100),0);
+  itemTrack.querySelectorAll('[data-item-player]').forEach(card=>{
+   const yes=lineupItemPlayerIds.includes(card.dataset.itemPlayer);
+   card.classList.toggle('selected',yes);card.setAttribute('aria-pressed',String(yes));
+   card.querySelector('.gm-item-card-check').textContent=yes?'✓':'';
+  });
+  document.querySelector('.gm-item-selection-label').firstChild.textContent='1군 선수 다중 선택 · '+count+'명 선택 ';
+  document.getElementById('gmItemTargetStatus').textContent=count?count+'명 선택 · '+chosen.slice(0,4).map(p=>playerLabel(p)).join(', ')+(count>4?' 외 '+(count-4)+'명':''):'선수를 선택하세요';
+  drinkButton.disabled=!count||chosen.some(p=>p.condition>=5)||(state.club.sportsDrinks||0)<count;
+  boostButton.disabled=!count||chosen.some(p=>p.grade==='S'||!!p.flyingCoach)||(state.club.growthBoosters||0)<count;
+  flyingButton.disabled=!count||(state.club.flyingCoachTickets||0)<tickets||(state.club.cp||0)<cost;
+  drinkButton.querySelector('small').textContent='보유 '+(state.club.sportsDrinks||0)+'개 · 필요 '+count+'개';
+  boostButton.querySelector('small').textContent='보유 '+(state.club.growthBoosters||0)+'개 · 필요 '+count+'개';
+  flyingButton.querySelector('small').textContent='필요 코치권 '+tickets+'장 · 계약 연장 '+cost+' CP';
+ };
  const selectItemPlayer=id=>{
   if(!lineupItemRoster.some(p=>p.id===id))return;
-  lineupItemPlayerId=id;
-  const p=byId(id);
-  itemTrack.querySelectorAll('[data-item-player]').forEach(card=>{
-   const chosen=card.dataset.itemPlayer===id;
-   card.classList.toggle('selected',chosen);
-   card.setAttribute('aria-pressed',String(chosen));
-   card.querySelector('.gm-item-card-check').textContent=chosen?'✓':'';
-  });
-  document.getElementById('gmItemTargetStatus').innerHTML=p?g(p)+' '+conditionLabel(p):'선수를 선택하세요';
-  drinkButton.disabled=!p||(state.club.sportsDrinks||0)<1||p.condition>=5;
-  boostButton.disabled=!p||(state.club.growthBoosters||0)<1||p.grade==='S'||!!p.flyingCoach;
-  const contractCost=!p?.flyingCoach?0:p.flyingCoach.contracts===0?10:p.flyingCoach.contracts===1?50:100;
-  flyingButton.disabled=!p||(!p.flyingCoach&&(state.club.flyingCoachTickets||0)<1)||(!!p.flyingCoach&&(state.club.cp||0)<contractCost);
-  flyingButton.querySelector('b').textContent=p?.flyingCoach?'📋 계약 7일 연장':'📋 플레잉코치권 사용';
-  flyingButton.querySelector('small').textContent=p?.flyingCoach?'다음 계약 '+contractCost+' CP · '+(Number(p.flyingCoach.until)>Date.now()?'계약 중':'계약 만료'):'보유 '+(state.club.flyingCoachTickets||0)+'장 · 나이·능력치 고정';
+  lineupItemPlayerIds=lineupItemPlayerIds.includes(id)?lineupItemPlayerIds.filter(x=>x!==id):[...lineupItemPlayerIds,id];
+  refreshItemSelection();
  };
+ document.getElementById('gmItemSelectAll').onclick=()=>{lineupItemPlayerIds=lineupItemRoster.map(p=>p.id);refreshItemSelection()};
+ document.getElementById('gmItemClear').onclick=()=>{lineupItemPlayerIds=[];refreshItemSelection()};
  {
   let pointerDown=false,dragged=false,startX=0,startScroll=0,pendingId=null,suppressClick=false;
   itemTrack.addEventListener('pointerdown',e=>{
@@ -2299,7 +2311,7 @@ function renderLineup(){
    if(!pointerDown)return;
    pointerDown=false;
    if(dragged)suppressClick=true;
-   else if(pendingId)selectItemPlayer(pendingId);
+   else if(pendingId){selectItemPlayer(pendingId);suppressClick=true}
    pendingId=null;dragged=false;itemTrack.classList.remove('dragging');
   });
   itemTrack.addEventListener('pointercancel',()=>{pointerDown=false;dragged=false;pendingId=null;itemTrack.classList.remove('dragging')});
@@ -2310,28 +2322,26 @@ function renderLineup(){
   },true);
   itemTrack.addEventListener('dragstart',e=>e.preventDefault());
  }
- drinkButton.onclick=()=>{
-  const p=byId(lineupItemPlayerId);
-  if(p&&lineupItemRoster.some(x=>x.id===p.id)&&!drinkButton.disabled)gmConfirm(p.name+' 선수에게 스포츠음료 1개를 사용하시겠습니까?').then(ok=>{if(ok)api({type:'useDrink',id:p.id})});
- };
- boostButton.onclick=()=>{
-  const p=byId(lineupItemPlayerId);
-  if(p&&lineupItemRoster.some(x=>x.id===p.id)&&!boostButton.disabled)gmConfirm(p.name+' 선수에게 성장부스터를 사용하여 성장타입을 S로 영구 변경하시겠습니까?').then(ok=>{if(ok)api({type:'useGrowthBooster',id:p.id})});
- };
- flyingButton.onclick=async()=>{
-  const p=byId(lineupItemPlayerId);
-  if(!p||!lineupItemRoster.some(x=>x.id===p.id)||flyingButton.disabled)return;
-  if(p.flyingCoach){
-   const price=p.flyingCoach.contracts===0?10:p.flyingCoach.contracts===1?50:100;
-   const ok=await gmConfirm(p.name+' 선수의 플레잉코치 계약을 7일 연장하시겠습니까?\\n필요 CP: '+price+'\\n능력치·나이 고정 및 이적시장 거래 불가는 계속 유지됩니다.',{title:'📋 플레잉코치 7일 계약',confirmText:'CP로 계약하기'});
-   if(ok)api({type:'renewFlyingCoach',id:p.id});
-  }else{
-   const ok=await gmConfirm(p.name+' 선수에게 플레잉코치권을 사용하시겠습니까?\\n\\n① 현재 '+p.age+'세·기본 능력치 영구 고정\\n② 경기 성장·훈련·승급 불가\\n③ 이적시장 등록 및 거래 영구 불가\\n④ 첫 계약 10 CP, 두 번째 50 CP, 세 번째부터 100 CP (각 7일)\\n⑤ 계약이 없으면 경기 출전 불가\\n\\n적용 후 취소할 수 없습니다.',{title:'📋 플레잉코치권 적용 안내',confirmText:'제한 확인 및 적용'});
-   if(ok)api({type:'useFlyingCoach',id:p.id});
+ const applyItemBatch=async(kind)=>{
+  const players=itemPlayers(),ids=players.map(p=>p.id);
+  if(!ids.length)return;
+  const names=players.slice(0,5).map(p=>p.name).join(', ')+(players.length>5?' 외 '+(players.length-5)+'명':'');
+  let message=names+'\n총 '+players.length+'명에게 ';
+  if(kind==='drink')message+='스포츠음료 '+ids.length+'개를 각각 사용하시겠습니까?';
+  else if(kind==='booster')message+='성장부스터 '+ids.length+'개를 사용해 성장타입을 S로 변경하시겠습니까?';
+  else{
+   const count=players.filter(p=>!p.flyingCoach).length;
+   const cp=players.filter(p=>p.flyingCoach).reduce((sum,p)=>sum+(p.flyingCoach.contracts===0?10:p.flyingCoach.contracts===1?50:100),0);
+   message+='플레잉코치권 '+count+'장을 적용하고 기존 계약을 '+(ids.length-count)+'명 연장하시겠습니까?\n필요 CP: '+cp+'\n\n신규 코치의 나이·능력치는 고정되고 성장·이적이 영구 제한됩니다. 취소할 수 없습니다.';
   }
+  const ok=await gmConfirm(message,{title:kind==='flyingCoach'?'📋 플레잉코치 일괄 적용':'선수 아이템 일괄 사용',confirmText:'선택한 '+ids.length+'명에게 적용'});
+  if(ok)await api({type:'usePlayerItems',item:kind,ids});
  };
+ drinkButton.onclick=()=>{if(!drinkButton.disabled)applyItemBatch('drink')};
+ boostButton.onclick=()=>{if(!boostButton.disabled)applyItemBatch('booster')};
+ flyingButton.onclick=()=>{if(!flyingButton.disabled)applyItemBatch('flyingCoach')};
 
- document.querySelectorAll('[data-gm-up]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.gmUp),Number(btn.dataset.gmUp)-1));
+  document.querySelectorAll('[data-gm-up]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.gmUp),Number(btn.dataset.gmUp)-1));
  document.querySelectorAll('[data-gm-down]').forEach(btn=>btn.onclick=()=>moveBatting(Number(btn.dataset.gmDown),Number(btn.dataset.gmDown)+1));
  gmLineupDragWiring();
  document.getElementById('gmLineupReset').onclick=()=>{lineupDraft=null;renderLineup()};
