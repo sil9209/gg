@@ -719,14 +719,18 @@ function leagueInfo(c,now=Date.now()){
   const obp=pa?(row.h+row.bb)/pa:0;
   // Older saved box scores lack extra-base hit detail: do not fabricate slugging.
   const slg=row.basesComplete&&row.ab?row.tb/row.ab:null;
-  return {...row,pa,avg:Number(avg.toFixed(3)),obp:Number(obp.toFixed(3)),
+  return {...row,pa,requiredPA:qualifiedPA,avg:Number(avg.toFixed(3)),obp:Number(obp.toFixed(3)),
    slg:slg===null?null:Number(slg.toFixed(3)),ops:slg===null?null:Number((obp+slg).toFixed(3)),
-   qualified:pa>=qualifiedPA};
+   qualified:teamGames>0&&pa>=qualifiedPA};
  });
- const allPitcherStats=[...pitcherStats.values()].filter(p=>p.outs>0).map(row=>({...row,
-  ip:Math.floor(row.outs/3)+'.'+row.outs%3,
-  era:Number((row.er*27/row.outs).toFixed(2)),
-  whip:Number(((row.h+row.bb)*3/row.outs).toFixed(2))}));
+ const allPitcherStats=[...pitcherStats.values()].filter(p=>p.outs>0).map(row=>{
+  const teamGames=standings.find(team=>team.teamId===row.teamId)?.played||0;
+  const requiredOuts=teamGames*3; // KBO regulation: one full inning per team game.
+  return {...row,ip:Math.floor(row.outs/3)+'.'+row.outs%3,
+   requiredOuts,qualified:teamGames>0&&row.outs>=requiredOuts,
+   era:Number((row.er*27/row.outs).toFixed(2)),
+   whip:Number(((row.h+row.bb)*3/row.outs).toFixed(2))};
+ });
  // In-game estimated WAR; not official KBO WAR. Fielding, positional and park
  // adjustments are not modeled, so compare within this simulation only.
  const batValue=p=>{
@@ -751,25 +755,22 @@ function leagueInfo(c,now=Date.now()){
  const byHighest=(items,key,tiebreak='h')=>[...items].filter(p=>p[key]!==null&&Number.isFinite(Number(p[key]))).sort((a,b)=>b[key]-a[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
  const byLowest=(items,key,tiebreak='outs')=>[...items].sort((a,b)=>a[key]-b[key]||b[tiebreak]-a[tiebreak]||a.name.localeCompare(b.name))[0]||null;
  const qualifiedBatters=allBatterStats.filter(p=>p.qualified);
- // Rate-category pitcher awards require 0.75 innings per team game to prevent
- // a 0.1 IP reliever taking the ERA/WHIP crown with an accidental zero.
- const qualifiedPitchers=allPitcherStats.filter(p=>{
-  const teamGames=standings.find(team=>team.teamId===p.teamId)?.played||0;
-  return p.outs>=Math.max(3,Math.floor(teamGames*2.25));
- });
+ const qualifiedPitchers=allPitcherStats.filter(p=>p.qualified);
+ // Game-specific rule: EVERY public ranking/leader requires regulation PA/IP.
+ // Unqualified players retain their stats in the private weekly record.
  const leagueLeaders={
-  batting:{war:byHighest(allBatterStats,'war'),average:byHighest(qualifiedBatters,'avg'),homeRuns:byHighest(allBatterStats,'hr'),rbi:byHighest(allBatterStats,'rbi'),
-   stolenBases:byHighest(allBatterStats,'sb'),runs:byHighest(allBatterStats,'r'),hits:byHighest(allBatterStats,'h'),
+  batting:{war:byHighest(qualifiedBatters,'war'),average:byHighest(qualifiedBatters,'avg'),homeRuns:byHighest(qualifiedBatters,'hr'),rbi:byHighest(qualifiedBatters,'rbi'),
+   stolenBases:byHighest(qualifiedBatters,'sb'),runs:byHighest(qualifiedBatters,'r'),hits:byHighest(qualifiedBatters,'h'),
    onBase:byHighest(qualifiedBatters,'obp'),slugging:byHighest(qualifiedBatters,'slg')},
-  pitching:{war:byHighest(allPitcherStats,'war','outs'),era:byLowest(qualifiedPitchers,'era'),strikeouts:byHighest(allPitcherStats,'so','outs'),
-   innings:byHighest(allPitcherStats,'outs','so'),whip:byLowest(qualifiedPitchers,'whip'),
-   wins:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.wins>0),'wins','outs'),
-   losses:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.losses>0),'losses','outs'),
-   saves:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.saves>0),'saves','outs'),
-   holds:byHighest(allPitcherStats.filter(p=>p.decisionsAvailable&&p.holds>0),'holds','outs')}
+  pitching:{war:byHighest(qualifiedPitchers,'war','outs'),era:byLowest(qualifiedPitchers,'era'),strikeouts:byHighest(qualifiedPitchers,'so','outs'),
+   innings:byHighest(qualifiedPitchers,'outs','so'),whip:byLowest(qualifiedPitchers,'whip'),
+   wins:byHighest(qualifiedPitchers.filter(p=>p.decisionsAvailable&&p.wins>0),'wins','outs'),
+   losses:byHighest(qualifiedPitchers.filter(p=>p.decisionsAvailable&&p.losses>0),'losses','outs'),
+   saves:byHighest(qualifiedPitchers.filter(p=>p.decisionsAvailable&&p.saves>0),'saves','outs'),
+   holds:byHighest(qualifiedPitchers.filter(p=>p.decisionsAvailable&&p.holds>0),'holds','outs')}
  };
- const batterRanking=[...allBatterStats].sort((a,b)=>Number(b.qualified)-Number(a.qualified)||b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,250);
- const pitcherRanking=[...allPitcherStats].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,250);
+ const batterRanking=[...qualifiedBatters].sort((a,b)=>b.avg-a.avg||b.h-a.h||b.hr-a.hr||b.ab-a.ab).slice(0,250);
+ const pitcherRanking=[...qualifiedPitchers].sort((a,b)=>a.era-b.era||b.outs-a.outs||b.so-a.so).slice(0,250);
  const next=games.find(g=>slotTime(g.slot)>now);
  const decorate=g=>({...g,homeName:byId[g.home].name,awayName:byId[g.away].name,homeTeamId:byId[g.home].teamId,awayTeamId:byId[g.away].teamId,homeOwnerName:byId[g.home].ownerName,awayOwnerName:byId[g.away].ownerName,time:slotTime(g.slot)});
  const allSchedule=games.filter(g=>g.home===c.id||g.away===c.id).map(g=>({...decorate(g),played:playedFor(c.id,g),score:playedFor(c.id,g)?(()=>{const r=result(g);return r.home.runs+' : '+r.away.runs})():null,
