@@ -1564,6 +1564,41 @@ else if(a.type==='shopBuy'){
  const expiresAt=trackPurchasedItems(c,field,offer.quantity);
  result={message:offer.name+' 구매 완료 · 구매일로부터 1개월 후 소멸',purchasedItem:offer.id,quantity:offer.quantity,paid:chargedPrice,expiresAt};
 }
+else if(a.type==='usePlayerItems'){
+ // Validate the complete batch before changing any player or wallet.
+ const ids=a.ids;
+ const kind=String(a.item||'');
+ if(!Array.isArray(ids)||ids.length<1||ids.length>40||ids.some(id=>typeof id!=='string'||id.length>120)||new Set(ids).size!==ids.length)throw Error('서로 다른 선수 1~40명을 선택하세요');
+ if(!['drink','booster','flyingCoach'].includes(kind))throw Error('지원하지 않는 아이템입니다');
+ const players=ids.map(id=>c.players.find(p=>p.id===id));
+ if(players.some(p=>!p))throw Error('소속 선수만 선택할 수 있습니다');
+ for(const p of players)ensurePlayer(p);
+ if(kind==='drink'){
+  if(players.some(p=>Number(p.condition)>=5))throw Error('이미 최강 컨디션인 선수가 포함되어 있습니다');
+  if(!Number.isSafeInteger(c.sportsDrinks||0)||(c.sportsDrinks||0)<players.length)throw Error('스포츠음료가 선택한 선수 수보다 부족합니다');
+  c.sportsDrinks-=players.length;
+  for(const p of players){consumePurchasedItem(c,'sportsDrinks');p.condition++}
+  result={message:players.length+'명에게 스포츠음료 '+players.length+'개를 적용했습니다'};
+ }else if(kind==='booster'){
+  if(players.some(p=>p.flyingCoach||p.grade==='S'))throw Error('플레잉코치 또는 S타입 선수가 포함되어 있습니다');
+  if(!Number.isSafeInteger(c.growthBoosters||0)||(c.growthBoosters||0)<players.length)throw Error('성장부스터가 선택한 선수 수보다 부족합니다');
+  c.growthBoosters-=players.length;
+  for(const p of players){consumePurchasedItem(c,'growthBoosters');p.grade='S'}
+  result={message:players.length+'명의 성장타입을 S로 변경했습니다'};
+ }else{
+  const first=players.filter(p=>!p.flyingCoach);
+  const renewal=players.filter(p=>!!p.flyingCoach);
+  const cost=renewal.reduce((sum,p)=>sum+flyingCoachPrice(p),0);
+  if(renewal.some(p=>Number(p.flyingCoach.contracts)>=1000000))throw Error('계약 횟수 한도에 도달한 선수가 있습니다');
+  if(!Number.isSafeInteger(c.flyingCoachTickets||0)||(c.flyingCoachTickets||0)<first.length)throw Error('선택한 선수에게 사용할 플레잉코치권이 부족합니다');
+  if(!Number.isSafeInteger(c.cp||0)||(c.cp||0)<cost)throw Error('계약 연장에 필요한 CP '+cost+'개가 부족합니다');
+  const now=Date.now();
+  c.flyingCoachTickets-=first.length;c.cp-=cost;
+  for(const p of first){consumePurchasedItem(c,'flyingCoachTickets');p.flyingCoach={lockedAge:p.age,contracts:0,until:0,activatedAt:now}}
+  for(const p of renewal){p.flyingCoach.contracts=(Number(p.flyingCoach.contracts)||0)+1;p.flyingCoach.until=Math.max(now,Number(p.flyingCoach.until)||0)+FLYING_COACH_WEEK}
+  result={message:'플레잉코치 '+players.length+'명 처리 완료 · 신규 '+first.length+'명 / 7일 계약 연장 '+renewal.length+'명 · '+cost+' CP 사용'};
+ }
+}
 else if(a.type==='useFlyingCoach'){
  const p=c.players.find(x=>x.id===String(a.id||''));
  if(!p)throw Error('소속 선수만 코치권을 사용할 수 있습니다');
