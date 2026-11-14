@@ -975,6 +975,14 @@ function topUpAdminWallet(u,c){
 }
 
 
+// Permanent roster expansions are stored per club, never in expiring item batches.
+const ROSTER_BASE_CAPACITY=80,ROSTER_EXPANSION_STEP=20,ROSTER_EXPANSION_COST_CP=2000;
+function rosterCapacity(c){
+ const count=Number(c?.rosterExpansionPurchases)||0;
+ return ROSTER_BASE_CAPACITY+ROSTER_EXPANSION_STEP*(Number.isSafeInteger(count)&&count>0?count:0);
+}
+const ROSTER_EXPANSION_SHOP_ITEM={id:'rosterExpansion20',active:true,kind:'rosterExpansion',name:'선수단 정원 +20명 (영구)',desc:'2,000 CP · 중복 구매 가능 · 구매할 때마다 선수단 정원 20명 영구 추가 · 시즌이 바뀌어도 유지',icon:'👥',quantity:20,price:ROSTER_EXPANSION_COST_CP,permanent:true};
+
 /* Five editable shop slots. Only the server determines the actual purchase reward and price. */
 const DEFAULT_SHOP_CATALOG=[
  {id:'slot1',active:true,kind:'sportsDrink',name:'스포츠음료 10개',desc:'선수 컨디션을 한 단계 올리는 회복 아이템',icon:'🥤',quantity:10,price:1000000},
@@ -1061,7 +1069,7 @@ function trackPurchasedItems(c,field,quantity,now=Date.now()){
  return expiresAt;
 }
 function shopPublicCatalog(user){
- return shopCatalog().map(item=>(isAdminUser(user)||item.active)?{...item,sale:shopSale(item)}:{id:item.id,active:false});
+ return [...shopCatalog().map(item=>(isAdminUser(user)||item.active)?{...item,sale:shopSale(item)}:{id:item.id,active:false}),{...ROSTER_EXPANSION_SHOP_ITEM}];
 }
 function cleanShopText(value,length,required=false){
  const text=String(value??'').trim().replace(/[\u0000-\u001F\u007F]/g,' ');
@@ -1195,7 +1203,7 @@ function communityFeed(user){
    teamId:post.teamId,teamName:team?.name||'미소속',comments};
  });
 }
-const view=(u)=>{if(syncFranchiseNames())save();if(expireAllPurchasedItems())save();syncGrowth();settleSeasonAwards();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),headerAd:{enabled:HEADER_AD_ENABLED,client:HEADER_AD_ENABLED?HEADER_AD_CLIENT:null,slot:HEADER_AD_ENABLED?HEADER_AD_SLOT:null},shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:null,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:u?db.clubs.find(c=>c.owner===u.id)||null:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
+const view=(u)=>{if(syncFranchiseNames())save();if(expireAllPurchasedItems())save();syncGrowth();settleSeasonAwards();settleSeasons();creditLeagueGames();const currentClub=u?db.clubs.find(c=>c.owner===u.id):null;ensureDailyAttendanceMail(currentClub);topUpAdminWallet(u,currentClub);return ({user:u?{id:u.id,username:u.username,ownerName:u.ownerName||u.username,teamId:u.teamId,isAdmin:isAdminUser(u)}:null,specialAbilityCatalog:SPECIAL_ABILITIES.map(({id,name,type,source,when,desc,tier})=>({id,name,type,source,when,desc,tier:tier||'normal'})),headerAd:{enabled:HEADER_AD_ENABLED,client:HEADER_AD_ENABLED?HEADER_AD_CLIENT:null,slot:HEADER_AD_ENABLED?HEADER_AD_SLOT:null},shopItems:shopPublicCatalog(u),mail:userMail(u),mailUnread:userMail(u).filter(m=>!m.claimed).length,dailyAttendance:u&&db.clubs.find(c=>c.owner===u.id)?attendanceState(db.clubs.find(c=>c.owner===u.id)):{day:attendanceDay(),claimed:false,record:null},rewardedAd:{enabled:AD_REWARDS_ENABLED,adUnit:AD_REWARDS_ENABLED?GAM_REWARDED_UNIT:null,rewardCP:AD_REWARD_CP,dailyLimit:null,used:u?rewardUsage(db.clubs.find(c=>c.owner===u.id)).used:0},teams:TEAMS,communityPosts:u?communityFeed(u):[],club:currentClub?{...currentClub,rosterCapacity:rosterCapacity(currentClub)}:null,listings:db.listings.map(x=>({...x,sellerName:db.clubs.find(c=>c.owner===x.seller)?.name||'?',sellerTeamId:db.clubs.find(c=>c.owner===x.seller)?.teamId||null})).sort((a,b)=>b.date-a.date).slice(0,200),ranking:db.clubs.map(c=>({name:c.name,wins:c.wins,losses:c.losses})).sort((a,b)=>b.wins-a.wins).slice(0,10),league:u&&db.clubs.find(c=>c.owner===u.id)?leagueWithTeamRosters(db.clubs.find(c=>c.owner===u.id)):null})};
 const pwd=(pw,salt)=>crypto.scryptSync(pw,salt,32).toString('hex');
 async function act(req,res){let body='';for await(const part of req){body+=part;if(body.length>30000)return send(res,413,{error:'요청 초과'})}let a;try{a=JSON.parse(body)}catch(e){return send(res,400,{error:'잘못된 요청'})}let u=db.users.find(x=>x.id===sessions.get(getCookie(req)));
 try{
@@ -1367,7 +1375,7 @@ else if(a.type==='scout'||a.type==='scoutBatch'){
  if(!['cash','cp'].includes(currency))throw Error('결제 수단을 선택하세요');
  if(!Number.isInteger(count)||!(isBatch?[10,100]:[1]).includes(count))throw Error('연속 스카우트는 10회 또는 100회를 선택하세요');
  if(c.pendingScout?.player||c.pendingScoutBatch?.items?.length)throw Error('기존 스카우트 결과에서 영입 또는 방출을 먼저 결정하세요');
- if(c.players.length>=80)throw Error('선수단 최대 80명입니다. 선수를 정리한 뒤 스카우트를 진행하세요');
+ if(c.players.length>=rosterCapacity(c))throw Error('선수단 최대 '+rosterCapacity(c)+'명입니다. 선수를 정리하거나 정원 확장권을 구매하세요');
  const unit=currency==='cash'?1000000*config.multiplier:5*config.multiplier;
  const ticketField=currency==='cash'?'scoutCash100Tickets':'scoutCP100Tickets';
  const ticketAvailable=kind==='basic'&&count===100&&(Number(c[ticketField])||0)>0;
@@ -1395,7 +1403,7 @@ else if(a.type==='scout'||a.type==='scoutBatch'){
 else if(a.type==='releaseRosterPlayers'){
  if(!c)throw Error('구단을 먼저 생성하세요');
  const ids=a.ids;
- if(!Array.isArray(ids)||ids.length<1||ids.length>80||ids.some(id=>typeof id!=='string'||id.length>120)||new Set(ids).size!==ids.length)throw Error('방출할 선수를 중복 없이 1~80명 선택하세요');
+ if(!Array.isArray(ids)||ids.length<1||ids.length>rosterCapacity(c)||ids.some(id=>typeof id!=='string'||id.length>120)||new Set(ids).size!==ids.length)throw Error('방출할 선수를 중복 없이 1~80명 선택하세요');
  const chosen=new Set(ids);
  const selected=c.players.filter(p=>chosen.has(p.id));
  if(selected.length!==chosen.size)throw Error('소속 선수만 방출할 수 있습니다');
@@ -1422,11 +1430,11 @@ else if(a.type==='scoutBatchDecision'){
  if(!pending?.items?.length)throw Error('결정할 연속 스카우트 결과가 없습니다');
  if(String(a.id)!==pending.id)throw Error('스카우트 결과가 만료되었습니다');
  const accepted=a.recruitIds;
- if(!Array.isArray(accepted)||accepted.length>80||new Set(accepted).size!==accepted.length||accepted.some(x=>typeof x!=='string'))throw Error('선수 선택 정보가 올바르지 않습니다');
+ if(!Array.isArray(accepted)||accepted.length>100||new Set(accepted).size!==accepted.length||accepted.some(x=>typeof x!=='string'))throw Error('선수 선택 정보가 올바르지 않습니다');
  const offered=new Set(pending.items.map(item=>item.id));
  if(accepted.some(id=>!offered.has(id)))throw Error('선택한 선수를 찾을 수 없습니다');
  const chosen=new Set(accepted);
- if(c.players.length+chosen.size>80)throw Error('보유 선수단 80명 한도를 초과합니다. 영입 선수를 줄여주세요');
+ if(c.players.length+chosen.size>rosterCapacity(c))throw Error('보유 선수단 '+rosterCapacity(c)+'명 한도를 초과합니다. 영입 선수를 줄여주세요');
  const recruited=pending.items.filter(item=>chosen.has(item.id)).map(item=>item.player);
  const released=pending.items.length-recruited.length;
  c.players.push(...recruited);
@@ -1508,7 +1516,7 @@ else if(a.type==='scoutDecision'){
  if(!['recruit','release'].includes(decision))throw Error('영입하기 또는 방출하기를 선택하세요');
  const p=pending.player;
  if(decision==='recruit'){
-  if(c.players.length>=80)throw Error('선수단이 가득 찼습니다');
+  if(c.players.length>=rosterCapacity(c))throw Error('선수단이 가득 찼습니다');
   c.players.push(p);fix(c);
   result={message:p.name+' 선수를 영입했습니다',scoutDecision:'recruit',player:p};
  }else{
@@ -1527,8 +1535,8 @@ else if(a.type==='list'){const p=c.players.find(x=>x.id===a.id),price=Number(a.p
    c.players.filter(x=>x.isPitcher===isPitcher).slice(0,isPitcher?11:14).forEach(x=>firstTeam.add(x.id));
  }
  if(firstTeam.has(p.id))throw Error('1군 선수는 판매 등록할 수 없습니다. 2군 선수만 판매 가능합니다');if(!Number.isSafeInteger(price)||price<100000||price>100000000000)throw Error('가격은 10만원 이상');if(c.players.filter(x=>x.isPitcher===p.isPitcher&&(p.isPitcher?x.pos===p.pos:true)).length<=(p.isPitcher?(p.pos==='선발'?6:p.pos==='마무리'?2:8):14))throw Error('필수 라인업 인원이 부족해 이적시장에 등록할 수 없습니다');c.players=c.players.filter(x=>x.id!==p.id);db.listings.push({id:uid(),seller:u.id,player:p,price,date:Date.now()});fix(c);result={message:'판매 등록 완료'}}
-else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.seller===u.id);if(i<0)throw Error('판매글 없음');if(c.players.length>=80)throw Error('선수단이 가득 참');c.players.push(db.listings.splice(i,1)[0].player);fix(c)}
-else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.player?.flyingCoach)throw Error('플레잉코치 적용 선수는 거래할 수 없습니다');if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=80)throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
+else if(a.type==='cancel'){const i=db.listings.findIndex(x=>x.id===a.id&&x.seller===u.id);if(i<0)throw Error('판매글 없음');if(c.players.length>=rosterCapacity(c))throw Error('선수단이 가득 참');c.players.push(db.listings.splice(i,1)[0].player);fix(c)}
+else if(a.type==='buy'){const i=db.listings.findIndex(x=>x.id===a.id);if(i<0)throw Error('이미 판매됨');const l=db.listings[i];if(l.player?.flyingCoach)throw Error('플레잉코치 적용 선수는 거래할 수 없습니다');if(l.seller===u.id)throw Error('내 선수 구매 불가');if(c.cash<l.price)throw Error('게임머니 부족');if(c.players.length>=rosterCapacity(c))throw Error('선수단 최대');const s=db.clubs.find(x=>x.owner===l.seller);if(!s)throw Error('판매 구단 없음');c.cash-=l.price;s.cash+=l.price;l.player.owner=u.id;c.players.push(l.player);db.listings.splice(i,1);c.transactions.unshift({type:'구매',name:l.player.name,price:l.price});s.transactions.unshift({type:'판매',name:l.player.name,price:l.price});fix(c);result={message:'구매 완료'}}
 else if(a.type==='saveLineup'){
  fix(c);
  const batting=Array.isArray(a.batting)?a.batting:[],defense=a.defense&&typeof a.defense==='object'?a.defense:{};
@@ -1592,6 +1600,15 @@ else if(a.type==='rewardAdStart'){
  if(c.rewardedAdPending&&Date.now()-c.rewardedAdPending.createdAt<60000)throw Error('이전 광고 확인이 진행 중입니다');
  c.rewardedAdPending={nonce:uid(),createdAt:Date.now()};
  result={message:'광고 요청 준비 완료',adNonce:c.rewardedAdPending.nonce};
+}
+else if(a.type==='shopBuy'&&String(a.item||'')===ROSTER_EXPANSION_SHOP_ITEM.id){
+ if(!c)throw Error('구단을 먼저 생성하세요');
+ if(!Number.isSafeInteger(c.cp)||c.cp<ROSTER_EXPANSION_COST_CP)throw Error('선수단 확장에 필요한 2,000 CP가 부족합니다');
+ const count=Number(c.rosterExpansionPurchases)||0;
+ if(!Number.isSafeInteger(count)||count<0||count>=100000000)throw Error('선수단 확장 횟수 한도를 초과했습니다');
+ c.cp-=ROSTER_EXPANSION_COST_CP;
+ c.rosterExpansionPurchases=count+1;
+ result={message:'선수단 정원 +20명 영구 확장 완료 · 현재 최대 '+rosterCapacity(c)+'명 · 확장 누적 '+(count+1)+'회',rosterCapacity:rosterCapacity(c),rosterExpansionPurchases:count+1,permanent:true};
 }
 else if(a.type==='shopBuy'){
  expirePurchasedItems(c);
