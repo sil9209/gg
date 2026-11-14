@@ -1387,6 +1387,31 @@ else if(a.type==='scout'||a.type==='scoutBatch'){
   result={message:'Lv'+p.level+' '+p.name+' 선수를 발견했습니다',scouted:p};
  }
 }
+else if(a.type==='releaseRosterPlayers'){
+ if(!c)throw Error('구단을 먼저 생성하세요');
+ const ids=a.ids;
+ if(!Array.isArray(ids)||ids.length<1||ids.length>80||ids.some(id=>typeof id!=='string'||id.length>120)||new Set(ids).size!==ids.length)throw Error('방출할 선수를 중복 없이 1~80명 선택하세요');
+ const chosen=new Set(ids);
+ const selected=c.players.filter(p=>chosen.has(p.id));
+ if(selected.length!==chosen.size)throw Error('소속 선수만 방출할 수 있습니다');
+ if(selected.some(p=>p.flyingCoach))throw Error('플레잉코치는 방출할 수 없습니다');
+ // All existing 1군 assignments must remain valid after a bulk release.
+ const assigned=new Set([...(c.lineup||[]),...(c.benchIds||[]),c.pitcher,...Object.values(c.defensePositions||{}),...Object.values(c.pitcherRotation||{}),...Object.values(c.pitcherAssignments||{})].filter(Boolean));
+ if(selected.some(p=>assigned.has(p.id)))throw Error('1군 라인업·벤치·투수 보직에 배치된 선수는 먼저 편성에서 제외하세요');
+ const remaining=c.players.filter(p=>!chosen.has(p.id));
+ const batters=remaining.filter(p=>!p.isPitcher).length;
+ if(batters<14)throw Error('타자는 최소 14명을 유지해야 합니다');
+ const positions={'선발':0,'중계':0,'마무리':0};
+ for(const p of remaining)if(p.isPitcher){const pos=p.pos==='선발'?'선발':p.pos==='마무리'?'마무리':'중계';positions[pos]++}
+ if(positions['선발']<6||positions['중계']<8||positions['마무리']<2)throw Error('투수는 선발 6명 · 계투 8명 · 마무리 2명을 유지해야 합니다');
+ const reward=selected.length*1000000;
+ if(!Number.isSafeInteger(c.cash+reward))throw Error('보유 자금 한도를 초과합니다');
+ // Perform only after every validation passes: no partial releases.
+ c.players=remaining;
+ c.cash+=reward;
+ fix(c);
+ result={message:selected.length+'명 방출 완료 · '+reward.toLocaleString('ko-KR')+'원 지급',rosterRelease:{count:selected.length,reward,names:selected.map(p=>p.name)}};
+}
 else if(a.type==='scoutBatchDecision'){
  const pending=c.pendingScoutBatch;
  if(!pending?.items?.length)throw Error('결정할 연속 스카우트 결과가 없습니다');
