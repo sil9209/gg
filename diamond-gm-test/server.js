@@ -687,14 +687,16 @@ function leagueInfo(c,now=Date.now()){
   return !m?.club||!Number.isFinite(Number(m.club.leagueJoinedAt))||slotTime(g.slot)>=Number(m.club.leagueJoinedAt);
  };
  const isEligibleGame=g=>slotTime(g.slot)<=now;
- // Before joining, a human club has NO played matches or accrued player statistics.
- // Its opponents nevertheless keep their normal results against the pre-join AI team.
- const completed=games.filter(isEligibleGame);
- // The season total for a late joiner is the number of unplayed hourly slots after joining.
+ // A league table is viewed from its owner's joining time. Before the
+ // owner's first eligible hour the entire pool was AI-only, so do not
+ // include those older AI results in this owner's standings or statistics.
+ // Existing match results remain cached for other owners and history.
  const joinedAt=Number(c.leagueJoinedAt);
  const initialSlot=Number.isFinite(joinedAt)?Math.max(0,Math.min(144,Math.ceil((joinedAt-start)/3600000))):0;
  const seasonGameLimit=144-initialSlot;
- const playedFor=(id,g)=>isEligibleGame(g)&&joinedForGame(id,g);
+ const isOwnerSeasonGame=g=>g.slot>=initialSlot;
+ const completed=games.filter(g=>isEligibleGame(g)&&isOwnerSeasonGame(g));
+ const playedFor=(id,g)=>isEligibleGame(g)&&isOwnerSeasonGame(g)&&joinedForGame(id,g);
  const batterStats=new Map(),pitcherStats=new Map();
  const ensureStat=(map,player,team)=>{const key=team.id+':'+String(player.id||player.name);
   if(!map.has(key))map.set(key,{id:String(player.id||''),name:String(player.name||'선수'),teamId:team.teamId,teamName:team.name,ownerName:team.ownerName,ab:0,h:0,h2:0,h3:0,tb:0,r:0,hr:0,rbi:0,bb:0,sb:0,so:0,outs:0,er:0,wins:0,losses:0,saves:0,holds:0,decisionsAvailable:false,games:0,basesComplete:true});
