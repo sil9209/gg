@@ -200,9 +200,10 @@ def cancel(oid):
  return redirect("/admin/orders")
 @app.get("/health")
 def health():return jsonify(ok=True)
-from seed_data import seed_initial_catalog, rename_requested_products
+from seed_data import seed_initial_catalog, rename_requested_products, apply_nov15_stock_deductions
 with db() as seed_connection:
  seed_initial_catalog(seed_connection)
  rename_requested_products(seed_connection)
+ apply_nov15_stock_deductions(seed_connection)
 
 if __name__=="__main__":app.run(host="0.0.0.0",port=int(os.environ.get("PORT","5000")))
