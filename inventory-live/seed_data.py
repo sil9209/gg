@@ -46,3 +46,17 @@ def rename_requested_products(connection):
     for sku, new_name in requested.items():
         connection.execute("UPDATE products SET name=? WHERE sku=?", (new_name, sku))
     connection.execute("INSERT INTO catalog_imports(version) VALUES(?)", (version,))
+
+def apply_nov15_stock_deductions(connection):
+    """Subtract two explicitly requested quantities exactly once per database."""
+    version = "deduct-yonggaksan-4-coldsmash-20-2026-11-15"
+    if connection.execute("SELECT 1 FROM catalog_imports WHERE version=?", (version,)).fetchone():
+        return
+    for product_name, deduction in (("용각산 파우치형 100g", 4), ("민티아 콜드스매쉬", 20)):
+        result = connection.execute(
+            "UPDATE products SET stock=stock-? WHERE name=? AND stock>=?",
+            (deduction, product_name, deduction),
+        )
+        if result.rowcount != 1:
+            raise ValueError("재고 차감 실패: " + product_name)
+    connection.execute("INSERT INTO catalog_imports(version) VALUES(?)", (version,))
