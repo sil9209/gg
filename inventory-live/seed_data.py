@@ -30,3 +30,19 @@ def seed_initial_catalog(connection):
             connection.execute("INSERT INTO products(category_id,name,sku,stock,price,boxes) VALUES(?,?,?,?,?,0)",
                                (categories[category],name,sku,stock,price))
     connection.execute("INSERT INTO catalog_imports(version) VALUES(?)", (version,))
+
+def rename_requested_products(connection):
+    """Once-only product name update, preserving SKU and stock internally."""
+    version = "append-five-sku-to-names-2026-11-15"
+    if connection.execute("SELECT 1 FROM catalog_imports WHERE version=?", (version,)).fetchone():
+        return
+    requested = {
+        "HC-1829": "카이 HC-1829",
+        "KK-2526": "카이 후지산 헬로키티 KK-2526",
+        "KK-2527": "카이 벚꽃 헬로키티 레드 KK-2527",
+        "GT-233": "그린벨 GT-233",
+        "G-1037": "그린벨 손톱줄 G-1037",
+    }
+    for sku, new_name in requested.items():
+        connection.execute("UPDATE products SET name=? WHERE sku=?", (new_name, sku))
+    connection.execute("INSERT INTO catalog_imports(version) VALUES(?)", (version,))
