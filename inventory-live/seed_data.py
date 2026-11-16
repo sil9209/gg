@@ -60,3 +60,18 @@ def apply_nov15_stock_deductions(connection):
         if result.rowcount != 1:
             raise ValueError("재고 차감 실패: " + product_name)
     connection.execute("INSERT INTO catalog_imports(version) VALUES(?)", (version,))
+
+def append_tweezer_earpick_models(connection):
+    """Rename four items by stable SKU; do not modify product_url, stock, price, or IDs."""
+    version = "append-tweezer-earpick-models-2026-11-16"
+    if connection.execute("SELECT 1 FROM catalog_imports WHERE version=?", (version,)).fetchone():
+        return
+    changes = {
+        "PSG-100": "그린벨 족집게 PSG-100",
+        "PSG-101": "그린벨 족집게 PSG-101",
+        "GT-215": "그린벨 족집게 GT-215",
+        "G-2195": "그린벨 귀이개 G-2195",
+    }
+    for sku, name in changes.items():
+        connection.execute("UPDATE products SET name=? WHERE sku=?", (name, sku))
+    connection.execute("INSERT INTO catalog_imports(version) VALUES(?)", (version,))
