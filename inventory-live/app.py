@@ -6,21 +6,31 @@ from flask import Flask, request, session, redirect, url_for, render_template_st
 app=Flask(__name__)
 app.secret_key=os.environ["SECRET_KEY"]
 app.config.update(SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax", SESSION_COOKIE_SECURE=True)
+DATABASE_URL=os.environ.get("DATABASE_URL","").strip()
 DB=os.environ.get("DATABASE_PATH","/var/data/inventory.sqlite3")
-os.makedirs(os.path.dirname(DB),exist_ok=True)
+if not DATABASE_URL:os.makedirs(os.path.dirname(DB),exist_ok=True)
 def db():
+ if DATABASE_URL:
+  from pg_compat import DB as PGDB
+  return PGDB(DATABASE_URL)
  c=sqlite3.connect(DB,timeout=30);c.row_factory=sqlite3.Row;c.execute("PRAGMA foreign_keys=ON");c.execute("PRAGMA busy_timeout=30000");return c
-with db() as c:
- c.execute("PRAGMA journal_mode=WAL")
- c.executescript("""
- CREATE TABLE IF NOT EXISTS categories(id INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE,sort INTEGER NOT NULL DEFAULT 0);
- CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY,category_id INTEGER NOT NULL REFERENCES categories(id),name TEXT NOT NULL,sku TEXT NOT NULL DEFAULT '',price INTEGER NOT NULL DEFAULT 0,stock INTEGER NOT NULL DEFAULT 0,boxes INTEGER NOT NULL DEFAULT 0,notes TEXT NOT NULL DEFAULT '',product_url TEXT NOT NULL DEFAULT '');
- CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,phone TEXT NOT NULL,fulfillment TEXT NOT NULL,subtotal INTEGER NOT NULL,shipping INTEGER NOT NULL,total INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'received',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
- CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY,order_id INTEGER NOT NULL REFERENCES orders(id),product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,name TEXT NOT NULL,qty INTEGER NOT NULL,price INTEGER NOT NULL);
- CREATE TABLE IF NOT EXISTS movements(id INTEGER PRIMARY KEY,product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,kind TEXT,qty INTEGER,detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
- """)
- if not c.execute("SELECT 1 FROM categories LIMIT 1").fetchone():
-  c.executemany("INSERT INTO categories(name,sort) VALUES(?,?)",[("식품",1),("손수건",2),("손톱깎이",3)])
+if not DATABASE_URL:
+ with db() as c:
+  c.execute("PRAGMA journal_mode=WAL")
+  c.executescript("""
+  CREATE TABLE IF NOT EXISTS categories(id INTEGER PRIMARY KEY,name TEXT NOT NULL UNIQUE,sort INTEGER NOT NULL DEFAULT 0);
+  CREATE TABLE IF NOT EXISTS products(id INTEGER PRIMARY KEY,category_id INTEGER NOT NULL REFERENCES categories(id),name TEXT NOT NULL,sku TEXT NOT NULL DEFAULT '',price INTEGER NOT NULL DEFAULT 0,stock INTEGER NOT NULL DEFAULT 0,boxes INTEGER NOT NULL DEFAULT 0,notes TEXT NOT NULL DEFAULT '',product_url TEXT NOT NULL DEFAULT '');
+  CREATE TABLE IF NOT EXISTS orders(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,phone TEXT NOT NULL,fulfillment TEXT NOT NULL,subtotal INTEGER NOT NULL,shipping INTEGER NOT NULL,total INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'received',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+  CREATE TABLE IF NOT EXISTS order_items(id INTEGER PRIMARY KEY,order_id INTEGER NOT NULL REFERENCES orders(id),product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,name TEXT NOT NULL,qty INTEGER NOT NULL,price INTEGER NOT NULL);
+  CREATE TABLE IF NOT EXISTS movements(id INTEGER PRIMARY KEY,product_id INTEGER REFERENCES products(id) ON DELETE SET NULL,kind TEXT,qty INTEGER,detail TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+  """)
+  if not c.execute("SELECT 1 FROM categories LIMIT 1").fetchone():
+   c.executemany("INSERT INTO categories(name,sort) VALUES(?,?)",[("식품",1),("손수건",2),("손톱깎이",3)])
+def pg_integrity_error():
+ if DATABASE_URL:
+  import psycopg
+  return psycopg.IntegrityError
+ return sqlite3.IntegrityError
 def csrf():
  if "csrf" not in session:session["csrf"]=secrets.token_urlsafe(24)
  return session["csrf"]
@@ -95,7 +105,7 @@ def category_add():
  if name:
   try:
    with db() as c:c.execute("INSERT INTO categories(name,sort) VALUES(?,(SELECT COALESCE(MAX(sort),0)+1 FROM categories))",(name,))
-  except sqlite3.IntegrityError:flash("이미 있는 카테고리입니다.")
+  except (sqlite3.IntegrityError, pg_integrity_error()):flash("이미 있는 카테고리입니다.")
  return redirect("/admin")
 def num(v,minimum=0):
  n=int(v)
@@ -115,7 +125,7 @@ def add_product():
   if not v[1]:raise ValueError("상품명이 필요합니다.")
   with db() as c:c.execute("INSERT INTO products(category_id,name,sku,price,stock,boxes,notes,product_url) VALUES(?,?,?,?,?,?,?,?)",v)
   flash("상품이 등록되었습니다.")
- except (ValueError,KeyError,sqlite3.IntegrityError):flash("등록 정보를 확인해주세요.")
+ except (ValueError,KeyError,sqlite3.IntegrityError, pg_integrity_error()):flash("등록 정보를 확인해주세요.")
  return redirect("/admin")
 @app.route("/admin/product/<int:pid>",methods=["GET","POST"])
 @login_required
@@ -127,7 +137,7 @@ def edit_product(pid):
    v=(num(request.form["category_id"],1),request.form["name"].strip()[:120],p["sku"],num(request.form["price"]),num(request.form["stock"]),num(request.form["boxes"]),request.form.get("notes","").strip()[:300],valid_url(request.form.get("product_url","")),pid)
    if not v[1]:raise ValueError()
    with db() as c:
-    c.execute("BEGIN IMMEDIATE")
+    c.execute("BEGIN")
     old=c.execute("SELECT stock FROM products WHERE id=?",(pid,)).fetchone()[0]
     c.execute("UPDATE products SET category_id=?,name=?,sku=?,price=?,stock=?,boxes=?,notes=?,product_url=? WHERE id=?",v)
     if old!=v[4]:c.execute("INSERT INTO movements(product_id,kind,qty,detail) VALUES(?,?,?,?)",(pid,"manual",v[4]-old,"관리자 재고 수정"))
@@ -157,7 +167,7 @@ def order_submit():
    selected[pid]=selected.get(pid,0)+q
    if selected[pid]>100000:raise ValueError("수량이 너무 많습니다.")
   with db() as c:
-   c.execute("BEGIN IMMEDIATE")
+   c.execute("BEGIN")
    items=[];subtotal=0
    for pid,qty in selected.items():
     p=c.execute("SELECT * FROM products WHERE id=?",(pid,)).fetchone()
@@ -188,7 +198,7 @@ def admin_orders():
 @login_required
 def cancel(oid):
  with db() as c:
-  c.execute("BEGIN IMMEDIATE")
+  c.execute("BEGIN")
   o=c.execute("SELECT status FROM orders WHERE id=?",(oid,)).fetchone()
   if not o:abort(404)
   if o["status"]=="received":
