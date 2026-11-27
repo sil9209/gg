@@ -10,3 +10,12 @@ s=s.replace('</style>',css+'</style>',1)
 p.write_text(s,encoding='utf-8')
 for i,script in enumerate(re.findall(r'<script>(.*?)</script>',s,re.S)):
  f=pathlib.Path('/tmp/dead-signal-check.js');f.write_text(script,encoding='utf-8');subprocess.run(['node','--check',str(f)],check=True)
+
+# Rewarded revival test bridge; production adapter returns true only on earned reward.
+revival = "\nlet reviveBusy=false;\nfunction canRevive(s){return !!s&&s.ending>=23&&s.ending<=30&&!s.reviveUsed}\nasync function reviveAd(){\n const s=state;if(reviveBusy||!canRevive(s)||screen!=='end')return;\n reviveBusy=true;render();\n try{\n let earned=false;\n if(typeof window.deadSignalRewardedAd==='function'){earned=await window.deadSignalRewardedAd()===true}\n else {earned=confirm('테스트 광고입니다. 광고 시청 완료를 확인하시겠습니까?');}\n if(!earned||state!==s||!canRevive(s)||screen!=='end')return;\n s.reviveUsed=true;s.ending=0;s.H=50;s.E=Math.max(s.E,40);s.Q=Math.max(s.Q,40);s.S=Math.max(s.S,40);s.P=Math.min(s.P,60);s.I=Math.min(s.I,50);\n s.phase='night';s.secret=-1;s.action=null;s.freeUsed=true;\n note(s,'부활권 사용','간신히 살아 돌아왔다. 이번 회차의 부활권을 모두 사용했다.',['체력 50','포만감·수분 최소 40']);\n if(s.day>=100){finish(s)}\n save();resultPopup=null;clearTabScroll();tab='survival';show(s.ending?'end':'game');\n }catch(e){toast('광고를 완료하지 못했습니다. 다시 시도해주세요.')}finally{reviveBusy=false;if(screen==='end')render()}\n}\nconst dsEndOriginal=endView;\nendView=function(){let html=dsEndOriginal();if(!canRevive(state))return html;return html.replace('<div class=\"endbuttons\">',`<div class=\"notice\" style=\"border-color:#bca06b;margin-top:16px\"><div class=\"label\">SECOND CHANCE · 1회 한정</div><h2>아직 끝나지 않았다.</h2><p>광고 1회 시청 후 부활할 수 있습니다. 보유 물자는 그대로 유지됩니다.</p><button class=\"primary\" style=\"width:100%\" onclick=\"reviveAd()\" ${reviveBusy?'disabled':''}>${reviveBusy?'광고 확인 중…':'▶ 광고 보고 부활하기 (1/1)'}</button><p class=\"small\">현재는 테스트 광고입니다. 회차당 1회만 사용 가능합니다.</p></div><div class=\"endbuttons\">`)};\n"
+assert s.count('render();\n</script></body></html>') == 1
+s=s.replace('render();\n</script></body></html>',revival+'\nrender();\n</script></body></html>',1)
+s=s.replace('V1.6 · SCARCITY / OFFLINE','V1.7 · SECOND CHANCE / OFFLINE')
+p.write_text(s,encoding='utf-8')
+for script in re.findall(r'<script>(.*?)</script>',s,re.S):
+ f=pathlib.Path('/tmp/dead-signal-check.js');f.write_text(script,encoding='utf-8');subprocess.run(['node','--check',str(f)],check=True)
